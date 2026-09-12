@@ -1,69 +1,65 @@
 package com.homelab.household.app.screens.launch
 
-import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runComposeUiTest
-import com.homelab.household.app.theme.HearthTheme
-import com.homelab.household.presentation.viewmodel.auth.model.HubStatus
+import com.homelab.household.app.testing.ScreenTest
+import com.homelab.household.app.testing.TestApp
+import com.homelab.household.domain.model.AuthStatus
+import com.homelab.household.domain.exception.ServerOfflineException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Launch is the first thing a hub does: call GET /auth/status, then say what it found. */
+/** The screen owns its ViewModel: give it a hub, and it decides where the user goes next. */
 @OptIn(ExperimentalTestApi::class)
-class LaunchScreenTest {
+class LaunchScreenTest : ScreenTest() {
 
-    private val hubAddress = "hub.spicy-llama.duckdns.org"
+    @Test
+    fun a_hub_with_members_sends_the_user_to_sign_in() = runComposeUiTest {
+        var signIn = 0
+        var firstRun = 0
 
-    private fun ComposeUiTest.launch(status: HubStatus, onRetry: () -> Unit = {}) {
         setContent {
-            HearthTheme(darkTheme = false) {
-                LaunchScreen(status = status, hubAddress = hubAddress, onRetry = onRetry)
+            TestApp(authStatus = { AuthStatus(isInitialized = true, memberCount = 2) }) {
+                LaunchScreen(onSignIn = { signIn++ }, onFirstRun = { firstRun++ })
             }
         }
+        waitForIdle()
+
+        assertEquals(1, signIn)
+        assertEquals(0, firstRun)
     }
 
     @Test
-    fun checking_names_the_hub_it_is_reaching() = runComposeUiTest {
-        launch(HubStatus.Checking)
+    fun an_empty_hub_sends_the_user_to_first_run() = runComposeUiTest {
+        var signIn = 0
+        var firstRun = 0
 
-        onNodeWithText("Reaching your hub…").assertIsDisplayed()
-        onNodeWithText(hubAddress).assertIsDisplayed()
+        setContent {
+            TestApp(authStatus = { AuthStatus(isInitialized = false, memberCount = 0) }) {
+                LaunchScreen(onSignIn = { signIn++ }, onFirstRun = { firstRun++ })
+            }
+        }
+        waitForIdle()
+
+        assertEquals(0, signIn)
+        assertEquals(1, firstRun)
     }
 
     @Test
-    fun ready_shows_how_many_members_the_hub_has() = runComposeUiTest {
-        launch(HubStatus.Ready(memberCount = 2))
+    fun an_unreachable_hub_keeps_the_user_here_with_something_to_retry() = runComposeUiTest {
+        var moved = 0
 
-        onNodeWithText("Your hub is ready").assertIsDisplayed()
-        onNodeWithText("2 members").assertIsDisplayed()
-    }
-
-    @Test
-    fun first_run_says_the_hub_has_nobody_yet() = runComposeUiTest {
-        launch(HubStatus.FirstRun)
-
-        onNodeWithText("Nobody lives here yet").assertIsDisplayed()
-    }
-
-    @Test
-    fun unreachable_explains_and_offers_to_try_again() = runComposeUiTest {
-        var retries = 0
-        launch(HubStatus.Unreachable) { retries++ }
+        setContent {
+            TestApp(authStatus = { throw ServerOfflineException() }) {
+                LaunchScreen(onSignIn = { moved++ }, onFirstRun = { moved++ })
+            }
+        }
+        waitForIdle()
 
         onNodeWithText("Can't reach your hub").assertIsDisplayed()
-        onNodeWithText("Try again").assertIsDisplayed().performClick()
-
-        assertEquals(1, retries)
-    }
-
-    @Test
-    fun a_failure_keeps_the_hub_s_own_words() = runComposeUiTest {
-        launch(HubStatus.Failed(message = "Unexpected status 500"))
-
-        onNodeWithText("Unexpected status 500").assertIsDisplayed()
         onNodeWithText("Try again").assertIsDisplayed()
+        assertEquals(0, moved)
     }
 }
