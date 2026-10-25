@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["gradle", "gradle-wrapper"],
+  "timezone": "Europe/Madrid",
+  "minimumReleaseAge": "3 days",
+  "minimumReleaseAgeBehaviour": "timestamp-optional",
+  "semanticCommits": "disabled",
+  "automergeType": "pr",
+  "platformAutomerge": false,
+  "labels": ["dependencies"],
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "description": "The app's minor and patch bumps: one PR, merged once its Android and iOS CI is green.",
+      "matchManagers": ["gradle", "gradle-wrapper"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "app dependencies",
+      "automerge": true
+    },
+    {
+      "description": "Kotlin, Compose Multiplatform and AGP move together, majors included: a Kotlin release often needs its Compose.",
+      "matchPackageNames": ["/^org\\.jetbrains\\.kotlin[.:]/", "/^org\\.jetbrains\\.compose[.:]/", "/^com\\.android\\./"],
+      "groupName": "Kotlin, Compose and AGP"
+    }
+  ]
+}
