@@ -125,9 +125,13 @@ val jvmEngineDispatcherTest =
 
 // The hub's contract (openapi.json, tools.json) for HubContractTest. CI downloads it from
 // household-hub-contract and passes -Phub.contract.dir=…; without it the test is skipped.
+// The folder's files are an input: a new contract at the same path must run the test again.
 val hubContractDir = providers.gradleProperty("hub.contract.dir")
 tasks.withType<Test>().configureEach {
-    hubContractDir.orNull?.let { systemProperty("hub.contract.dir", it) }
+    hubContractDir.orNull?.let { dir ->
+        systemProperty("hub.contract.dir", dir)
+        inputs.dir(dir).withPathSensitivity(PathSensitivity.RELATIVE).withPropertyName("hubContract")
+    }
 }
 
 tasks.named("check") {
