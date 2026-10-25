@@ -1,0 +1,27 @@
+name: Pull request labels
+
+# Every pull request says what kind of change it is, once: the release notes are grouped by these
+# labels (.github/release.yml), and a change with none or two would land in the wrong group.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  one-label:
+    name: Exactly one of feature, fix, dependencies or chore
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the labels
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          count="$(echo "$LABELS" | jq '[.[] | select(. == "feature" or . == "fix" or . == "dependencies" or . == "chore")] | length')"
+          if [ "$count" -ne 1 ]; then
+            echo "::error::A pull request needs exactly one of the labels feature, fix, dependencies or chore (this one has $count)."
+            exit 1
+          fi

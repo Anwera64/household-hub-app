@@ -1,0 +1,61 @@
+name: Release tags
+
+# Merging a version bump is the release: when app.version has no v* tag yet, this tags the merge
+# and runs release.yml. A tag pushed with GITHUB_TOKEN starts no workflow of its own, so the
+# release is called from here. A version that is already tagged does nothing.
+#
+# master releases are the latest; a patch merged into a release/x.y branch is not.
+
+on:
+  push:
+    branches: [master, 'release/**']
+    paths:
+      - gradle.properties
+      - .github/workflows/release-tags.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-tags-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    name: Tag the version if it has no release yet
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      app: ${{ steps.app.outputs.app }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Tag the app version
+        id: app
+        run: |
+          version="$(sed -n 's/^app\.version=//p' gradle.properties)"
+          tag="v$version"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "$tag is already released"
+            exit 0
+          fi
+          git tag "$tag" "$GITHUB_SHA"
+          git push origin "refs/tags/$tag"
+          echo "app=$tag" >> "$GITHUB_OUTPUT"
+
+  # The keys are in the release environment, which the called jobs name themselves.
+  app:
+    name: App release
+    needs: tag
+    if: needs.tag.outputs.app != ''
+    # A called workflow gets no more than this: id-token is the Firebase sign-in.
+    permissions:
+      contents: write
+      id-token: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.tag.outputs.app }}
+      latest: ${{ github.ref_name == 'master' && 'true' || 'false' }}
+    secrets: inherit
