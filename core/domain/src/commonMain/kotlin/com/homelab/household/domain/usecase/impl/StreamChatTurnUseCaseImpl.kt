@@ -12,7 +12,6 @@ class StreamChatTurnUseCaseImpl(
     override operator fun invoke(
         sessionId: String,
         content: String,
-        autoApproveWrites: Boolean,
         afterAssistantMessageId: String?,
     ): Flow<ChatStreamEvent> {
         if (sessionId.isBlank()) throw ValidationException("Session ID cannot be blank")
@@ -20,7 +19,6 @@ class StreamChatTurnUseCaseImpl(
         return sessionRepository.streamChatTurn(
             sessionId = sessionId,
             content = content.trim(),
-            autoApproveWrites = autoApproveWrites,
             afterAssistantMessageId = afterAssistantMessageId,
         )
     }

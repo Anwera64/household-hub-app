@@ -130,10 +130,9 @@ class SessionRepositoryImpl(
     override fun streamChatTurn(
         sessionId: String,
         content: String,
-        autoApproveWrites: Boolean,
         afterAssistantMessageId: String?,
     ): Flow<ChatStreamEvent> =
-        recoverable(remote.openChatStream(sessionId, content, autoApproveWrites), sessionId, afterAssistantMessageId)
+        recoverable(remote.openChatStream(sessionId, content), sessionId, afterAssistantMessageId)
 
     override fun regenerateTurn(
         sessionId: String,

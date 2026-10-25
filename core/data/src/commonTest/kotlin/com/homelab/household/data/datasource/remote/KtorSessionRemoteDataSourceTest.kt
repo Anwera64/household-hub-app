@@ -248,7 +248,7 @@ class KtorSessionRemoteDataSourceTest {
                 }
 
             assertFailsWith<ApprovalPendingException> {
-                dataSource(engine).openChatStream("s-1", "Also lunch?", autoApproveWrites = false).toList()
+                dataSource(engine).openChatStream("s-1", "Also lunch?").toList()
             }
         }
 
@@ -264,7 +264,7 @@ class KtorSessionRemoteDataSourceTest {
                 }
 
             assertFailsWith<SessionConflictException> {
-                dataSource(engine).openChatStream("s-1", "Also lunch?", autoApproveWrites = false).toList()
+                dataSource(engine).openChatStream("s-1", "Also lunch?").toList()
             }
         }
 
@@ -291,12 +291,10 @@ class KtorSessionRemoteDataSourceTest {
                     respondSse(sse)
                 }
 
-            val events = dataSource(engine).openChatStream("s-1", "Hello", autoApproveWrites = true).toList()
+            val events = dataSource(engine).openChatStream("s-1", "Hello").toList()
 
-            // false in the DTO, and kotlinx.serialization omits a field equal to its default, so a
-            // false here would assert nothing about whether the flag reaches the hub at all.
             assertEquals("/api/v1/sessions/s-1/chat/stream", path)
-            assertSameJson("""{"content": "Hello", "auto_approve_writes": true}""", sent)
+            assertSameJson("""{"content": "Hello"}""", sent)
             assertEquals(2, events.size)
             assertEquals("Working on it...", (events[0] as ChatStreamEvent.Delta).content)
             assertTrue(events[1] is ChatStreamEvent.Done)
@@ -319,7 +317,7 @@ class KtorSessionRemoteDataSourceTest {
                 }
 
             assertFailsWith<SessionConflictException> {
-                dataSource(engine).openChatStream("s-1", "Hello", autoApproveWrites = false).toList()
+                dataSource(engine).openChatStream("s-1", "Hello").toList()
             }
         }
 
@@ -329,7 +327,7 @@ class KtorSessionRemoteDataSourceTest {
             val engine = unreachableHub()
 
             assertFailsWith<ServerOfflineException> {
-                dataSource(engine).openChatStream("s-1", "Hello", autoApproveWrites = false).toList()
+                dataSource(engine).openChatStream("s-1", "Hello").toList()
             }
         }
 
@@ -340,7 +338,7 @@ class KtorSessionRemoteDataSourceTest {
 
             val thrown =
                 assertFailsWith<UpstreamGatewayException> {
-                    dataSource(engine).openChatStream("s-1", "Hello", autoApproveWrites = false).toList()
+                    dataSource(engine).openChatStream("s-1", "Hello").toList()
                 }
             assertEquals(500, thrown.statusCode)
         }
@@ -383,7 +381,7 @@ class KtorSessionRemoteDataSourceTest {
                     }
                 }
             val dataSource = dataSource(engine)
-            dataSource.openChatStream("s-1", "Hello", autoApproveWrites = false).toList()
+            dataSource.openChatStream("s-1", "Hello").toList()
 
             val events = dataSource.resumeTurnStream("s-1").toList()
 
@@ -414,7 +412,7 @@ class KtorSessionRemoteDataSourceTest {
                     }
                 }
             val dataSource = dataSource(engine)
-            dataSource.openChatStream("s-1", "Hello", autoApproveWrites = false).toList()
+            dataSource.openChatStream("s-1", "Hello").toList()
             dataSource.resumeTurnStream("s-1").toList()
 
             dataSource.resumeTurnStream("s-1").toList()
@@ -463,7 +461,7 @@ class KtorSessionRemoteDataSourceTest {
                     }
                 }
             val dataSource = dataSource(engine)
-            dataSource.openChatStream("s-1", "Hello", autoApproveWrites = false).toList()
+            dataSource.openChatStream("s-1", "Hello").toList()
 
             assertFailsWith<TurnGoneException> {
                 dataSource.resumeTurnStream("s-1").toList()
@@ -482,7 +480,7 @@ class KtorSessionRemoteDataSourceTest {
                     }
                 }
             val dataSource = dataSource(engine)
-            dataSource.openChatStream("s-1", "Hello", autoApproveWrites = false).toList()
+            dataSource.openChatStream("s-1", "Hello").toList()
 
             assertFailsWith<ServerOfflineException> {
                 dataSource.resumeTurnStream("s-1").toList()
@@ -510,8 +508,8 @@ class KtorSessionRemoteDataSourceTest {
                     }
                 }
             val dataSource = dataSource(engine)
-            dataSource.openChatStream("s-1", "Hello", autoApproveWrites = false).toList()
-            dataSource.openChatStream("s-1", "Hello again", autoApproveWrites = false).toList()
+            dataSource.openChatStream("s-1", "Hello").toList()
+            dataSource.openChatStream("s-1", "Hello again").toList()
 
             dataSource.resumeTurnStream("s-1").toList()
 

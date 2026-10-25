@@ -60,7 +60,6 @@ interface SessionRemoteDataSource {
     fun openChatStream(
         sessionId: String,
         content: String,
-        autoApproveWrites: Boolean,
     ): Flow<ChatStreamEvent>
 
     /**

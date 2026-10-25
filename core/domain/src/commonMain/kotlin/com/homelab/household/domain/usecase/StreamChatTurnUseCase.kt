@@ -11,7 +11,6 @@ interface StreamChatTurnUseCase {
     operator fun invoke(
         sessionId: String,
         content: String,
-        autoApproveWrites: Boolean = false,
         afterAssistantMessageId: String? = null,
     ): Flow<ChatStreamEvent>
 }

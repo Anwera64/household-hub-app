@@ -22,7 +22,7 @@ class StreamChatTurnUseCaseTest {
     @Test
     fun `GIVEN a blank message WHEN a chat turn is streamed THEN it is refused as invalid`() {
         assertFailsWith<ValidationException> {
-            streamChatTurnUseCase("session-1", "   ", autoApproveWrites = false)
+            streamChatTurnUseCase("session-1", "   ")
         }
     }
 
@@ -42,10 +42,10 @@ class StreamChatTurnUseCaseTest {
                     ),
                 )
             every {
-                sessionRepo.streamChatTurn("session-1", "Hi", autoApproveWrites = false)
+                sessionRepo.streamChatTurn("session-1", "Hi")
             } returns flowOf(*events.toTypedArray())
 
-            val result = streamChatTurnUseCase("session-1", "Hi", autoApproveWrites = false).toList()
+            val result = streamChatTurnUseCase("session-1", "Hi").toList()
 
             assertEquals(3, result.size)
             assertTrue(result[0] is ChatStreamEvent.Delta)

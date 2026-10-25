@@ -44,7 +44,7 @@ class ChatStreamLogTest {
         runTest {
             val writer = RecordingLogWriter()
             val remote = mock<SessionRemoteDataSource>(MockMode.autofill)
-            every { remote.openChatStream(any(), any(), any()) } returns
+            every { remote.openChatStream(any(), any()) } returns
                 flow {
                     emit(ChatStreamEvent.Accepted)
                     emit(ChatStreamEvent.Delta("Hel"))
@@ -68,7 +68,7 @@ class ChatStreamLogTest {
         runTest {
             val writer = RecordingLogWriter()
             val remote = mock<SessionRemoteDataSource>(MockMode.autofill)
-            every { remote.openChatStream(any(), any(), any()) } returns
+            every { remote.openChatStream(any(), any()) } returns
                 flowOf(ChatStreamEvent.Accepted, ChatStreamEvent.Delta("Hel"))
             every { remote.resumeTurnStream("s-1") } returns flowOf(ChatStreamEvent.Delta("lo"), done)
 
@@ -82,7 +82,7 @@ class ChatStreamLogTest {
         runTest {
             val writer = RecordingLogWriter()
             val remote = mock<SessionRemoteDataSource>(MockMode.autofill)
-            every { remote.openChatStream(any(), any(), any()) } returns flowOf(ChatStreamEvent.Delta("Hello"), done)
+            every { remote.openChatStream(any(), any()) } returns flowOf(ChatStreamEvent.Delta("Hello"), done)
 
             repository(remote, writer).streamChatTurn("s-1", "Say hello").toList()
 
@@ -94,7 +94,7 @@ class ChatStreamLogTest {
         runTest {
             val writer = RecordingLogWriter()
             val remote = mock<SessionRemoteDataSource>(MockMode.autofill)
-            every { remote.openChatStream(any(), any(), any()) } returns
+            every { remote.openChatStream(any(), any()) } returns
                 flow { throw ServerOfflineException("Cannot reach the hub") }
 
             runCatchingSafe { repository(remote, writer).streamChatTurn("s-1", "Say hello").toList() }
@@ -107,7 +107,7 @@ class ChatStreamLogTest {
         runTest {
             val writer = RecordingLogWriter()
             val remote = mock<SessionRemoteDataSource>(MockMode.autofill)
-            every { remote.openChatStream(any(), any(), any()) } returns
+            every { remote.openChatStream(any(), any()) } returns
                 flow {
                     emit(ChatStreamEvent.Delta("Hel"))
                     throw ServerOfflineException("Stream dropped at 192.168.1.20")
