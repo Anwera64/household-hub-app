@@ -1,0 +1,193 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ROOT_DIR = path.resolve(__dirname, '..', '..');
+const RELEASE_PATH = path.join(ROOT_DIR, '.github/workflows/release.yml');
+const RELEASE_TAGS_PATH = path.join(ROOT_DIR, '.github/workflows/release-tags.yml');
+
+// Missing files read as empty so each check fails with its own message. CRLF checkouts are normalised.
+const read = (file) => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n') : '');
+
+// Text of a top-level YAML key's block, up to the next top-level key.
+const topLevelBlock = (content, key) => {
+  const match = content.match(new RegExp(`^${key}:[^\\n]*\\n((?:[ \\t]+[^\\n]*\\n|[ \\t]*\\n)*)`, 'm'));
+  return match ? match[1] : '';
+};
+
+const usesRefs = (workflow) => [...workflow.matchAll(/^\s*(?:-\s*)?uses:\s*["']?([^\s"'#]+)/gm)].map((m) => m[1]);
+
+// Text of a job, up to the next job.
+const jobBlock = (workflow, name) => {
+  const match = workflow.match(new RegExp(`^  ${name}:\\n((?:    [^\\n]*\\n|[ \\t]*\\n)*)`, 'm'));
+  return match ? match[1] : '';
+};
+
+test('App release workflow', async (t) => {
+  const workflow = read(RELEASE_PATH);
+  const job = (name) => jobBlock(workflow, name);
+
+  await t.test('runs on a pushed v* tag, or when the tagging workflow calls it', () => {
+    assert.ok(fs.existsSync(RELEASE_PATH), '.github/workflows/release.yml must exist');
+    const on = topLevelBlock(workflow, 'on');
+    assert.match(on, /^  push:\n    tags: \['v\*'\]\n/m);
+    assert.match(on, /^  workflow_call:\n    inputs:\n      tag:\n/m);
+    assert.match(on, /^      tag:\n(?:        [^\n]*\n)*?        required: true\n(?:        [^\n]*\n)*?        type: string\n/m, 'tag is a required string');
+    assert.match(on, /^      latest:\n(?:        [^\n]*\n)*?        type: string\n/m, 'latest is a string input');
+    assert.match(on, /^      latest:\n(?:        [^\n]*\n)*?        default: "true"\n/m, 'latest defaults to "true"');
+    assert.doesNotMatch(on, /pull_request/, 'no pull request reaches the signing keys');
+    assert.deepEqual(topLevelBlock(workflow, 'permissions').trim().split('\n').map((l) => l.trim()), ['contents: write']);
+  });
+
+  await t.test('has no monorepo leftovers: no app-v tags, no apps/ paths', () => {
+    assert.ok(!workflow.includes('app-v'), 'the tags are plain v<version> now');
+    assert.ok(!workflow.includes('apps/household-hub'), 'the app is at the repository root');
+    assert.doesNotMatch(workflow, /working-directory: \.\s*$/m, 'there is no subdirectory to step out of');
+  });
+
+  await t.test('refuses a tag that is not app.version, and tests before anything is built for release', () => {
+    const check = job('check');
+    assert.ok(check, 'a check job');
+    assert.match(check, /sed -n 's\/\^app\\\.version=\/\/p' gradle\.properties/);
+    assert.match(check, /\[ "v\$version" = "\$TAG" \]/);
+    assert.match(check, /\.\/gradlew jvmTest/);
+    for (const name of ['android', 'ios']) {
+      assert.match(job(name), /needs: check/, `${name} waits for the check`);
+    }
+  });
+
+  await t.test('only the upload jobs see the keys, through the release environment', () => {
+    assert.doesNotMatch(job('check'), /secrets\./, 'the check job needs no secret');
+    for (const name of ['android', 'ios']) {
+      assert.match(job(name), /^    environment: release$/m, `${name} runs in the release environment`);
+    }
+  });
+
+  await t.test('Android: a signed release build to Firebase App Distribution, nothing kept', () => {
+    const android = job('android');
+    assert.match(android, /\.\/gradlew :androidApp:assembleRelease/);
+    for (const name of ['HUB_KEYSTORE_PASSWORD', 'HUB_KEY_ALIAS', 'HUB_KEY_PASSWORD']) {
+      assert.ok(android.includes(`${name}: \${{ secrets.${name} }}`), `${name} comes from the release environment`);
+    }
+    assert.match(android, /base64 --decode > "\$RUNNER_TEMP\/release\.keystore"/, 'the keystore lives outside the checkout');
+    assert.match(android, /npx --yes firebase-tools@\d+\.\d+\.\d+ appdistribution:distribute /, 'a pinned Firebase CLI');
+    assert.match(android, /androidApp\/build\/outputs\/apk\/release\/androidApp-release\.apk/);
+    assert.match(android, /--app "\$\{\{ secrets\.FIREBASE_ANDROID_APP_ID \}\}"/);
+    assert.match(android, /--groups household/);
+    // No key to leak: GitHub vouches for the run, and Google lets only this repo's release runs act
+    // as the account (Workload Identity Federation). The action exports GOOGLE_APPLICATION_CREDENTIALS.
+    assert.match(android, /uses: google-github-actions\/auth@[0-9a-f]{40} # v3\.\d+\.\d+/);
+    assert.match(android, /workload_identity_provider: \$\{\{ secrets\.FIREBASE_WIF_PROVIDER \}\}/);
+    assert.match(android, /service_account: \$\{\{ secrets\.FIREBASE_SERVICE_ACCOUNT_EMAIL \}\}/);
+    assert.match(android, /^    permissions:\n      contents: read\n      id-token: write\n/m);
+    assert.doesNotMatch(workflow, /FIREBASE_SERVICE_ACCOUNT\b(?!_EMAIL)|firebase\.json/, 'no service account key');
+  });
+
+  await t.test('iOS: an archive signed with the App Store Connect key, uploaded to TestFlight', () => {
+    const ios = job('ios');
+    assert.match(ios, /runs-on: macos-26/, 'the image the CI builds iOS on');
+    assert.match(ios, /working-directory: iosApp\n/, 'the Xcode project is generated in iosApp');
+    assert.match(ios, /xcodegen generate/);
+    assert.match(ios, /xcodebuild archive[\s\S]*?-configuration Release/);
+    assert.match(ios, /xcodebuild -exportArchive[\s\S]*?-exportOptionsPlist ExportOptions\.plist/);
+    for (const flag of ['-allowProvisioningUpdates', '-authenticationKeyPath', '-authenticationKeyID', '-authenticationKeyIssuerID']) {
+      assert.ok(ios.split(flag).length - 1 >= 2, `archive and export both pass ${flag}`);
+    }
+    assert.match(ios, /DEVELOPMENT_TEAM="\$\{\{ secrets\.APPLE_TEAM_ID \}\}"/);
+    assert.match(ios, /MARKETING_VERSION="\$version" CURRENT_PROJECT_VERSION="\$code"/, 'built as the tagged version');
+    const options = read(path.join(ROOT_DIR, 'iosApp/ExportOptions.plist'));
+    assert.match(options, /<key>method<\/key>\s*<string>app-store-connect<\/string>/);
+    assert.match(options, /<key>destination<\/key>\s*<string>upload<\/string>/);
+    assert.match(options, /<key>signingStyle<\/key>\s*<string>automatic<\/string>/);
+  });
+
+  await t.test('writes release notes only once both stores have the build, and keeps no build', () => {
+    const notes = job('notes');
+    assert.match(notes, /needs: \[android, ios\]/);
+    assert.match(notes, /^\s*gh release create "\$TAG" --verify-tag --generate-notes --title "\$TAG" /m);
+    assert.doesNotMatch(workflow, /upload-artifact|gh release upload/, 'no APK or IPA leaves the runners');
+  });
+
+  await t.test('marks the release latest only when the caller says so, so a patch on a release branch is not', () => {
+    const notes = job('notes');
+    assert.ok(notes.includes("--latest=${{ inputs.latest || 'true' }}"), "the release is created with --latest=${{ inputs.latest || 'true' }}");
+  });
+
+  await t.test('pins every action to a full commit SHA', () => {
+    for (const ref of usesRefs(workflow).filter((r) => !r.startsWith('./'))) {
+      assert.match(ref, /@[0-9a-f]{40}$/, `"${ref}" must be pinned to a 40-character commit SHA`);
+    }
+  });
+});
+
+test('Merging an app version bump releases it', async (t) => {
+  const workflow = read(RELEASE_TAGS_PATH);
+
+  await t.test('runs on master and release branches, only when the version or this workflow changed', () => {
+    assert.ok(fs.existsSync(RELEASE_TAGS_PATH), '.github/workflows/release-tags.yml must exist');
+    const on = topLevelBlock(workflow, 'on');
+    const push = on.match(/^  push:\n((?:    [^\n]*\n)*)/m);
+    assert.ok(push, 'must run on push');
+    assert.match(push[1], /branches: \[master, 'release\/\*\*'\]/);
+    const paths = [...push[1].matchAll(/^      - (\S+)$/gm)].map((m) => m[1]).sort();
+    assert.deepEqual(paths, ['.github/workflows/release-tags.yml', 'gradle.properties']);
+    assert.doesNotMatch(on, /pull_request|tags:/, 'only a merge tags');
+    assert.match(topLevelBlock(workflow, 'permissions'), /^  contents: read$/m, 'jobs ask for more themselves');
+  });
+
+  await t.test('has no hub leftovers or monorepo paths', () => {
+    assert.ok(!workflow.includes('hub-v'), 'the hub is released from its own repository');
+    assert.ok(!workflow.includes('app-v'), 'the tags are plain v<version> now');
+    assert.ok(!workflow.includes('apps/household-hub'), 'the app is at the repository root');
+  });
+
+  await t.test('tags app.version once, and leaves a tagged one alone', () => {
+    const tag = jobBlock(workflow, 'tag');
+    assert.ok(tag, 'a tag job');
+    assert.match(tag, /permissions:\n      contents: write\n/);
+    assert.match(tag, /sed -n 's\/\^app\\\.version=\/\/p' gradle\.properties/);
+    assert.match(tag, /tag="v\$version"/);
+    assert.match(tag, /git ls-remote --exit-code --tags origin "refs\/tags\/\$tag"/, 'an existing tag is never moved');
+    assert.match(tag, /git tag "\$tag" "\$GITHUB_SHA"/);
+    assert.match(tag, /git push origin "refs\/tags\/\$tag"/);
+    assert.match(tag, /echo "app=\$tag" >> "\$GITHUB_OUTPUT"/, 'only a new tag is handed on');
+    assert.match(tag, /outputs:\n      app: \$\{\{ steps\.app\.outputs\.app \}\}/);
+  });
+
+  await t.test('calls the release with the keys of the release environment, latest only from master', () => {
+    const app = jobBlock(workflow, 'app');
+    assert.match(app, /needs: tag/);
+    assert.match(app, /if: needs\.tag\.outputs\.app != ''/);
+    assert.match(app, /uses: \.\/\.github\/workflows\/release\.yml/);
+    assert.match(app, /tag: \$\{\{ needs\.tag\.outputs\.app \}\}/);
+    assert.ok(app.includes("latest: ${{ github.ref_name == 'master' && 'true' || 'false' }}"), 'only master releases are the latest');
+    assert.match(app, /secrets: inherit/);
+    // A called workflow gets no more than its caller grants: the Firebase sign-in needs id-token.
+    assert.match(app, /permissions:\n      contents: write\n      id-token: write\n/);
+  });
+
+  await t.test('pins every action to a full commit SHA', () => {
+    const refs = usesRefs(workflow).filter((ref) => !ref.startsWith('./'));
+    assert.ok(refs.length >= 1, 'checkout');
+    for (const ref of refs) {
+      assert.match(ref, /@[0-9a-f]{40}$/, `"${ref}" must be pinned to a 40-character commit SHA`);
+    }
+  });
+});
+
+test('Release notes are grouped by label', async (t) => {
+  const config = read(path.join(ROOT_DIR, '.github/release.yml'));
+
+  await t.test('lists Features, Fixes, Dependencies and everything else, in that order, excluding nothing', () => {
+    assert.ok(config, '.github/release.yml must exist');
+    const categories = [...config.matchAll(/^    - title: (.+)\n      labels:\n        - (.+)$/gm)].map((m) => [m[1].trim(), m[2].trim()]);
+    assert.deepEqual(categories.map(([title, label]) => [title.replace(/["']/g, ''), label.replace(/["']/g, '')]), [
+      ['Features', 'feature'],
+      ['Fixes', 'fix'],
+      ['Dependencies', 'dependencies'],
+      ['Other changes', '*'],
+    ]);
+    assert.doesNotMatch(config, /exclude:/, 'nothing is left out of the notes');
+  });
+});

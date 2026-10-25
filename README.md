@@ -1,10 +1,29 @@
-# Household Hub Client (Kotlin Multiplatform + Compose Multiplatform)
+# Household Hub app (Kotlin Multiplatform + Compose Multiplatform)
 
 Shared Kotlin Multiplatform (KMP) client for **Household Hub**: domain logic, Ktor networking,
 reactive ViewModels, dependency injection, and the Compose Multiplatform phone UI.
 
 Targets: **JVM** (tests), **Android**, and **iOS** (`iosArm64`, `iosSimulatorArm64`). `commonMain`
 stays free of platform-only APIs, and a test enforces it.
+
+---
+
+## 🛠️ Setup
+
+```bash
+git config core.hooksPath .githooks   # once per clone: runs the checks below before every commit
+```
+
+The hook runs ktlint and the architecture guards with Gradle when anything but `.github/` and
+Markdown is staged, and `node --test .github/tests/*.test.js` when workflows or `renovate.json`
+change.
+
+On the Windows PC, Gradle needs `JAVA_HOME=C:\Users\Anwera97\.gradle\jdks\eclipse_adoptium-21-amd64-windows.2`
+(`/c/Users/Anwera97/.gradle/jdks/eclipse_adoptium-21-amd64-windows.2` in Git Bash), because Android
+Studio's bundled JBR is broken.
+
+Releases: merging a bump of `app.version` in `gradle.properties` releases it, tagged `v<version>`.
+Patches for the latest minor go through a `release/x.y` branch (see "Releasing the apps").
 
 ---
 
@@ -218,8 +237,6 @@ looking at the previous artwork and will chase a phantom.
 ## 🧪 Tests
 
 ```powershell
-cd apps\household-hub\client
-
 # Everything that runs on the JVM (domain, data, presentation, shared, Compose UI tests)
 .\gradlew.bat jvmTest
 
@@ -239,8 +256,6 @@ cd apps\household-hub\client
 ```bash
 # iOS simulator (macOS only; needs python3 for the SSE fixture server in tools/sse_fixture.py,
 # which Gradle starts and stops around these tasks on the fixed port 8749)
-cd apps/household-hub/client
-
 ./gradlew iosSimulatorArm64Test           # everything on the simulator: core, shared, and the
                                           # 104 Compose UI tests, which run here as well as on the JVM
 ./gradlew :shared:iosSimulatorArm64Test   # ~10s, includes the Darwin SSE lock-step proof
@@ -256,7 +271,7 @@ outside the simulator's daemon environment, so every `SecItem*` call returns `er
 which does have the entitlements — run it from Xcode, or:
 
 ```bash
-cd apps/household-hub/client/iosApp
+cd iosApp
 xcodegen generate
 xcodebuild test -project HouseholdHub.xcodeproj -scheme HouseholdHub \
   -destination 'platform=iOS Simulator,name=iPhone 17'
@@ -292,8 +307,9 @@ assertion is free to name a real number.
 
 ### On CI
 
-`.github/workflows/household-hub-client.yml` runs the same tasks on every push and pull request that
-touches the client. Two lanes, started together:
+`.github/workflows/ci.yml` runs the same tasks on every push and pull request to `master` and
+`release/**`, with no path filter. A `workflow-tests` job runs the node tests that guard the workflows.
+The Android and iOS lanes start together:
 
 | Job | Runner | Runs |
 | :--- | :--- | :--- |
@@ -316,7 +332,7 @@ which nothing else covers: `xcodebuild` only ever builds the simulator slice.
 device name. The runner image has shipped more than once with an Xcode whose paired simulator runtime
 was missing, and a named device fails hard in that window.
 
-`tests/ci-workflow.test.js` (run by `node --test` and the pre-commit hook) asserts all of the above
+`.github/tests/ci-workflow.test.js` (run by `node --test .github/tests/*.test.js`, the `workflow-tests` job and the pre-commit hook) asserts all of the above
 about the workflow file itself — that the iOS jobs exist, run on macOS, declare no `needs:`, name
 those tasks, and select a simulator by UDID. Change the workflow and that test is what tells you
 whether you changed what you meant to.
@@ -332,7 +348,7 @@ On iOS, generate the Xcode project first — `project.yml` is the source of trut
 `.xcodeproj` and the `Info.plist` it writes are generated and git-ignored:
 
 ```bash
-cd apps/household-hub/client/iosApp
+cd iosApp
 xcodegen generate
 open HouseholdHub.xcodeproj   # then run on an iPhone simulator
 ```
@@ -352,14 +368,19 @@ Three things that wiring needs, none of which produce a useful error if missing:
 
 1. A PR raises `app.version` in `gradle.properties`, and `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`
    in `iosApp/project.yml` with it (`AppVariantsTest` fails otherwise). The minor number is the MVP slice.
-2. Merging it is the release: `release-tags.yml` tags `app-v<version>` and runs `app-release.yml`. That
+   Every PR carries exactly one label (`feature`, `fix`, `dependencies` or `chore`): `labels.yml`
+   checks it and `.github/release.yml` groups the release notes by it.
+2. Merging it is the release: `release-tags.yml` tags `v<version>` and runs `release.yml`. That
    runs the JVM tests, sends the signed APK to Firebase App Distribution (group `household`) and the
    Release archive to TestFlight, then writes the release notes. Neither build is kept on GitHub.
 3. Firebase emails the testers; TestFlight offers the build once Apple has processed it. A version
    uploads once: a broken upload is fixed by a patch release. TestFlight builds expire after 90 days.
+4. Patches for the latest minor: fix on `master` first, then cherry-pick into `release/x.y`, cut from
+   the tag `vX.Y.0` when first needed. Merging the patch's version bump there releases it too, but the
+   GitHub release is not marked latest. Older minors get no release branch.
 
-The keys live in the repository's **`release` environment**, limited to `master` and the `app-v*` and
-`hub-v*` tags, so no pull request run reaches them:
+The keys live in the repository's **`release` environment**, limited to `master`, `release/*` and the `v*`
+tags, so no pull request run reaches them:
 
 | Secret | What it is |
 |---|---|
@@ -385,8 +406,8 @@ outside GitHub.
   the SDK's default for tests and tools. Override one per build with `-Phub.devUrl=...`.
 * **Version:** `app.version` in `gradle.properties`, for both apps; the build number is derived from
   it (1.2.3 becomes 10203). `project.yml` repeats both numbers, because Xcode can't read
-  `gradle.properties`; `AppVariantsTest` fails when they differ. Once the app release workflow
-  lands (#134), merging a change to `app.version` releases it.
+  `gradle.properties`; `AppVariantsTest` fails when they differ. Merging a change to `app.version`
+  releases it.
 * **API prefix:** `/api/v1`
 * **Local ingress:** on home Wi-Fi, local DNS resolves the domain to `192.168.1.20:3050`. Away from
   home, Tailscale MagicDNS and DuckDNS provide encrypted remote access.

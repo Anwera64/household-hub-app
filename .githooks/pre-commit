@@ -1,0 +1,40 @@
+#!/bin/sh
+# ==============================================================================
+# Household Hub app pre-commit hook
+# Enable once per clone: git config core.hooksPath .githooks
+# ==============================================================================
+
+echo "[Pre-Commit] Running automated validation checks..."
+
+STAGED="$(git diff --cached --name-only)"
+
+# 1. Workflow, release and Renovate config tests (node:test, no dependencies).
+if echo "$STAGED" | grep -q -e '^\.github/' -e '^renovate\.json$'; then
+  echo "  [+] Running workflow and release config tests (node --test)..."
+  node --test .github/tests/*.test.js
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "[Pre-Commit FAILED] Workflow, release or Renovate config tests failed! Commit aborted."
+    exit 1
+  fi
+fi
+
+# 2. Validate the app (KMP) formatting, boundaries, DI graph, design tokens and coroutine safety.
+#    Skipped when only workflows and Markdown changed. One gradlew invocation, so the daemon
+#    starts once rather than twice.
+if echo "$STAGED" | grep -v -e '^\.github/' -e '\.md$' | grep -q .; then
+  echo "  [+] Validating formatting (ktlint), Clean Architecture boundaries, Koin graph, design tokens and coroutine safety..."
+  ./gradlew ktlintCheck :shared:jvmTest \
+    --tests "*CleanArchitectureBoundaryTest*" --tests "*KoinDependencyGraphTest*" \
+    --tests "*DesignSystemTokenTest*" --tests "*CoroutineSafetyTest*" \
+    --tests "*LintSetupTest*" --tests "*TestsGoThroughRobotsTest*" -q --console=plain
+  if [ $? -ne 0 ]; then
+    echo ""
+    echo "[Pre-Commit FAILED] Formatting, boundary, DI graph, design-token or coroutine-safety checks failed! Commit aborted."
+    echo "   If it was the formatting: ./gradlew ktlintFormat"
+    exit 1
+  fi
+fi
+
+echo "[Pre-Commit PASSED] All checks passed!"
+exit 0
