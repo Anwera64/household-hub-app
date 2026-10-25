@@ -40,7 +40,6 @@ interface SessionRepository {
     fun streamChatTurn(
         sessionId: String,
         content: String,
-        autoApproveWrites: Boolean = false,
         afterAssistantMessageId: String? = null,
     ): Flow<ChatStreamEvent>
 

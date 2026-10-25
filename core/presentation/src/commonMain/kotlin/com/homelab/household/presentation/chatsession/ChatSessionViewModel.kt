@@ -296,10 +296,7 @@ class ChatSessionViewModel(
         _uiState.update { it.copy(composerText = text) }
     }
 
-    fun sendMessage(
-        content: String,
-        autoApproveWrites: Boolean = false,
-    ) {
+    fun sendMessage(content: String) {
         if (!_uiState.value.canSend) return
 
         // A card is waiting, and the hub would refuse the message. Nothing is sent and nothing is
@@ -322,7 +319,7 @@ class ChatSessionViewModel(
                             ?: error("No agent to talk to")
                     val created = createSessionUseCase(agentId = agentId)
                     _uiState.update { it.copy(session = created) }
-                    send(content, autoApproveWrites)
+                    send(content)
                 } catch (e: Throwable) {
                     _uiState.update { it.copy(errorMessage = e.message ?: "Failed to start a chat") }
                 }
@@ -330,13 +327,10 @@ class ChatSessionViewModel(
             return
         }
 
-        send(content, autoApproveWrites)
+        send(content)
     }
 
-    private fun send(
-        content: String,
-        autoApproveWrites: Boolean,
-    ) {
+    private fun send(content: String) {
         val currentSession = _uiState.value.session ?: return
         val lastAssistantId = _uiState.value.lastAssistantMessageId
         val tempMessageId = "temp-user-${currentSession.id}-${nextTempMessageNumber++}"
@@ -364,7 +358,6 @@ class ChatSessionViewModel(
                 streamChatTurnUseCase(
                     sessionId = currentSession.id,
                     content = content,
-                    autoApproveWrites = autoApproveWrites,
                     afterAssistantMessageId = lastAssistantId,
                 ),
             sessionId = currentSession.id,

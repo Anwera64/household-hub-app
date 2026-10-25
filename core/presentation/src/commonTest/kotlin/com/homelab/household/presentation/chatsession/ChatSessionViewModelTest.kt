@@ -245,7 +245,7 @@ class ChatSessionViewModelTest {
             viewModel.loadSession("s-1")
             advanceUntilIdle()
 
-            every { streamChatTurnUseCase("s-1", "How are you?", false, any()) } returns
+            every { streamChatTurnUseCase("s-1", "How are you?", any()) } returns
                 flow {
                     emit(ChatStreamEvent.Delta("I'm "))
                     emit(ChatStreamEvent.Delta("doing great!"))
@@ -315,7 +315,7 @@ class ChatSessionViewModelTest {
                 Pair(ConversationSession(id = "s-1", userId = "u-1"), emptyList())
             viewModel.loadSession("s-1")
             advanceUntilIdle()
-            every { streamChatTurnUseCase("s-1", "Dinner Saturday?", false, any()) } returns
+            every { streamChatTurnUseCase("s-1", "Dinner Saturday?", any()) } returns
                 flowOf(
                     ChatStreamEvent.Accepted,
                     ChatStreamEvent.Delta("I can add it now."),
@@ -357,7 +357,7 @@ class ChatSessionViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            verify(VerifyMode.not) { streamChatTurnUseCase(any(), any(), any(), any()) }
+            verify(VerifyMode.not) { streamChatTurnUseCase(any(), any(), any()) }
             assertEquals("Also lunch?", state.composerText)
             assertTrue(state.holdingForCard)
             assertEquals(2, state.messages.size)
@@ -506,7 +506,7 @@ class ChatSessionViewModelTest {
                 Pair(ConversationSession(id = "s-1", userId = "u-1"), listOf(question))
             viewModel.loadSession("s-1")
             advanceUntilIdle()
-            every { streamChatTurnUseCase("s-1", "Also lunch?", false, any()) } returns
+            every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns
                 flow { throw ApprovalPendingException() }
             // Read again, the chat shows the card another phone left waiting.
             everySuspend { getSessionUseCase("s-1") } returns
@@ -692,7 +692,7 @@ class ChatSessionViewModelTest {
             viewModel.approveAutomatically("c1")
             advanceUntilIdle()
             assertNotNull(viewModel.uiState.value.madeAutomatic)
-            every { streamChatTurnUseCase("s-1", "Thanks", false, any()) } returns flow { awaitCancellation() }
+            every { streamChatTurnUseCase("s-1", "Thanks", any()) } returns flow { awaitCancellation() }
 
             viewModel.sendMessage("Thanks")
             advanceUntilIdle()
@@ -708,7 +708,7 @@ class ChatSessionViewModelTest {
             viewModel.loadSession("s-1")
             advanceUntilIdle()
             val added = ToolSummary(action = ToolAction.Create, title = "Print shop cutoff")
-            every { streamChatTurnUseCase("s-1", "Add the cutoff", false, any()) } returns
+            every { streamChatTurnUseCase("s-1", "Add the cutoff", any()) } returns
                 flow {
                     emit(ChatStreamEvent.Accepted)
                     emit(
@@ -747,7 +747,7 @@ class ChatSessionViewModelTest {
             viewModel.loadSession("s-1")
             advanceUntilIdle()
 
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flow {
                     emit(
                         ChatStreamEvent.Done(
@@ -790,7 +790,7 @@ class ChatSessionViewModelTest {
             viewModel.loadSession("s-1")
             advanceUntilIdle()
 
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flow {
                     emit(
                         ChatStreamEvent.Done(
@@ -827,7 +827,7 @@ class ChatSessionViewModelTest {
             viewModel.loadSession("s-1")
             advanceUntilIdle()
 
-            every { streamChatTurnUseCase("s-1", "Offline test", false, any()) } returns
+            every { streamChatTurnUseCase("s-1", "Offline test", any()) } returns
                 flow {
                     throw ServerOfflineException("Network unavailable")
                 }
@@ -850,7 +850,7 @@ class ChatSessionViewModelTest {
             viewModel.loadSession("s-1")
             advanceUntilIdle()
 
-            every { streamChatTurnUseCase("s-1", "General test", false, any()) } returns
+            every { streamChatTurnUseCase("s-1", "General test", any()) } returns
                 flow {
                     throw RuntimeException("Internal error")
                 }
@@ -879,7 +879,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a hub that fails before the first word WHEN a message is sent THEN the question is blamed and the composer is freed`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flow { throw ServerOfflineException("Network unavailable") }
 
             viewModel.sendMessage("Did this arrive?")
@@ -895,7 +895,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a stream that drops mid answer WHEN a message is sent THEN the words so far are kept and the answer is blamed`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.Delta("Three things, in order of how much "),
                     ChatStreamEvent.Delta("they'll bite."),
@@ -920,7 +920,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a stream that dropped and waited past the active wait WHEN a message is sent THEN the turn is still working rather than failed`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.Delta("Three things"),
                     ChatStreamEvent.Reconnecting,
@@ -941,7 +941,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a turn the hub is no longer running WHEN a message is sent THEN the turn is failed and the composer is free`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.Delta("Plan"),
                     ChatStreamEvent.Reconnecting,
@@ -962,7 +962,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN an answer left still working while the phone was locked WHEN the app comes back THEN it carries on from the last word`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.Accepted,
                     ChatStreamEvent.Delta("Hel"),
@@ -986,7 +986,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN an answer resumed after the phone was locked WHEN it finishes THEN it lands as the answer`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.Delta("Hel"),
                     ChatStreamEvent.Reconnecting,
@@ -1014,7 +1014,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a turn still reconnecting in the background WHEN the app comes back THEN it asks right away instead of waiting out the backoff`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flow {
                     emit(ChatStreamEvent.Delta("Hel"))
                     emit(ChatStreamEvent.Reconnecting)
@@ -1134,7 +1134,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a hub that has taken the question WHEN a message is sent THEN the question is marked sent at once`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns flowOf(ChatStreamEvent.Accepted)
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf(ChatStreamEvent.Accepted)
 
             viewModel.sendMessage("What is on tomorrow?")
             advanceUntilIdle()
@@ -1152,7 +1152,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a model that has only reasoned so far WHEN a message is sent THEN the model is marked as thinking and not silent`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(ChatStreamEvent.Reasoning("Okay, the user "), ChatStreamEvent.Reasoning("wants tomorrow."))
 
             viewModel.sendMessage("What is on tomorrow?")
@@ -1167,7 +1167,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a tool that is running WHEN a message is sent THEN the tool is shown while it runs`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(ChatStreamEvent.ToolExecuting("calendar_read"))
 
             viewModel.sendMessage("What is on tomorrow?")
@@ -1180,7 +1180,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a write running WHEN shown THEN its action is shown with it and goes when it is done`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(ChatStreamEvent.ToolExecuting("calendar_write", action = ToolAction.Delete))
 
             viewModel.sendMessage("Cancel the print shop thing")
@@ -1194,7 +1194,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a write that finished WHEN the next tool runs THEN no action is left over from it`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.ToolExecuting("calendar_write", action = ToolAction.Delete),
                     ChatStreamEvent.ToolResult("calendar_write", success = true),
@@ -1212,7 +1212,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a tool that finishes and one that fails WHEN they run THEN each leaves its part and the failure says so`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.ToolExecuting("calendar_read"),
                     ChatStreamEvent.ToolResult("calendar_read", success = true),
@@ -1240,7 +1240,7 @@ class ChatSessionViewModelTest {
             val found = ToolSummary(query = "dinner", count = 1, sources = listOf(menu))
             val scmp = ToolSource("", "https://scmp.com/")
             val blocked = ToolSummary(reason = ToolFailureReason.Blocked, sources = listOf(scmp))
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.ToolExecuting("searxng_search"),
                     ChatStreamEvent.ToolResult("searxng_search", success = true, summary = found),
@@ -1262,7 +1262,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN text then a tool then more text WHEN it streams THEN the parts keep that order`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.Delta("Let me "),
                     ChatStreamEvent.Delta("check."),
@@ -1292,7 +1292,7 @@ class ChatSessionViewModelTest {
             val clock = TestTimeSource()
             viewModel = viewModelWith(clock)
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flow {
                     emit(ChatStreamEvent.Reasoning("I need the calendar."))
                     clock += 3.seconds
@@ -1325,7 +1325,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a tool that finished after the first words WHEN the next words have not come THEN the turn is waiting for them`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flow {
                     emit(ChatStreamEvent.Delta("Let me check."))
                     emit(ChatStreamEvent.ToolExecuting("web_search"))
@@ -1343,7 +1343,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a turn waiting after a tool WHEN the next words arrive THEN it is no longer waiting`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flow {
                     emit(ChatStreamEvent.Delta("Let me check."))
                     emit(ChatStreamEvent.ToolExecuting("web_search"))
@@ -1362,7 +1362,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a finished answer WHEN the hub sends no parts THEN the message keeps the parts it streamed`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.ToolExecuting("calendar_read"),
                     ChatStreamEvent.ToolResult("calendar_read", success = true),
@@ -1388,7 +1388,7 @@ class ChatSessionViewModelTest {
             loadedSession()
             val saved =
                 listOf(AnswerPart.Thought(2), AnswerPart.ToolDone("calendar_read"), AnswerPart.Text("A light day."))
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.ToolExecuting("calendar_read"),
                     ChatStreamEvent.ToolResult("calendar_read", success = true),
@@ -1411,7 +1411,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN an answer resumed after a lock WHEN more text and a tool arrive THEN they carry on after the parts already shown`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(
                     ChatStreamEvent.Accepted,
                     ChatStreamEvent.Delta("Let me "),
@@ -1441,14 +1441,14 @@ class ChatSessionViewModelTest {
     fun `GIVEN a failed first turn WHEN a second message is sent THEN nothing is left over from the last turn`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", "First", false, any()) } returns
+            every { streamChatTurnUseCase("s-1", "First", any()) } returns
                 flowOf(
                     ChatStreamEvent.Reasoning("Hmm."),
                     ChatStreamEvent.ToolExecuting("calendar_read"),
                     ChatStreamEvent.ToolResult("calendar_read", success = false),
                     ChatStreamEvent.TurnFailed,
                 )
-            every { streamChatTurnUseCase("s-1", "Second", false, any()) } returns flowOf(ChatStreamEvent.Accepted)
+            every { streamChatTurnUseCase("s-1", "Second", any()) } returns flowOf(ChatStreamEvent.Accepted)
             viewModel.sendMessage("First")
             advanceUntilIdle()
 
@@ -1472,7 +1472,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a turn that ends without a word WHEN a message is sent THEN the turn is failed and the composer is free`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns flowOf(ChatStreamEvent.TurnFailed)
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf(ChatStreamEvent.TurnFailed)
 
             viewModel.sendMessage("What's left before Friday?")
             advanceUntilIdle()
@@ -1486,7 +1486,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a failed turn that has ended WHEN a second message is sent THEN both questions are in the chat`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns flowOf(ChatStreamEvent.TurnFailed)
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf(ChatStreamEvent.TurnFailed)
             viewModel.sendMessage("The first one")
             advanceUntilIdle()
 
@@ -1515,7 +1515,7 @@ class ChatSessionViewModelTest {
             viewModel.loadSession("s-1")
             advanceUntilIdle()
 
-            every { streamChatTurnUseCase("s-1", any(), false, "m-2") } returns flowOf(ChatStreamEvent.Delta("New"))
+            every { streamChatTurnUseCase("s-1", any(), "m-2") } returns flowOf(ChatStreamEvent.Delta("New"))
 
             viewModel.sendMessage("And this week?")
             advanceUntilIdle()
@@ -1528,7 +1528,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a failed turn WHEN trying again THEN a fresh answer arrives without a second copy of the question`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(ChatStreamEvent.Delta("Plan"), ChatStreamEvent.TurnFailed)
             viewModel.sendMessage("Plan meals for the week")
             advanceUntilIdle()
@@ -1558,7 +1558,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a typed message WHEN it is sent THEN it leaves the composer`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), false, any()) } returns
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
                 flowOf(ChatStreamEvent.Done(messageId = "m-1", assistantContent = "Hello back"))
 
             viewModel.composerTextChanged("Hi")
@@ -1763,7 +1763,7 @@ class ChatSessionViewModelTest {
             newChatWithAgents()
             everySuspend { createSessionUseCase(any(), any(), any()) } returns
                 ConversationSession(id = "s-new", userId = "user-emma", agentId = "agent-research")
-            every { streamChatTurnUseCase("s-new", "Hi", false, any()) } returns
+            every { streamChatTurnUseCase("s-new", "Hi", any()) } returns
                 flowOf(ChatStreamEvent.Done(messageId = "m-1", assistantContent = "Hello"))
 
             viewModel.selectAgent("agent-research")

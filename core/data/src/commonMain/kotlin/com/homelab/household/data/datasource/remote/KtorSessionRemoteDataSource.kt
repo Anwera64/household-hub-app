@@ -115,12 +115,11 @@ class KtorSessionRemoteDataSource(
     override fun openChatStream(
         sessionId: String,
         content: String,
-        autoApproveWrites: Boolean,
     ): Flow<ChatStreamEvent> =
         openTurnStream(sessionId, onStart = { lastEventIds.remove(sessionId) }) {
             client.preparePost("$baseUrl/api/v1/sessions/$sessionId/chat/stream") {
                 contentType(ContentType.Application.Json)
-                setBody(ChatTurnRequestDto(content = content, auto_approve_writes = autoApproveWrites))
+                setBody(ChatTurnRequestDto(content = content))
             }
         }
 

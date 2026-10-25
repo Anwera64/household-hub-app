@@ -123,6 +123,13 @@ val jvmEngineDispatcherTest =
         systemProperty("io.ktor.client.statement.useEngineDispatcher", "true")
     }
 
+// The hub's contract (openapi.json, tools.json) for HubContractTest. CI downloads it from
+// household-hub-contract and passes -Phub.contract.dir=…; without it the test is skipped.
+val hubContractDir = providers.gradleProperty("hub.contract.dir")
+tasks.withType<Test>().configureEach {
+    hubContractDir.orNull?.let { systemProperty("hub.contract.dir", it) }
+}
+
 tasks.named("check") {
     dependsOn(jvmEngineDispatcherTest)
 }
