@@ -277,3 +277,26 @@ test('Every workflow parses as YAML: no value starts with an unquoted * (#1)', a
     }
   }
 });
+
+test('CI checks the app against the hub contract', async (t) => {
+  const workflow = readIfExists(WORKFLOW_PATH);
+  const job = (workflow.match(/^  contract:\n([\s\S]*?)(?=^  [a-z-]+:\n|(?![\s\S]))/m) || [])[1] || '';
+
+  await t.test('a contract job downloads the latest contract with the read-only token', () => {
+    assert.ok(job, 'ci.yml must have a contract job');
+    assert.match(job, /name: Hub contract \(routes, DTO fields, tool labels\)/);
+    assert.match(job, /GH_TOKEN: \$\{\{ secrets\.HUB_CONTRACT_TOKEN \}\}/);
+    assert.match(job, /gh release download latest --repo Anwera64\/household-hub-contract --dir "\$RUNNER_TEMP\/contract"/);
+  });
+
+  await t.test('it runs the contract test with the downloaded folder', () => {
+    assert.match(job, /\.\/gradlew :core:data:jvmTest --tests "\*HubContract\*" "-Phub\.contract\.dir=\$RUNNER_TEMP\/contract"/);
+    assert.match(job, /uses: \.\/\.github\/actions\/setup-client/);
+  });
+
+  await t.test('a fork PR, which gets no secrets, skips the check instead of failing', () => {
+    assert.match(job, /if \[ -z "\$GH_TOKEN" \]/);
+    assert.match(job, /echo "skip=true" >> "\$GITHUB_OUTPUT"/);
+    assert.match(job, /if: steps\.contract\.outputs\.skip != 'true'/);
+  });
+});

@@ -35,6 +35,34 @@ jobs:
       - name: Run the node tests
         run: node --test .github/tests/*.test.js
 
+  # The app against the hub's contract (openapi.json, tools.json), which the hub publishes to the
+  # private household-hub-contract on every merge: routes, DTO fields and tool labels.
+  contract:
+    name: Hub contract (routes, DTO fields, tool labels)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-client
+
+      # A token that may only read household-hub-contract. Fork PRs get no secrets: they skip.
+      - name: Download the hub's contract
+        id: contract
+        env:
+          GH_TOKEN: ${{ secrets.HUB_CONTRACT_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "No HUB_CONTRACT_TOKEN (a fork PR): the contract is not checked here."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          gh release download latest --repo Anwera64/household-hub-contract --dir "$RUNNER_TEMP/contract"
+
+      - name: Check the app against it
+        if: steps.contract.outputs.skip != 'true'
+        run: ./gradlew :core:data:jvmTest --tests "*HubContract*" "-Phub.contract.dir=$RUNNER_TEMP/contract"
+
   lint:
     name: Formatting and Compose rules (ktlint)
     runs-on: ubuntu-latest
