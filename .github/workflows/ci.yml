@@ -53,7 +53,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ktlint-reports
-          path: **/build/reports/ktlint/
+          path: '**/build/reports/ktlint/'
 
   compile:
     name: Compile Android app and test APKs
@@ -80,7 +80,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: compile-reports
-          path: **/build/reports/
+          path: '**/build/reports/'
 
   jvm-tests:
     name: Unit and Compose UI tests (JVM)
@@ -102,7 +102,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: jvm-test-reports
-          path: **/build/reports/
+          path: '**/build/reports/'
 
   android-ui-tests:
     name: On-device tests (emulator, API 36)
@@ -171,7 +171,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: android-ui-test-reports
-          path: **/build/reports/
+          path: '**/build/reports/'
 
   ios-simulator-tests:
     name: Kotlin/Native tests (iOS simulator)
@@ -209,7 +209,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-simulator-test-reports
-          path: **/build/reports/
+          path: '**/build/reports/'
 
   ios-app-tests:
     name: App-hosted tests (iOS simulator)
@@ -288,4 +288,4 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ios-app-test-reports
-          path: **/build/reports/
+          path: '**/build/reports/'

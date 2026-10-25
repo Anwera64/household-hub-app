@@ -262,3 +262,18 @@ test('App CI workflow', async (t) => {
     assert.ok(indexEntry.startsWith('100755 '), `${GRADLEW_PATH} must be mode 100755 in the git index so it runs on Linux runners`);
   });
 });
+
+test('Every workflow parses as YAML: no value starts with an unquoted * (#1)', async (t) => {
+  // A plain YAML value cannot start with *: it reads as an alias, and GitHub rejects the whole
+  // file without running a single job. Stripping the monorepo prefix from paths left exactly that.
+  const dirs = ['.github/workflows', '.github/actions/setup-client'];
+  for (const dir of dirs) {
+    for (const name of fs.readdirSync(path.join(ROOT_DIR, dir)).filter((f) => /\.ya?ml$/.test(f))) {
+      await t.test(`${dir}/${name}`, () => {
+        const text = readIfExists(path.join(ROOT_DIR, dir, name));
+        const bad = text.split('\n').map((line, i) => [i + 1, line]).filter(([, line]) => /(:|^\s*-)\s+\*/.test(line));
+        assert.deepEqual(bad, [], `quote these values: ${bad.map(([n, l]) => `${n}: ${l.trim()}`).join(' | ')}`);
+      });
+    }
+  }
+});
