@@ -54,7 +54,33 @@ class DocsTest {
         assertEquals(emptyList<String>(), private.findAll(readme).map { it.value }.toList())
     }
 
+    @Test
+    fun `GIVEN the agent skills WHEN they are read THEN each names and describes itself`() {
+        for (skill in SKILLS) {
+            val header = Regex("^---\nname: $skill\ndescription: .+\n---\n")
+            assertTrue(header.containsMatchIn(skillText(skill)), "$skill needs its header")
+        }
+    }
+
+    @Test
+    fun `GIVEN the agent skills WHEN they are read THEN none names a home address or domain`() {
+        val home = Regex("""\b192\.168\.|\.lan\b|duckdns|spicy-llama|ssh """)
+        val found = SKILLS.flatMap { skill -> home.findAll(skillText(skill)).map { "$skill: ${it.value}" }.toList() }
+        assertEquals(emptyList<String>(), found)
+    }
+
+    @Test
+    fun `GIVEN AGENTS md WHEN it is read THEN it names the skills`() {
+        val agents = File(clientRootDir, "AGENTS.md").readText()
+        for (skill in SKILLS) assertTrue(agents.contains("`$skill`"), "AGENTS.md must name `$skill`")
+    }
+
+    private fun skillText(skill: String): String =
+        File(clientRootDir, ".claude/skills/$skill/SKILL.md").readText().replace("\r\n", "\n")
+
     private companion object {
+        val SKILLS = listOf("patch-release", "test-pr")
+
         const val WIKI = "https://github.com/Anwera64/household-hub-app/wiki"
     }
 }
