@@ -78,7 +78,7 @@ interface SessionRepository {
      *
      * **[pinOrPassword] is not verified yet.** Nothing on either side checks it: the hub serves a
      * secret session's content to any valid token, so the lock is a UI convention and the client
-     * was never a trust boundary. `docs/STAGE_5_SECRET_SESSION_LOCKING.md` §1 says so and §4 fixes
+     * was never a trust boundary. The Stage 5 secret-session notes' §1 says so and §4 fixes
      * it server-side; the parameter is here because §5 of that spec has this call send the PIN to
      * `POST /auth/unlock-secret` and hold the `secret_read` token it returns. Until stage 5 slice 6
      * lands, only [UnlockSecretSessionUseCase]'s "you typed something" check stands between a

@@ -8,7 +8,7 @@ import java.io.File
  * A UI test reads as what the person does and sees, and its robot is where that is turned into
  * nodes. The robot names every string once, as its resource, and waits for it before asserting —
  * so a test that finds a node itself drifts back to matching literal text and asserting before the
- * hub has answered. See "How a screen is tested" in the client README.
+ * hub has answered. See "How a screen is tested" on the wiki page How-a-screen-is-built.
  *
  * So outside a `*Robot.kt`, no client UI test looks a node up: no `onNode…`, `onAllNodes…`,
  * `onRoot`, or wait that names a node. Every `assert…` and `perform…` hangs off one of those, so
