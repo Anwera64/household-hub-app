@@ -93,7 +93,7 @@ class SessionRepositoryImpl(
     /**
      * [pinOrPassword] is accepted and dropped. That is deliberate and temporary: stage 5 slice 6
      * sends it to `POST /auth/unlock-secret` and keeps the `secret_read` token the hub returns
-     * (`docs/STAGE_5_SECRET_SESSION_LOCKING.md` §5). What it must *not* do is check the PIN here —
+     * (the Stage 5 secret-session notes, §5). What it must *not* do is check the PIN here —
      * the old version returned true for any non-blank string, which read like verification and was
      * not.
      */
