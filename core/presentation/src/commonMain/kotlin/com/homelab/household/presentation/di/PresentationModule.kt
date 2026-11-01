@@ -1,5 +1,6 @@
 package com.homelab.household.presentation.di
 
+import com.homelab.household.domain.secret.SecretLockController
 import com.homelab.household.presentation.calendarchoose.CalendarChooseViewModel
 import com.homelab.household.presentation.calendarconnect.CalendarConnectViewModel
 import com.homelab.household.presentation.changepin.ChangePinViewModel
@@ -45,6 +46,7 @@ val presentationModule =
                 get(),
                 get(),
                 get(),
+                onMemberInput = get<SecretLockController>()::onUserInput,
             )
         }
         factory { ChatsViewModel(get()) }

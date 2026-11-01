@@ -1,5 +1,7 @@
 package com.homelab.household.di
 
+import com.homelab.household.domain.repository.AuthRepository
+import com.homelab.household.domain.secret.SecretLockController
 import com.homelab.household.domain.usecase.AnswerChangeUseCase
 import com.homelab.household.domain.usecase.ApprovePinResetUseCase
 import com.homelab.household.domain.usecase.ArchiveSessionUseCase
@@ -33,7 +35,6 @@ import com.homelab.household.domain.usecase.ListAgentsUseCase
 import com.homelab.household.domain.usecase.ListHouseholdMembersUseCase
 import com.homelab.household.domain.usecase.ListMembersUseCase
 import com.homelab.household.domain.usecase.ListSessionsUseCase
-import com.homelab.household.domain.usecase.LockSecretSessionsUseCase
 import com.homelab.household.domain.usecase.LoginUseCase
 import com.homelab.household.domain.usecase.LogoutUseCase
 import com.homelab.household.domain.usecase.LookUpInviteUseCase
@@ -57,7 +58,6 @@ import com.homelab.household.domain.usecase.StartGoogleCalendarSignInUseCase
 import com.homelab.household.domain.usecase.StreamChatTurnUseCase
 import com.homelab.household.domain.usecase.ToggleSecretModeUseCase
 import com.homelab.household.domain.usecase.UndoChangeAnswerUseCase
-import com.homelab.household.domain.usecase.UnlockSecretSessionUseCase
 import com.homelab.household.domain.usecase.UpdateAgentUseCase
 import com.homelab.household.domain.usecase.UpdateSpaceSettingsUseCase
 import com.homelab.household.domain.usecase.WithdrawChangeUseCase
@@ -94,7 +94,6 @@ import com.homelab.household.domain.usecase.impl.ListAgentsUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ListHouseholdMembersUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ListMembersUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ListSessionsUseCaseImpl
-import com.homelab.household.domain.usecase.impl.LockSecretSessionsUseCaseImpl
 import com.homelab.household.domain.usecase.impl.LoginUseCaseImpl
 import com.homelab.household.domain.usecase.impl.LogoutUseCaseImpl
 import com.homelab.household.domain.usecase.impl.LookUpInviteUseCaseImpl
@@ -118,14 +117,26 @@ import com.homelab.household.domain.usecase.impl.StartGoogleCalendarSignInUseCas
 import com.homelab.household.domain.usecase.impl.StreamChatTurnUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ToggleSecretModeUseCaseImpl
 import com.homelab.household.domain.usecase.impl.UndoChangeAnswerUseCaseImpl
-import com.homelab.household.domain.usecase.impl.UnlockSecretSessionUseCaseImpl
 import com.homelab.household.domain.usecase.impl.UpdateAgentUseCaseImpl
 import com.homelab.household.domain.usecase.impl.UpdateSpaceSettingsUseCaseImpl
 import com.homelab.household.domain.usecase.impl.WithdrawChangeUseCaseImpl
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.koin.dsl.module
 
 val domainModule =
     module {
+        // When secret chats lock again: idle, the app leaving the screen, signing out. One for the app,
+        // on a scope of its own that lives as long as the app does.
+        single {
+            SecretLockController(
+                unlocks = get(),
+                signedOut = get<AuthRepository>().observeSignedOut(),
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            )
+        }
+
         // Session use cases
         factory<CreateSessionUseCase> { CreateSessionUseCaseImpl(get()) }
         factory<GetSessionUseCase> { GetSessionUseCaseImpl(get()) }
@@ -146,7 +157,7 @@ val domainModule =
         factory<ListMembersUseCase> { ListMembersUseCaseImpl(get()) }
         factory<CheckAuthStatusUseCase> { CheckAuthStatusUseCaseImpl(get()) }
         factory<GetCurrentUserUseCase> { GetCurrentUserUseCaseImpl(get()) }
-        factory<LogoutUseCase> { LogoutUseCaseImpl(get()) }
+        factory<LogoutUseCase> { LogoutUseCaseImpl(get(), get()) }
         factory<GetHubHostUseCase> { GetHubHostUseCaseImpl(get()) }
         factory<HasStoredSessionUseCase> { HasStoredSessionUseCaseImpl(get()) }
         factory<ObserveSignedOutUseCase> { ObserveSignedOutUseCaseImpl(get()) }
@@ -168,8 +179,6 @@ val domainModule =
         factory<CheckServerHealthUseCase> { CheckServerHealthUseCaseImpl(get()) }
 
         // Secret lock use cases
-        factory<LockSecretSessionsUseCase> { LockSecretSessionsUseCaseImpl(get()) }
-        factory<UnlockSecretSessionUseCase> { UnlockSecretSessionUseCaseImpl(get()) }
 
         // Memory use cases
         factory<GetMemoryPageUseCase> { GetMemoryPageUseCaseImpl(get()) }

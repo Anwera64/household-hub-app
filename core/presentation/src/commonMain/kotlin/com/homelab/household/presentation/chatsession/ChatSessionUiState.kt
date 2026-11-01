@@ -103,7 +103,7 @@ data class ChatSessionUiState(
      */
     val madeAutomatic: AutomaticWrite? = null,
     val errorMessage: String? = null,
-    val isSecretLocked: Boolean = false,
+    val isLocked: Boolean = false,
 ) {
     /**
      * Whether the composer will take a message.

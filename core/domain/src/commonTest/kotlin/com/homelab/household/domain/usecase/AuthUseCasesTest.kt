@@ -6,18 +6,21 @@ import com.homelab.household.domain.model.AuthStatus
 import com.homelab.household.domain.model.Member
 import com.homelab.household.domain.model.User
 import com.homelab.household.domain.repository.AuthRepository
+import com.homelab.household.domain.repository.SecretUnlockRepository
 import com.homelab.household.domain.usecase.impl.CheckAuthStatusUseCaseImpl
 import com.homelab.household.domain.usecase.impl.FirstRunOnboardUseCaseImpl
 import com.homelab.household.domain.usecase.impl.HasStoredSessionUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ListMembersUseCaseImpl
 import com.homelab.household.domain.usecase.impl.LoginUseCaseImpl
 import com.homelab.household.domain.usecase.impl.LogoutUseCaseImpl
+import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import kotlinx.coroutines.test.runTest
@@ -31,7 +34,8 @@ class AuthUseCasesTest {
     private val onboardUseCase = FirstRunOnboardUseCaseImpl(authRepo)
     private val listMembersUseCase = ListMembersUseCaseImpl(authRepo)
     private val checkAuthStatusUseCase = CheckAuthStatusUseCaseImpl(authRepo)
-    private val logoutUseCase = LogoutUseCaseImpl(authRepo)
+    private val secretUnlocks = mock<SecretUnlockRepository>(MockMode.autoUnit)
+    private val logoutUseCase = LogoutUseCaseImpl(authRepo, secretUnlocks)
     private val hasStoredSessionUseCase = HasStoredSessionUseCaseImpl(authRepo)
 
     private val emma =
@@ -135,5 +139,15 @@ class AuthUseCasesTest {
             logoutUseCase()
 
             verifySuspend(VerifyMode.exactly(1)) { authRepo.logout() }
+        }
+
+    @Test
+    fun `GIVEN secret chats unlocked WHEN logging out THEN they lock`() =
+        runTest {
+            everySuspend { authRepo.logout() } returns Unit
+
+            logoutUseCase()
+
+            verify(VerifyMode.exactly(1)) { secretUnlocks.lock() }
         }
 }

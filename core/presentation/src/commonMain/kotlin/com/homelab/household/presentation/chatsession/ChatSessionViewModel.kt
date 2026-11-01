@@ -3,6 +3,7 @@ package com.homelab.household.presentation.chatsession
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.homelab.household.domain.exception.ApprovalPendingException
+import com.homelab.household.domain.exception.SecretLockedException
 import com.homelab.household.domain.exception.ServerOfflineException
 import com.homelab.household.domain.model.AgentPersonality
 import com.homelab.household.domain.model.AnswerPart
@@ -76,6 +77,8 @@ class ChatSessionViewModel(
     private val timeSource: TimeSource = TimeSource.Monotonic,
     /** Ages the stored memory a Remember or Forget card shows: "March", "last week". */
     private val clock: Clock = Clock.System,
+    /** Tells the secret lock the member is here: typing and sending have no touch to report it. */
+    private val onMemberInput: () -> Unit = {},
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatSessionUiState())
     val uiState: StateFlow<ChatSessionUiState> = _uiState.asStateFlow()
@@ -275,12 +278,15 @@ class ChatSessionViewModel(
                         agentName = agent?.name ?: session.agentName.orEmpty(),
                         agentAvatar = agent?.avatar ?: session.agentAvatar.orEmpty(),
                         agentTagline = agent?.description.orEmpty(),
-                        isSecretLocked = session.isSecretLocked,
+                        isLocked = session.isLocked,
                         // A card left waiting is still waiting: the chat reopens on it.
                         turnState = if (session.awaitingApproval) TurnState.AwaitingApproval else it.turnState,
                     )
                 }
                 pickUpUnansweredQuestion(session, messages)
+            } catch (e: SecretLockedException) {
+                // Locked is a state of the chat, not a failure: the screen asks for the PIN (A4).
+                _uiState.update { it.copy(isLoading = false, isLocked = true) }
             } catch (e: Throwable) {
                 _uiState.update {
                     it.copy(
@@ -293,10 +299,12 @@ class ChatSessionViewModel(
     }
 
     fun composerTextChanged(text: String) {
+        onMemberInput()
         _uiState.update { it.copy(composerText = text) }
     }
 
     fun sendMessage(content: String) {
+        onMemberInput()
         if (!_uiState.value.canSend) return
 
         // A card is waiting, and the hub would refuse the message. Nothing is sent and nothing is
@@ -480,6 +488,11 @@ class ChatSessionViewModel(
                         if (delivered) {
                             // The question arrived; only the wait broke. Keep what was being read.
                             _uiState.update { it.copy(turnState = TurnState.Failed) }
+                            return@catch
+                        }
+                        if (e is SecretLockedException) {
+                            // The hub refused before taking the question: it was never sent.
+                            holdLocked(userMessageId)
                             return@catch
                         }
                         if (e is ApprovalPendingException) {
@@ -726,6 +739,21 @@ class ChatSessionViewModel(
             runCatchingSafe { setToolApprovalUseCase(made.tool, made.action, automatic = false) }
                 .onSuccess { _uiState.update { it.copy(madeAutomatic = null) } }
                 .onFailure { e -> _uiState.update { it.copy(errorMessage = e.message ?: "Couldn’t undo") } }
+        }
+    }
+
+    /** The chat locked under the member: what they wrote goes back to the composer, unsent. */
+    private fun holdLocked(userMessageId: String?) {
+        _uiState.update { state ->
+            val unsent = state.messages.firstOrNull { it.id == userMessageId }
+            state.copy(
+                messages = state.messages.filterNot { it.id == userMessageId },
+                composerText = unsent?.content ?: state.composerText,
+                streamingMessage = null,
+                turnState = TurnState.Idle,
+                parts = emptyList(),
+                isLocked = true,
+            )
         }
     }
 

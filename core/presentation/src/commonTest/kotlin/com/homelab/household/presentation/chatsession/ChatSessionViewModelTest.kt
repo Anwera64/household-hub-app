@@ -2,6 +2,7 @@ package com.homelab.household.presentation.chatsession
 
 import app.cash.turbine.test
 import com.homelab.household.domain.exception.ApprovalPendingException
+import com.homelab.household.domain.exception.SecretLockedException
 import com.homelab.household.domain.exception.ServerOfflineException
 import com.homelab.household.domain.model.AgentPersonality
 import com.homelab.household.domain.model.AnswerPart
@@ -93,6 +94,7 @@ class ChatSessionViewModelTest {
     private val setToolApprovalUseCase = mock<SetToolApprovalUseCase>(MockMode.autofill)
 
     private lateinit var viewModel: ChatSessionViewModel
+    private var memberInputs = 0
 
     @BeforeTest
     fun setUp() {
@@ -112,6 +114,7 @@ class ChatSessionViewModelTest {
                 listHouseholdMembersUseCase = listHouseholdMembersUseCase,
                 setToolApprovalUseCase = setToolApprovalUseCase,
                 deviceTimeZone = { ONE_HOUR },
+                onMemberInput = { memberInputs++ },
             )
     }
 
@@ -524,6 +527,58 @@ class ChatSessionViewModelTest {
             assertNull(state.errorMessage)
             assertEquals(TurnState.AwaitingApproval, state.turnState)
             assertEquals(listOf("m-1", "m-2"), state.messages.map { it.id })
+        }
+
+    // ---- secret chats locked (slice 6, A1) ----------------------------------
+
+    @Test
+    fun `GIVEN a secret chat with nothing unlocked WHEN it is opened THEN it reads as locked without an error`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } throws SecretLockedException()
+
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isLocked)
+            assertFalse(state.isLoading)
+            assertNull(state.errorMessage)
+        }
+
+    @Test
+    fun `GIVEN a secret chat that locked while open WHEN a message is sent THEN it reads as locked and the words go back to the composer`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(question))
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+            every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns flow { throw SecretLockedException() }
+
+            viewModel.sendMessage("Also lunch?")
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isLocked)
+            assertNull(state.errorMessage)
+            assertEquals("Also lunch?", state.composerText)
+            assertEquals(TurnState.Idle, state.turnState)
+            assertEquals(listOf("m-1"), state.messages.map { it.id })
+        }
+
+    @Test
+    fun `GIVEN an open chat WHEN the member types and sends THEN the secret lock hears both`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1"), listOf(question))
+            every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns flow { }
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            viewModel.composerTextChanged("Also lunch?")
+            viewModel.sendMessage("Also lunch?")
+            advanceUntilIdle()
+
+            assertEquals(2, memberInputs)
         }
 
     // ---- auto-approve from the card (slice 4, PR 5) -------------------------
