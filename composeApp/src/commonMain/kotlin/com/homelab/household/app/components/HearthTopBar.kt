@@ -1,5 +1,6 @@
 package com.homelab.household.app.components
 
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
@@ -23,6 +24,7 @@ fun HearthTopBar(
     backDescription: String,
     modifier: Modifier = Modifier,
     title: String? = null,
+    actions: @Composable RowScope.() -> Unit = {},
     titleContent: (@Composable () -> Unit)? = null,
 ) {
     val colors = HearthTheme.colors
@@ -38,6 +40,7 @@ fun HearthTopBar(
             }
         },
         modifier = modifier,
+        actions = actions,
         navigationIcon = {
             // The bar already insets its icon by 4dp; this brings the arrow to the 16dp the canvas draws.
             IconButton(onClick = onBack, modifier = Modifier.padding(start = HearthTheme.spacing.md)) {

@@ -16,4 +16,9 @@ data class SessionReadDto(
     @SerialName("last_message_preview") val last_message_preview: String? = null,
     @SerialName("agent_name") val agent_name: String? = null,
     @SerialName("agent_avatar") val agent_avatar: String? = null,
+    @SerialName("has_secret_part") val has_secret_part: Boolean = false,
+    /** The hub withheld this chat; it comes with an empty title. */
+    val locked: Boolean = false,
+    /** Only when this answer made the chat secret, or started it secret: an unlock for this chat alone. */
+    @SerialName("unlock_token") val unlock_token: String? = null,
 )

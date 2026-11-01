@@ -9,17 +9,16 @@ import kotlinx.coroutines.flow.update
 
 /**
  * What this phone remembers about conversations while the app is running: the messages each one has
- * shown, and which secret ones are currently locked.
+ * shown.
  *
- * Both used to be a plain `mutableMapOf` and `mutableSetOf` inside the session repository, written
- * from whichever coroutine happened to be streaming. They are state flows here for two reasons.
- * Their writes are atomic, so concurrent updates cannot drop each other. And [observeMessages] can
- * be read without suspending, which the domain's `observeMessages` requires — one flow over all
- * sessions gives that, where a map of per-session flows needed a lock to create an entry safely.
+ * It used to be a plain `mutableMapOf` inside the session repository, written from whichever
+ * coroutine happened to be streaming. It is a state flow here for two reasons. Its writes are
+ * atomic, so concurrent updates cannot drop each other. And [observeMessages] can be read without
+ * suspending, which the domain's `observeMessages` requires — one flow over all sessions gives
+ * that, where a map of per-session flows needed a lock to create an entry safely.
  */
 class SessionCacheLocalDataSource {
     private val messagesBySession = MutableStateFlow<Map<String, List<ChatMessageReadDto>>>(emptyMap())
-    private val lockedSecretSessions = MutableStateFlow<Set<String>>(emptySet())
 
     // ---- messages ----------------------------------------------------------
 
@@ -38,32 +37,4 @@ class SessionCacheLocalDataSource {
         messagesBySession.value.firstNotNullOfOrNull { (sessionId, messages) ->
             messages.firstOrNull { it.id == messageId }?.let { sessionId to it }
         }
-
-    // ---- secret locks ------------------------------------------------------
-    //
-    // Provisional, and scheduled for deletion. §5 of the Stage 5 secret-session notes replaces
-    // this set with locked-by-default: with no `secret_read` token held, every secret session is
-    // locked, and a set of ids is then unnecessary rather than something to persist. It is kept for
-    // now because that posture needs the hub endpoint from §4, which stage 5 slice 6 adds. What
-    // lives here until then is the behaviour the app already had, made safe to share between
-    // coroutines — not a design being committed to.
-
-    fun isLocked(sessionId: String): Boolean = sessionId in lockedSecretSessions.value
-
-    fun lockSecretSessions(sessionIds: Collection<String>) {
-        lockedSecretSessions.update { it + sessionIds }
-    }
-
-    /**
-     * Opens a locked conversation, answering whether this caller is the one that opened it. However
-     * many ask at once, exactly one is told yes — which is what the screen uses to decide whether to
-     * show the conversation, so handing the same answer to several callers would open it twice.
-     */
-    fun unlockSecretSession(sessionId: String): Boolean {
-        while (true) {
-            val locked = lockedSecretSessions.value
-            if (sessionId !in locked) return false
-            if (lockedSecretSessions.compareAndSet(locked, locked - sessionId)) return true
-        }
-    }
 }
