@@ -1285,6 +1285,53 @@ class ChatSessionViewModelTest {
             )
         }
 
+    /** Backend #5: words that said something was done that no tool did are taken back, and the new answer follows. */
+    @Test
+    fun `GIVEN the hub takes back words that claimed too much WHEN the new answer streams THEN only the new words follow the earlier steps`() =
+        runTest(testDispatcher) {
+            loadedSession()
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
+                flowOf(
+                    ChatStreamEvent.Delta("Let me look. "),
+                    ChatStreamEvent.ToolExecuting("calendar_read"),
+                    ChatStreamEvent.ToolResult("calendar_read", success = true),
+                    ChatStreamEvent.Delta("Done, it is in."),
+                    ChatStreamEvent.Retract(
+                        listOf(AnswerPart.Text("Let me look. "), AnswerPart.ToolDone("calendar_read")),
+                    ),
+                    ChatStreamEvent.Delta("Saturday is free; shall I add it?"),
+                )
+
+            viewModel.sendMessage("Put the jeweller in on Saturday")
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(
+                    AnswerPart.Text("Let me look. "),
+                    AnswerPart.ToolDone("calendar_read"),
+                    AnswerPart.Text("Saturday is free; shall I add it?"),
+                ),
+                viewModel.uiState.value.parts,
+            )
+        }
+
+    @Test
+    fun `GIVEN the hub takes back words that claimed too much WHEN the new answer streams THEN the streamed text drops them too`() =
+        runTest(testDispatcher) {
+            loadedSession()
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
+                flowOf(
+                    ChatStreamEvent.Delta("Done, it is in."),
+                    ChatStreamEvent.Retract(emptyList()),
+                    ChatStreamEvent.Delta("Shall I add it?"),
+                )
+
+            viewModel.sendMessage("Put the jeweller in on Saturday")
+            advanceUntilIdle()
+
+            assertEquals("Shall I add it?", viewModel.uiState.value.streamingMessage)
+        }
+
     /** Timed from the first thought of each stretch to whatever ends it: a tool, a word, the end. */
     @Test
     fun `GIVEN thinking before each stretch WHEN it streams THEN each stretch has its own thought where it happened`() =

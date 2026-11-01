@@ -53,6 +53,15 @@ sealed interface ChatStreamEvent {
         val details: ProposalDetails = ProposalDetails.Other,
     ) : ChatStreamEvent
 
+    /**
+     * The hub takes back the words just written: they said something was done that no tool did
+     * (backend #5), and the model is answering again. The answer goes back to [parts], what came
+     * before those words, and the new words follow them.
+     */
+    data class Retract(
+        val parts: List<AnswerPart>,
+    ) : ChatStreamEvent
+
     /** A write the member declined, told to the model instead of run. */
     data class ToolDeclined(
         val tool: String,

@@ -147,6 +147,10 @@ class DefensiveSseStreamReader(
                 )
             }
 
+            "retract" -> {
+                ChatStreamEvent.Retract(sanitizedParts(element["parts"]))
+            }
+
             "tool_declined" -> {
                 ChatStreamEvent.ToolDeclined(
                     tool = element["tool"]?.jsonPrimitive?.content ?: "",
