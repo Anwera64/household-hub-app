@@ -5,9 +5,12 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
+import com.homelab.household.domain.model.ChatMessage
+import com.homelab.household.domain.model.ConversationSession
 import com.homelab.household.domain.model.EventMoment
 import com.homelab.household.domain.model.EventRepeat
 import com.homelab.household.domain.model.EventScope
+import com.homelab.household.domain.model.MessageRole
 import com.homelab.household.domain.model.ProposalDetails
 import com.homelab.household.domain.model.RepeatChange
 import com.homelab.household.domain.model.RepeatEvery
@@ -1444,5 +1447,79 @@ class ConversationScreenTest {
             onConversation {
                 seesWhatTheySaid("Liam", "Dinner together on Monday 19 October, 17:30.", meta = "Planner · March")
             }
+        }
+
+    // ---- Secret Mode (slice 6, P1) -------------------------------------------
+
+    private val asked =
+        ChatMessage(id = "m-1", sessionId = "s-1", role = MessageRole.USER, content = "What's on Saturday?")
+    private val answered =
+        ChatMessage(id = "m-2", sessionId = "s-1", role = MessageRole.ASSISTANT, content = "Dinner with Liam at eight.")
+    private val chat = ConversationSession(id = "s-1", userId = "emma")
+
+    @Test
+    fun `GIVEN a chat with messages WHEN Secret Mode is tapped THEN it is asked to turn on`() =
+        runComposeUiTest {
+            var turnedOn = 0
+            conversationScreen(
+                ChatSessionUiState(session = chat, messages = listOf(asked, answered), agentName = "Home Coordinator"),
+                onTurnOnSecret = { turnedOn++ },
+            )
+
+            onConversation { turnsSecretModeOn() }
+
+            assertEquals(1, turnedOn)
+        }
+
+    @Test
+    fun `GIVEN a chat just made secret WHEN drawn THEN the pill reads on with the marker after its messages and the private placeholder`() =
+        runComposeUiTest {
+            conversationScreen(
+                ChatSessionUiState(
+                    session = chat.copy(isSecret = true),
+                    messages = listOf(asked, answered),
+                    agentName = "Home Coordinator",
+                    secretFrom = 2,
+                ),
+            )
+
+            onConversation {
+                seesSecretModeOn()
+                seesTheSecretMarkerBetween(before = "Dinner with Liam at eight.", after = null)
+                seesThePrivatePlaceholder()
+            }
+        }
+
+    @Test
+    fun `GIVEN a chat that turned secret part way WHEN drawn THEN the marker sits where it turned`() =
+        runComposeUiTest {
+            val secret =
+                ChatMessage(
+                    id = "m-3",
+                    sessionId = "s-1",
+                    role = MessageRole.USER,
+                    content = "Plan the surprise",
+                    isSecret = true,
+                )
+            conversationScreen(
+                ChatSessionUiState(
+                    session = chat.copy(isSecret = true),
+                    messages = listOf(asked, answered, secret),
+                    agentName = "Home Coordinator",
+                    secretFrom = 2,
+                ),
+            )
+
+            onConversation {
+                seesTheSecretMarkerBetween(before = "Dinner with Liam at eight.", after = "Plan the surprise")
+            }
+        }
+
+    @Test
+    fun `GIVEN a new chat WHEN drawn THEN there is no Secret Mode pill yet`() =
+        runComposeUiTest {
+            conversationScreen(stateNamed("New chat"))
+
+            onConversation { seesNoSecretPill() }
         }
 }

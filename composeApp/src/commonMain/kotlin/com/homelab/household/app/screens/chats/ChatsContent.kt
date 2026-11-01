@@ -37,6 +37,7 @@ import com.homelab.household.app.resources.chats_empty_line
 import com.homelab.household.app.resources.chats_empty_title
 import com.homelab.household.app.resources.chats_no_matches_line
 import com.homelab.household.app.resources.chats_no_matches_title
+import com.homelab.household.app.resources.chats_private_conversation
 import com.homelab.household.app.resources.chats_retry
 import com.homelab.household.app.resources.chats_search_cancel
 import com.homelab.household.app.resources.chats_search_count
@@ -221,7 +222,13 @@ fun ChatsContent(
                         }
                         items(state.visible, key = { it.id }) { session ->
                             ChatRow(
-                                title = session.title,
+                                // The hub withholds a locked chat's title; it is never shown empty.
+                                title =
+                                    if (session.isLocked) {
+                                        stringResource(Res.string.chats_private_conversation)
+                                    } else {
+                                        session.title
+                                    },
                                 timestamp = session.updatedAt.orEmpty(),
                                 preview = session.lastMessagePreview,
                                 agentAvatar = session.agentAvatar,

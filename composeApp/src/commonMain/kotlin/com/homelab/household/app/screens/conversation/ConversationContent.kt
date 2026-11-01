@@ -1,5 +1,6 @@
 package com.homelab.household.app.screens.conversation
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,6 +51,7 @@ import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.conversation_back
 import com.homelab.household.app.resources.conversation_composer_idle
 import com.homelab.household.app.resources.conversation_composer_leave
+import com.homelab.household.app.resources.conversation_composer_secret
 import com.homelab.household.app.resources.conversation_composer_waiting
 import com.homelab.household.app.resources.conversation_failed_line
 import com.homelab.household.app.resources.conversation_failed_title
@@ -87,6 +89,7 @@ const val CONVERSATION_TRANSCRIPT_TAG = "ConversationTranscript"
 /** The Undo line's place in the transcript, which no message id can take. */
 private const val MADE_AUTOMATIC_KEY = "made-automatic"
 private const val LOOKED_OVER_KEY = "looked-over"
+private const val SECRET_MARKER_KEY = "secret-marker"
 
 /**
  * A conversation, and a new one — the same screen.
@@ -120,6 +123,8 @@ fun ConversationContent(
     ) -> Unit = { id, edited -> onDecide(id, true, edited) },
     onUndoAutomatic: () -> Unit = {},
     onLookedOver: () -> Unit = {},
+    /** The header's OFF pill: make this chat secret from here on. */
+    onTurnOnSecret: () -> Unit = {},
     /** When a stored memory on a Remember or Forget card was noted. */
     memoryAge: (Instant) -> MemoryAge? = { null },
     /** The day and time a card's event memory adds to its title, on this phone. */
@@ -160,7 +165,12 @@ fun ConversationContent(
     // there is any layout to read and the answer is already on screen by then.
     val turnIsDrawn = state.streamingMessage != null || state.turnState == TurnState.Failed
     val lookedOverDrawn = state.session?.lookedOver != null && state.lookedOverAt != null
-    val itemCount = state.messages.size + (if (turnIsDrawn) 1 else 0) + if (lookedOverDrawn) 1 else 0
+    val secret = state.session?.isSecret == true
+    // Where the chat turned secret, kept inside the transcript; the marker is drawn there.
+    val secretAt = state.secretFrom?.takeIf { secret }?.coerceIn(0, state.messages.size)
+    val itemCount =
+        state.messages.size + (if (turnIsDrawn) 1 else 0) + (if (lookedOverDrawn) 1 else 0) +
+            if (secretAt != null) 1 else 0
 
     // How many messages come before the look-over line: through the last one it read, or all of them
     // when that message isn't in the transcript.
@@ -218,11 +228,25 @@ fun ConversationContent(
     }
 
     HearthScaffold(
-        modifier = modifier,
+        // The ghost frame: a secret chat is told apart by an achromatic edge, never by a theme change.
+        modifier = modifier.then(
+            if (secret) {
+                Modifier.border(HearthTheme.size.hairline, colors.secret.copy(alpha = colors.ghostFrame))
+            } else {
+                Modifier
+            },
+        ),
         header = {
             HearthTopBar(
                 onBack = onBack,
                 backDescription = stringResource(Res.string.conversation_back),
+                actions = {
+                    // A chat exists on the hub once something is said in it; only then can it turn secret.
+                    val session = state.session
+                    if (session != null && !state.isNew) {
+                        SecretPill(on = session.isSecret, onTurnOn = onTurnOnSecret)
+                    }
+                },
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(HearthTheme.spacing.sm),
@@ -278,7 +302,11 @@ fun ConversationContent(
                             }
 
                             else -> {
-                                stringResource(Res.string.conversation_composer_idle, state.agentName)
+                                if (secret) {
+                                    stringResource(Res.string.conversation_composer_secret)
+                                } else {
+                                    stringResource(Res.string.conversation_composer_idle, state.agentName)
+                                }
                             }
                         },
                 )
@@ -380,16 +408,22 @@ fun ConversationContent(
             contentPadding = PaddingValues(HearthTheme.spacing.xl),
             verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.lg),
         ) {
-            items(state.messages.take(lookedOverCut), key = { it.id }) { message -> drawMessage(message) }
-
-            // After the last message the look-over read; the chat went on below it.
+            // The messages, cut where the look-over line and the secret marker sit between them.
             val lookedOver = state.session?.lookedOver
             val lookedOverAt = state.lookedOverAt
-            if (lookedOver != null && lookedOverAt != null) {
-                item(key = LOOKED_OVER_KEY) { LookedOverLine(lookedOver, lookedOverAt, onOpen = onLookedOver) }
+            var from = 0
+            for (cut in listOfNotNull(lookedOverCut, secretAt).distinct().sorted()) {
+                items(state.messages.subList(from, cut), key = { it.id }) { message -> drawMessage(message) }
+                // After the last message the look-over read; the chat went on below it.
+                if (cut == lookedOverCut && lookedOver != null && lookedOverAt != null) {
+                    item(key = LOOKED_OVER_KEY) { LookedOverLine(lookedOver, lookedOverAt, onOpen = onLookedOver) }
+                }
+                if (cut == secretAt) {
+                    item(key = SECRET_MARKER_KEY) { SecretMarker() }
+                }
+                from = cut
             }
-
-            items(state.messages.drop(lookedOverCut), key = { it.id }) { message -> drawMessage(message) }
+            items(state.messages.drop(from), key = { it.id }) { message -> drawMessage(message) }
 
             // The answer being written, with whatever has become of it sitting where it stopped.
             if (state.streamingMessage != null || state.turnState == TurnState.Failed) {

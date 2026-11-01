@@ -103,7 +103,10 @@ data class ChatSessionUiState(
      */
     val madeAutomatic: AutomaticWrite? = null,
     val errorMessage: String? = null,
-    val isSecretLocked: Boolean = false,
+    /** The chat is secret, or holds a secret part, and secret chats are locked: only the PIN pad shows. */
+    val isLocked: Boolean = false,
+    /** How many messages come before the secret part; null for a chat that was never secret. */
+    val secretFrom: Int? = null,
 ) {
     /**
      * Whether the composer will take a message.

@@ -137,4 +137,12 @@ class ChatsScreenTest {
             }
         }
     }
+
+    @Test
+    fun `GIVEN a secret chat while locked WHEN the list is shown THEN its row reads Private conversation`() =
+        runComposeUiTest {
+            chatsScreen(stateNamed("A locked secret chat"))
+
+            onChats { seesChat("Private conversation") }
+        }
 }

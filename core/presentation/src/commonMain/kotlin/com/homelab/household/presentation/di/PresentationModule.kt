@@ -1,5 +1,7 @@
 package com.homelab.household.presentation.di
 
+import com.homelab.household.domain.repository.SecretUnlockRepository
+import com.homelab.household.domain.secret.SecretLockController
 import com.homelab.household.presentation.calendarchoose.CalendarChooseViewModel
 import com.homelab.household.presentation.calendarconnect.CalendarConnectViewModel
 import com.homelab.household.presentation.changepin.ChangePinViewModel
@@ -25,6 +27,7 @@ import com.homelab.household.presentation.profilepicker.ProfilePickerViewModel
 import com.homelab.household.presentation.removemember.RemoveMemberViewModel
 import com.homelab.household.presentation.resetpin.NewPinViewModel
 import com.homelab.household.presentation.resetpin.ResetCodeViewModel
+import com.homelab.household.presentation.secretunlock.SecretUnlockViewModel
 import com.homelab.household.presentation.whenagentsact.WhenAgentsActViewModel
 import org.koin.dsl.module
 
@@ -45,9 +48,12 @@ val presentationModule =
                 get(),
                 get(),
                 get(),
+                onMemberInput = get<SecretLockController>()::onUserInput,
+                secretLocks = get<SecretUnlockRepository>().locks,
             )
         }
         factory { ChatsViewModel(get()) }
+        factory { SecretUnlockViewModel(get()) }
         factory { DashboardViewModel(get(), get(), get(), get()) }
         factory { LaunchViewModel(get(), get()) }
         factory { MemoriesViewModel(get(), get(), get(), get(), get(), get()) }

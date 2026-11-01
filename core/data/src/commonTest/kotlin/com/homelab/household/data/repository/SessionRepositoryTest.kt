@@ -1,6 +1,7 @@
 package com.homelab.household.data.repository
 
 import app.cash.turbine.test
+import com.homelab.household.data.datasource.local.SecretUnlockLocalDataSource
 import com.homelab.household.data.datasource.local.SessionCacheLocalDataSource
 import com.homelab.household.data.datasource.remote.`interface`.SessionRemoteDataSource
 import com.homelab.household.data.dto.ChatMessageReadDto
@@ -101,20 +102,20 @@ class SessionRepositoryTest {
             val sessions = repository(remote).listSessions()
 
             assertEquals(listOf("s-1", "s-2"), sessions.map { it.id })
-            assertTrue(sessions.none { it.isSecretLocked })
+            assertTrue(sessions.none { it.isLocked })
         }
 
     @Test
-    fun `GIVEN a secret conversation that has been locked WHEN conversations are listed THEN only that one reads as locked`() =
+    fun `GIVEN the hub withheld a conversation WHEN conversations are listed THEN only that one reads as locked`() =
         runTest {
             val remote = mock<SessionRemoteDataSource>()
-            everySuspend { remote.listSessions() } returns listOf(sessionDto("s-1"), sessionDto("s-2", isSecret = true))
-            val cache = SessionCacheLocalDataSource().apply { lockSecretSessions(listOf("s-2")) }
+            everySuspend { remote.listSessions() } returns
+                listOf(sessionDto("s-1"), sessionDto("s-2", isSecret = true).copy(title = "", locked = true))
 
-            val sessions = repository(remote, cache).listSessions()
+            val sessions = repository(remote).listSessions()
 
-            assertFalse(sessions.first { it.id == "s-1" }.isSecretLocked)
-            assertTrue(sessions.first { it.id == "s-2" }.isSecretLocked)
+            assertFalse(sessions.first { it.id == "s-1" }.isLocked)
+            assertTrue(sessions.first { it.id == "s-2" }.isLocked)
         }
 
     @Test
@@ -151,39 +152,35 @@ class SessionRepositoryTest {
             assertFailsWith<ServerOfflineException> { repository(remote).listSessions() }
         }
 
-    // ---- secret locks ------------------------------------------------------
+    // ---- a chat's own unlock -----------------------------------------------
 
     @Test
-    fun `GIVEN two secret conversations among four WHEN everything secret is locked THEN it reports two and only those are locked`() =
+    fun `GIVEN the hub hands back the chat's own unlock WHEN Secret Mode is turned on THEN that chat carries it`() =
         runTest {
             val remote = mock<SessionRemoteDataSource>()
-            everySuspend { remote.listSessions() } returns
-                listOf(
-                    sessionDto("s-1"),
-                    sessionDto("s-2", isSecret = true),
-                    sessionDto("s-3"),
-                    sessionDto("s-4", isSecret = true),
-                )
-            val cache = SessionCacheLocalDataSource()
+            everySuspend { remote.toggleSecretMode("s-2", true) } returns
+                sessionDto("s-2", isSecret = true).copy(unlock_token = "chat-unlock")
+            val unlocks = SecretUnlockLocalDataSource()
 
-            val locked = repository(remote, cache).lockAllSecretSessions()
+            SessionRepositoryImpl(remote = remote, cache = SessionCacheLocalDataSource(), unlocks = unlocks)
+                .toggleSecretMode("s-2", true)
 
-            assertEquals(2, locked)
-            assertTrue(cache.isLocked("s-2"))
-            assertTrue(cache.isLocked("s-4"))
-            assertFalse(cache.isLocked("s-1"))
+            assertEquals("chat-unlock", unlocks.tokenFor("s-2"))
+            assertNull(unlocks.tokenFor("s-3"))
         }
 
     @Test
-    fun `GIVEN a locked secret conversation WHEN it is unlocked THEN it opens and says so`() =
+    fun `GIVEN the hub hands back the chat's own unlock WHEN a secret chat is started THEN that chat carries it`() =
         runTest {
-            val remote = mock<SessionRemoteDataSource>(MockMode.autofill)
-            val cache = SessionCacheLocalDataSource().apply { lockSecretSessions(listOf("s-2")) }
+            val remote = mock<SessionRemoteDataSource>()
+            everySuspend { remote.createSession("agent-1", "New Conversation", true) } returns
+                sessionDto("s-9", isSecret = true).copy(unlock_token = "chat-unlock")
+            val unlocks = SecretUnlockLocalDataSource()
 
-            val unlocked = repository(remote, cache).unlockSecretSession("s-2", "482913")
+            SessionRepositoryImpl(remote = remote, cache = SessionCacheLocalDataSource(), unlocks = unlocks)
+                .createSession("agent-1", "New Conversation", isSecret = true)
 
-            assertTrue(unlocked)
-            assertFalse(cache.isLocked("s-2"))
+            assertEquals("chat-unlock", unlocks.tokenFor("s-9"))
         }
 
     // ---- the streamed turn -------------------------------------------------
