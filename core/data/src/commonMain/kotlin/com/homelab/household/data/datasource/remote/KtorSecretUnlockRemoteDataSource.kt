@@ -2,7 +2,7 @@ package com.homelab.household.data.datasource.remote
 
 import com.homelab.household.data.datasource.remote.`interface`.SecretUnlockRemoteDataSource
 import com.homelab.household.data.dto.SecretUnlockReadDto
-import com.homelab.household.data.dto.SecretUnlockRequestDto
+import com.homelab.household.data.dto.UnlockSecretRequestDto
 import com.homelab.household.data.network.ensureJsonSuccess
 import com.homelab.household.data.network.reachingHub
 import com.homelab.household.data.network.throwIfPinRefused
@@ -22,7 +22,7 @@ class KtorSecretUnlockRemoteDataSource(
             val response =
                 client.post("$baseUrl/api/v1/auth/unlock-secret") {
                     contentType(ContentType.Application.Json)
-                    setBody(SecretUnlockRequestDto(pin = pin))
+                    setBody(UnlockSecretRequestDto(pin = pin))
                 }
             response.throwIfPinRefused()
             response.ensureJsonSuccess().body()
