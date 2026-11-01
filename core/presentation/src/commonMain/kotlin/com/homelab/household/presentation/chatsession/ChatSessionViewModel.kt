@@ -567,6 +567,15 @@ class ChatSessionViewModel(
                                 }
                             }
 
+                            // The hub took back words that claimed what no tool did (backend #5): the
+                            // answer goes back to what came before them, and the new words follow.
+                            is ChatStreamEvent.Retract -> {
+                                answer.reset(event.parts)
+                                accumulated =
+                                    event.parts.filterIsInstance<AnswerPart.Text>().joinToString("") { it.content }
+                                _uiState.update { it.copy(streamingMessage = accumulated, parts = answer.parts()) }
+                            }
+
                             is ChatStreamEvent.ToolApprovalProposal -> {
                                 answer.proposal(event)
                                 _uiState.update { it.copy(isThinking = false, parts = answer.parts()) }
@@ -801,6 +810,13 @@ private class AnswerPartsBuilder(
     private var thinkingSince: TimeMark? = null
 
     fun parts(): List<AnswerPart> = parts.toList()
+
+    /** Back to [kept], what the hub kept when it took back the words after them. */
+    fun reset(kept: List<AnswerPart>) {
+        thinkingSince = null
+        parts.clear()
+        parts += kept
+    }
 
     fun thinking() {
         if (thinkingSince == null) thinkingSince = timeSource.markNow()

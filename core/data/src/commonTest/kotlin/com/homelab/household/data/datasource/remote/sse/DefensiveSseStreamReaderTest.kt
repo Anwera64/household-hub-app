@@ -489,4 +489,23 @@ class DefensiveSseStreamReaderTest {
                 (events[1] as ChatStreamEvent.Done).parts.first(),
             )
         }
+
+    @Test
+    fun `GIVEN the hub takes back words that claimed too much WHEN read THEN the answer goes back to the parts before them`() =
+        runTest {
+            val ssePayload =
+                """
+                data: {"type": "delta", "content": "Done, it is in."}
+
+                data: {"type": "retract", "parts": [{"type": "text", "content": "Let me look. "}, {"type": "tool", "tool": "calendar_read", "success": true}]}
+
+                """.trimIndent()
+
+            val events = reader.readEvents(ByteReadChannel(ssePayload.encodeToByteArray())).toList()
+
+            assertEquals(
+                ChatStreamEvent.Retract(listOf(AnswerPart.Text("Let me look. "), AnswerPart.ToolDone("calendar_read"))),
+                events[1],
+            )
+        }
 }
