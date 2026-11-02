@@ -476,6 +476,13 @@
     <string name="chats_unreachable">Can’t reach your hub.</string>
     <string name="chats_retry">Try again</string>
     <string name="chats_agent_missing">Conversation</string>
+    <!-- When a chat last moved, on its row: "now", "10m", "3h", "Yesterday", "Tue", "12 Oct", "12 Oct 2025". -->
+    <string name="chats_age_now">now</string>
+    <string name="chats_age_minutes">%1$dm</string>
+    <string name="chats_age_hours">%1$dh</string>
+    <string name="chats_age_yesterday">Yesterday</string>
+    <string name="chats_age_date">%1$d %2$s</string>
+    <string name="chats_age_date_year">%1$d %2$s %3$d</string>
     <!-- Secret chats on the list (slice 6, P3): the bar over it, and the mark on a secret row. -->
     <plurals name="chats_secret_locked">
         <item quantity="one">%1$d secret chat is locked</item>

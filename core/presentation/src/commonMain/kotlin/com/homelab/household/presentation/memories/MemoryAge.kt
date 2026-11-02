@@ -94,7 +94,7 @@ fun localDay(
 private const val WEEK = 7L
 private const val SECONDS_PER_DAY = 86_400L
 
-private class Civil(
+internal class Civil(
     val epochDay: Long,
     val year: Int,
     val month: Int,
@@ -104,7 +104,7 @@ private class Civil(
 
 /** The local calendar day of an instant: Howard Hinnant's days-to-civil, so no date library is needed. */
 @OptIn(ExperimentalTime::class)
-private fun civil(
+internal fun civil(
     at: Instant,
     offsetSeconds: Int,
 ): Civil {

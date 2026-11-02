@@ -16,6 +16,8 @@ data class ChatsUiState(
      */
     val loaded: Boolean = false,
     val total: Int = 0,
+    /** When each chat last moved, by its id, as its row says it. */
+    val ages: Map<String, ChatAge> = emptyMap(),
 ) {
     /**
      * A household that has never chatted, which is a screen of its own — no search, no secret bar,

@@ -1,7 +1,6 @@
 package com.homelab.household.app.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +16,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.style.TextOverflow
 import com.homelab.household.app.icons.HearthIcon
 import com.homelab.household.app.icons.HearthIconImage
@@ -56,10 +60,7 @@ fun ChatRow(
             .then(if (secret) Modifier.secretOutline() else Modifier)
             .clickable(onClick = onClick)
             .heightIn(min = HearthTheme.size.touchTarget)
-            .padding(
-                horizontal = if (secret) HearthTheme.spacing.md else HearthTheme.spacing.none,
-                vertical = HearthTheme.spacing.md,
-            ),
+            .padding(vertical = HearthTheme.spacing.md),
         horizontalArrangement = Arrangement.spacedBy(HearthTheme.spacing.md),
     ) {
         Box(
@@ -120,11 +121,29 @@ fun ChatRow(
     }
 }
 
-/** The Secret Mode ghost's edge, without its tint: the sign that a row or bar is about secret chats. */
+/**
+ * The Secret Mode ghost's edge, without its tint: the sign that a row or bar is about secret chats.
+ *
+ * Drawn [HearthTheme.spacing.md] outside the row on either side, into the list's own margin, so a
+ * secret row's face and words stay in line with every other row and lose no width to the outline.
+ */
 @Composable
 internal fun Modifier.secretOutline(): Modifier {
     val colors = HearthTheme.colors
-    return this
-        .border(HearthTheme.size.hairline, colors.secret.copy(alpha = colors.ghostEdge), HearthShapes.item)
-        .clip(HearthShapes.item)
+    val edge = colors.secret.copy(alpha = colors.ghostEdge)
+    val bleed = HearthTheme.spacing.md
+    val hairline = HearthTheme.size.hairline
+    return drawBehind {
+        val stroke = hairline.toPx()
+        val outside = bleed.toPx()
+        translate(left = stroke / 2 - outside, top = stroke / 2) {
+            val outline =
+                HearthShapes.item.createOutline(
+                    Size(size.width + 2 * outside - stroke, size.height - stroke),
+                    layoutDirection,
+                    this,
+                )
+            drawOutline(outline, edge, style = Stroke(stroke))
+        }
+    }
 }

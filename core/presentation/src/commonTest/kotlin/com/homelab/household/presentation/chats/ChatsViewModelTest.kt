@@ -21,6 +21,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
  * The Chats list, and the search that runs over it.
@@ -29,12 +33,17 @@ import kotlin.test.assertTrue
  * already returns in full, matching titles and agent names. That means it works offline over
  * whatever is loaded, and costs the hub nothing.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
 class ChatsViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private val listSessions = mock<ListSessionsUseCase>()
     private val secretLocks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     private var lockedNow = 0
+    private val now = Instant.parse("2026-11-03T16:00:00Z")
+    private val clock =
+        object : Clock {
+            override fun now() = now
+        }
 
     private lateinit var viewModel: ChatsViewModel
 
@@ -46,6 +55,8 @@ class ChatsViewModelTest {
                 listSessions,
                 lockSecretChats = { lockedNow++ },
                 secretLocks = secretLocks,
+                deviceTimeZone = { 0 },
+                clock = clock,
             )
     }
 
@@ -299,5 +310,17 @@ class ChatsViewModelTest {
                     .first()
                     .title,
             )
+        }
+
+    @Test
+    fun `GIVEN a chat that moved ten minutes ago WHEN loading THEN its row says ten minutes`() =
+        runTest(testDispatcher) {
+            everySuspend { listSessions() } returns
+                listOf(session("s-1", "Saturday dinner").copy(updatedAt = now - 10.minutes))
+
+            viewModel.load()
+            advanceUntilIdle()
+
+            assertEquals(ChatAge.Minutes(10), viewModel.uiState.value.ages["s-1"])
         }
 }

@@ -83,6 +83,9 @@ fun ChatsContent(
     HearthScaffold(
         modifier = modifier,
         bottomBar = tabs,
+        // The list pads itself, so the outline of a secret row can reach into the margin; a second
+        // gutter here doubled the margin and squeezed every row.
+        gutter = HearthTheme.spacing.none,
         header = {
             Column(
                 modifier = Modifier
@@ -243,7 +246,7 @@ fun ChatsContent(
                                     } else {
                                         session.title
                                     },
-                                timestamp = session.updatedAt.orEmpty(),
+                                timestamp = chatAgeText(state.ages[session.id]),
                                 preview = session.lastMessagePreview,
                                 agentAvatar = session.agentAvatar,
                                 onClick = { onOpen(session.id) },

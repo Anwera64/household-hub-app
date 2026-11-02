@@ -52,7 +52,7 @@ fun SecretChatsBar(
         modifier = modifier
             .fillMaxWidth()
             .secretOutline()
-            .padding(HearthTheme.spacing.md),
+            .padding(vertical = HearthTheme.spacing.md),
         horizontalArrangement = Arrangement.spacedBy(HearthTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {

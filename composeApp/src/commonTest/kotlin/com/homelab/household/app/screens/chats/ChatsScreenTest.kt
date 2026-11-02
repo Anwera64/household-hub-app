@@ -35,6 +35,26 @@ class ChatsScreenTest {
         }
 
     @Test
+    fun `GIVEN chats that moved at different times WHEN the list is shown THEN each row says when in a few letters`() =
+        runComposeUiTest {
+            chatsScreen(stateNamed("The list"))
+
+            onChats {
+                seesChat("10m")
+                seesChat("Tue")
+                seesChat("12 Oct")
+            }
+        }
+
+    @Test
+    fun `GIVEN a chat last touched in another year WHEN the list is shown THEN its date carries the year`() =
+        runComposeUiTest {
+            chatsScreen(stateNamed("An agent that is gone"))
+
+            onChats { seesChat("26 Oct 2025") }
+        }
+
+    @Test
     fun `GIVEN the chats list WHEN a row is tapped THEN that conversation opens`() =
         runComposeUiTest {
             val opened = mutableListOf<String>()
