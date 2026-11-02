@@ -19,6 +19,7 @@ import com.homelab.household.domain.model.ProposalStatus
 import com.homelab.household.domain.model.ToolSummary
 import com.homelab.household.domain.model.alwaysAsks
 import com.homelab.household.domain.model.withEdit
+import com.homelab.household.domain.usecase.AsksBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.CreateSessionUseCase
 import com.homelab.household.domain.usecase.DecideToolProposalUseCase
 import com.homelab.household.domain.usecase.GetAgentUseCase
@@ -29,6 +30,7 @@ import com.homelab.household.domain.usecase.ListHouseholdMembersUseCase
 import com.homelab.household.domain.usecase.RegenerateAnswerUseCase
 import com.homelab.household.domain.usecase.ResumeTurnUseCase
 import com.homelab.household.domain.usecase.SetToolApprovalUseCase
+import com.homelab.household.domain.usecase.StopAskingBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.StreamChatTurnUseCase
 import com.homelab.household.domain.usecase.ToggleSecretModeUseCase
 import com.homelab.household.domain.util.runCatchingSafe
@@ -79,6 +81,10 @@ class ChatSessionViewModel(
     private val timeSource: TimeSource = TimeSource.Monotonic,
     /** Ages the stored memory a Remember or Forget card shows: "March", "last week". */
     private val clock: Clock = Clock.System,
+    /** Whether the ON pill asks before turning Secret Mode off, or the member said not to. */
+    private val asksBeforeSecretOff: AsksBeforeSecretOffUseCase = AsksBeforeSecretOffUseCase { true },
+    /** "Don't ask again" on that sheet, for this member on this phone. */
+    private val stopAskingBeforeSecretOff: StopAskingBeforeSecretOffUseCase = StopAskingBeforeSecretOffUseCase {},
     /** Tells the secret lock the member is here: typing and sending have no touch to report it. */
     private val onMemberInput: () -> Unit = {},
     /** Each time secret chats lock again: idle, the app leaving the screen, signing out. */
@@ -93,7 +99,11 @@ class ChatSessionViewModel(
     init {
         viewModelScope.launch {
             secretLocks.collect {
-                if (_uiState.value.session?.isSecret != true) return@collect
+                if (_uiState.value.session?.isSecret != true) {
+                    // A chat no longer secret stays open; only what was said in secret folds away.
+                    foldSecretParts()
+                    return@collect
+                }
                 // A stream already running finishes first: the member is reading it.
                 _uiState.first { it.canSend }
                 lockSecretChat()
@@ -114,8 +124,31 @@ class ChatSessionViewModel(
         }
     }
 
+    /**
+     * Each secret part becomes what the hub sends without the unlock: withheld, its words gone from
+     * the screen and from memory. The transcript folds it into one locked band.
+     */
+    private fun foldSecretParts() {
+        _uiState.update { state ->
+            val secret =
+                state.secretParts.flatMap { part -> part.from until (part.until ?: state.messages.size) }.toSet()
+            if (secret.isEmpty()) return@update state
+            state.copy(
+                messages =
+                    state.messages.mapIndexed { index, message ->
+                        if (index in secret) {
+                            message.copy(content = "", parts = emptyList(), isSecret = true, withheld = true)
+                        } else {
+                            message
+                        }
+                    },
+            )
+        }
+    }
+
     /** The PIN opened secret chats: read this one again. */
     fun unlocked() {
+        _uiState.update { it.copy(unlockingSecretPart = false) }
         val sessionId = _uiState.value.session?.id ?: openedSessionId ?: return
         loadSession(sessionId)
     }
@@ -292,14 +325,6 @@ class ChatSessionViewModel(
     fun eventTime(event: EventTime): LocalEventTime =
         localEventTime(event.startsAt, deviceTimeZone.offsetSecondsAt(event.startsAt), event.allDay)
 
-    /** Where the secret part starts: its first secret message, or the end of a chat just made secret. */
-    private fun secretFrom(
-        session: ConversationSession,
-        messages: List<ChatMessage>,
-    ): Int? =
-        messages.indexOfFirst { it.isSecret }.takeIf { it >= 0 }
-            ?: if (session.isSecret) messages.size else null
-
     @OptIn(ExperimentalTime::class)
     private fun lookedOverAt(session: ConversationSession): LocalTime? =
         session.lookedOver?.at?.let { at -> localTime(at, deviceTimeZone.offsetSecondsAt(at)) }
@@ -325,7 +350,7 @@ class ChatSessionViewModel(
                         agentAvatar = agent?.avatar ?: session.agentAvatar.orEmpty(),
                         agentTagline = agent?.description.orEmpty(),
                         isLocked = false,
-                        secretFrom = secretFrom(session, messages),
+                        secretParts = secretParts(messages, secretNow = session.isSecret),
                         // A card left waiting is still waiting: the chat reopens on it.
                         turnState = if (session.awaitingApproval) TurnState.AwaitingApproval else it.turnState,
                     )
@@ -372,7 +397,7 @@ class ChatSessionViewModel(
                         _uiState.value.selectedAgentId
                             ?: defaultAgent()?.id
                             ?: error("No agent to talk to")
-                    val created = createSessionUseCase(agentId = agentId)
+                    val created = createSessionUseCase(agentId = agentId, isSecret = _uiState.value.startsSecret)
                     _uiState.update { it.copy(session = created) }
                     send(content)
                 } catch (e: Throwable) {
@@ -824,19 +849,113 @@ class ChatSessionViewModel(
         const val BUILT_IN_AGENT_SLUG = "assistant"
     }
 
+    /** Unlock on a locked secret part: the PIN pad, after which the part opens where it is. */
+    fun unlockSecretPart() {
+        _uiState.update { it.copy(unlockingSecretPart = true) }
+    }
+
+    /** Back from that PIN pad: the chat as it was, the part still locked. */
+    fun keepSecretPartLocked() {
+        _uiState.update { it.copy(unlockingSecretPart = false) }
+    }
+
+    /** The ON pill: Secret Mode turns off after the sheet, or at once for a member who said not to ask. */
+    fun secretPillTapped() {
+        // Nothing has been said in a new chat yet, so there is nothing to ask about.
+        if (_uiState.value.session == null) {
+            _uiState.update { it.copy(startsSecret = false, secretParts = emptyList()) }
+            return
+        }
+        viewModelScope.launch {
+            // A phone that cannot tell asks: the sheet is the safe side.
+            if (runCatchingSafe { asksBeforeSecretOff() }.getOrDefault(true)) {
+                _uiState.update { it.copy(askingToTurnOffSecret = true) }
+            } else {
+                toggleSecret(false)
+            }
+        }
+    }
+
+    /** "Keep secret" on the sheet, or the sheet dismissed: nothing changes. */
+    fun keepSecret() {
+        _uiState.update { it.copy(askingToTurnOffSecret = false) }
+    }
+
+    /** "Turn off" on the sheet, with its "Don't ask again" box. */
+    fun turnOffSecret(dontAskAgain: Boolean) {
+        _uiState.update { it.copy(askingToTurnOffSecret = false) }
+        if (dontAskAgain) viewModelScope.launch { runCatchingSafe { stopAskingBeforeSecretOff() } }
+        toggleSecret(false)
+    }
+
     fun toggleSecret(isSecret: Boolean) {
-        val currentSession = _uiState.value.session ?: return
+        val currentSession = _uiState.value.session
+        if (currentSession == null) {
+            // A new chat isn't on the hub yet: it is created secret with the first message.
+            _uiState.update {
+                it.copy(
+                    startsSecret = isSecret,
+                    secretParts = if (isSecret) listOf(SecretPart(from = 0)) else emptyList(),
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             try {
                 val updated = toggleSecretModeUseCase(currentSession.id, isSecret)
                 _uiState.update {
-                    it.copy(session = updated, secretFrom = if (updated.isSecret) it.messages.size else it.secretFrom)
+                    it.copy(
+                        session = updated,
+                        secretParts =
+                            if (updated.isSecret) {
+                                it.secretParts.turnedOn(at = it.messages.size)
+                            } else {
+                                it.secretParts.turnedOff(at = it.messages.size)
+                            },
+                    )
                 }
             } catch (e: Throwable) {
                 _uiState.update { it.copy(errorMessage = e.message ?: "Failed to toggle secret mode") }
             }
         }
     }
+}
+
+/**
+ * The chat's secret stretches, read off each message's own flag: the hub keeps secrecy per message,
+ * so a chat reopened finds its markers where they were. A chat secret now has a last part running
+ * on, from its last stretch or, with nothing said since it turned, from the end.
+ */
+internal fun secretParts(
+    messages: List<ChatMessage>,
+    secretNow: Boolean,
+): List<SecretPart> {
+    val parts = mutableListOf<SecretPart>()
+    var from: Int? = null
+    messages.forEachIndexed { index, message ->
+        val start = from
+        if (message.isSecret && start == null) from = index
+        if (!message.isSecret && start != null) {
+            parts += SecretPart(start, until = index)
+            from = null
+        }
+    }
+    val open = from
+    when {
+        secretNow -> parts += SecretPart(open ?: messages.size)
+        open != null -> parts += SecretPart(open, until = messages.size)
+    }
+    return parts
+}
+
+/** Secret from after the message at [at] on. */
+private fun List<SecretPart>.turnedOn(at: Int): List<SecretPart> =
+    if (isNotEmpty() && last().until == null) this else this + SecretPart(at)
+
+/** The running part ends at [at]; one with nothing said in it leaves no part at all. */
+private fun List<SecretPart>.turnedOff(at: Int): List<SecretPart> {
+    val running = lastOrNull()?.takeIf { it.until == null } ?: return this
+    return dropLast(1) + listOfNotNull(running.copy(until = at).takeIf { at > running.from })
 }
 
 /**

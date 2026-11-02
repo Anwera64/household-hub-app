@@ -50,8 +50,13 @@ fun ConversationScreen(
     }
 
     // Locked is its own screen, never the new-chat one: nothing to type into until the PIN opens it.
-    if (state.isLocked) {
-        SecretUnlockScreen(onUnlock = viewModel::unlocked, onBack = onBack, modifier = modifier)
+    // A locked part of a chat no longer secret asks on the same pad, and Back returns to the chat.
+    if (state.isLocked || state.unlockingSecretPart) {
+        SecretUnlockScreen(
+            onUnlock = viewModel::unlocked,
+            onBack = if (state.isLocked) onBack else viewModel::keepSecretPartLocked,
+            modifier = modifier,
+        )
         return
     }
 
@@ -88,6 +93,10 @@ fun ConversationScreen(
         onUndoAutomatic = viewModel::undoAutomatic,
         onLookedOver = { lookingOver = true },
         onTurnOnSecret = { viewModel.toggleSecret(true) },
+        onTurnOffSecret = viewModel::secretPillTapped,
+        onKeepSecret = viewModel::keepSecret,
+        onConfirmSecretOff = viewModel::turnOffSecret,
+        onUnlockSecretPart = viewModel::unlockSecretPart,
         memoryAge = viewModel::memoryAge,
         eventTime = viewModel::eventTime,
         modifier = modifier,

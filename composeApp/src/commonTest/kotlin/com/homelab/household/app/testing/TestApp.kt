@@ -12,6 +12,8 @@ import com.homelab.household.data.datasource.local.InMemorySessionStorage
 import com.homelab.household.data.datasource.local.StoredSessionLocalDataSource
 import com.homelab.household.data.network.HubConfig
 import com.homelab.household.sdk.sdkModules
+import com.russhwolf.settings.MapSettings
+import com.russhwolf.settings.Settings
 import io.ktor.client.engine.HttpClientEngine
 import org.koin.compose.KoinApplication
 import org.koin.dsl.module
@@ -22,7 +24,7 @@ const val TEST_HUB_URL = "https://$TEST_HUB_HOST"
 
 /**
  * The app's real dependency graph with only its outermost seams replaced: the HTTP engine, where
- * tokens are kept, and the other apps a screen can hand the user to. Everything between a screen
+ * tokens and a member's choices are kept, and the other apps a screen can hand the user to. Everything between a screen
  * and the network — ViewModels, use cases, repositories, mappers, the Ktor client and its auth —
  * is the production wiring.
  *
@@ -37,6 +39,7 @@ const val TEST_HUB_URL = "https://$TEST_HUB_HOST"
 fun TestApp(
     engine: HttpClientEngine,
     sessionStorage: StoredSessionLocalDataSource = InMemorySessionStorage(),
+    choices: Settings = MapSettings(),
     externalApps: ExternalApps = FakeExternalApps(),
     content: @Composable () -> Unit,
 ) {
@@ -54,6 +57,7 @@ fun TestApp(
                 module {
                     single<HttpClientEngine> { engine }
                     single<StoredSessionLocalDataSource> { sessionStorage }
+                    single<Settings> { choices }
                 },
         )
     }) {

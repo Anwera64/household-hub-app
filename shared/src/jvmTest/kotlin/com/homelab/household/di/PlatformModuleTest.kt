@@ -3,6 +3,8 @@ package com.homelab.household.di
 import com.homelab.household.data.datasource.local.FileSessionStorage
 import com.homelab.household.data.datasource.local.StoredSessionLocalDataSource
 import com.homelab.household.sdk.HouseholdHubSdk
+import com.russhwolf.settings.PreferencesSettings
+import com.russhwolf.settings.Settings
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.cio.CIOEngineConfig
 import org.junit.jupiter.api.AfterEach
@@ -28,5 +30,12 @@ class PlatformModuleTest : KoinTest {
             "Expected a CIO engine on the JVM, got ${engine::class.simpleName}",
         )
         assertTrue(get<StoredSessionLocalDataSource>() is FileSessionStorage)
+    }
+
+    @Test
+    fun `GIVEN the SDK started on the JVM WHEN the store for a member's choices is resolved THEN it is Java Preferences`() {
+        HouseholdHubSdk.init()
+
+        assertTrue(get<Settings>() is PreferencesSettings)
     }
 }

@@ -44,6 +44,15 @@ data class AutomaticWrite(
     val action: ToolAction,
 )
 
+/**
+ * One stretch of a chat said in secret: the messages from [from] up to [until], or on to the end
+ * while the chat is still secret ([until] null). A chat turned on and off again has one per turn.
+ */
+data class SecretPart(
+    val from: Int,
+    val until: Int? = null,
+)
+
 data class ChatSessionUiState(
     val isLoading: Boolean = false,
     val session: ConversationSession? = null,
@@ -105,8 +114,14 @@ data class ChatSessionUiState(
     val errorMessage: String? = null,
     /** The chat is secret, or holds a secret part, and secret chats are locked: only the PIN pad shows. */
     val isLocked: Boolean = false,
-    /** How many messages come before the secret part; null for a chat that was never secret. */
-    val secretFrom: Int? = null,
+    /** Where the chat was secret, in order; empty for a chat that never was. */
+    val secretParts: List<SecretPart> = emptyList(),
+    /** The ON pill was tapped and the sheet asks before Secret Mode turns off. */
+    val askingToTurnOffSecret: Boolean = false,
+    /** Unlock was tapped on a locked secret part: the PIN pad shows until the PIN opens it, or Back. */
+    val unlockingSecretPart: Boolean = false,
+    /** A new chat's pill was turned on before anything was said: the hub creates it secret. */
+    val startsSecret: Boolean = false,
 ) {
     /**
      * Whether the composer will take a message.
@@ -123,6 +138,10 @@ data class ChatSessionUiState(
                 // Send still answers while a card waits, by holding the message and saying why.
                 TurnState.Idle, TurnState.Failed, TurnState.AwaitingApproval -> true
             }
+
+    /** Whether the chat is secret now, or a new one will start secret. */
+    val isSecret: Boolean
+        get() = session?.isSecret ?: startsSecret
 
     /** The cards the newest answer is waiting on, in the order the agent asked. */
     val pendingProposals: List<AnswerPart.Proposal>
