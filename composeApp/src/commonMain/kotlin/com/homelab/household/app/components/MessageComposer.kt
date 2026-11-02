@@ -25,7 +25,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -34,12 +42,19 @@ import com.homelab.household.app.icons.HearthIconImage
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.send_message
 import com.homelab.household.app.theme.HearthShapes
+import com.homelab.household.app.theme.HearthSizes
 import com.homelab.household.app.theme.HearthTheme
 import org.jetbrains.compose.resources.stringResource
+
+/** Tags a message box drawn with the dashed outline of a secret chat. */
+const val COMPOSER_DASHED_TAG = "composer-dashed"
 
 /**
  * The message box under a conversation. Stateless: sending never clears the text here —
  * the screen decides when a message has really gone. Send is never disabled.
+ *
+ * In a secret chat ([dashed]) its outline is dashed in the Secret Mode grey: the one sign at the
+ * edge of the screen, and it sits where you type (canvas "Secret look · 5", chosen 2 Nov 2026).
  */
 @Composable
 fun MessageComposer(
@@ -49,6 +64,7 @@ fun MessageComposer(
     placeholder: String,
     modifier: Modifier = Modifier,
     leading: (@Composable () -> Unit)? = null,
+    dashed: Boolean = false,
 ) {
     val colors = HearthTheme.colors
     val textStyle = HearthTheme.typography.label
@@ -92,7 +108,18 @@ fun MessageComposer(
                     Box(
                         modifier = Modifier
                             .background(colors.canvas, HearthShapes.pill)
-                            .border(HearthTheme.size.hairline, colors.outline, HearthShapes.pill)
+                            .then(
+                                if (dashed) {
+                                    Modifier
+                                        .dashedPillOutline(
+                                            colors.secret.copy(alpha = colors.ghostEdge),
+                                            HearthTheme.size,
+                                        )
+                                        .testTag(COMPOSER_DASHED_TAG)
+                                } else {
+                                    Modifier.border(HearthTheme.size.hairline, colors.outline, HearthShapes.pill)
+                                },
+                            )
                             .padding(horizontal = HearthTheme.spacing.lg, vertical = HearthTheme.spacing.md),
                     ) {
                         if (value.isEmpty()) {
@@ -121,3 +148,27 @@ fun MessageComposer(
         }
     }
 }
+
+/**
+ * A pill's outline drawn in dashes. Compose's own border only draws solid lines, so the stroke is
+ * drawn here, inset by half its width so it sits inside the pill as the solid one does.
+ */
+private fun Modifier.dashedPillOutline(
+    color: Color,
+    sizes: HearthSizes,
+): Modifier =
+    drawBehind {
+        val width = sizes.dashedOutline.toPx()
+        val inset = width / 2
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(inset, inset),
+            size = Size(size.width - width, size.height - width),
+            cornerRadius = CornerRadius((size.height - width) / 2),
+            style =
+                Stroke(
+                    width = width,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(sizes.dash.toPx(), sizes.dashGap.toPx())),
+                ),
+        )
+    }

@@ -37,6 +37,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.waitUntilExactlyOneExists
 import androidx.compose.ui.unit.DpRect
+import com.homelab.household.app.components.COMPOSER_DASHED_TAG
 import com.homelab.household.app.components.NOT_SENT_GLYPH_TAG
 import com.homelab.household.app.components.PICKER_CONFIRM_TAG
 import com.homelab.household.app.components.PICKER_DISMISS_TAG
@@ -1015,6 +1016,12 @@ class ConversationRobot(
         val marker = test.onNodeWithText(getString(Res.string.secret_marker)).getUnclippedBoundsInRoot()
         assertTrue(test.onNodeWithText(before).getUnclippedBoundsInRoot().bottom <= marker.top)
         if (after != null) assertTrue(marker.bottom <= test.onNodeWithText(after).getUnclippedBoundsInRoot().top)
+    }
+
+    /** A secret chat's message box is outlined in dashes; an ordinary one in a solid line. */
+    fun seesTheComposerDashed(dashed: Boolean) {
+        val composer = test.onNodeWithTag(COMPOSER_DASHED_TAG, useUnmergedTree = true)
+        if (dashed) composer.assertIsDisplayed() else composer.assertDoesNotExist()
     }
 
     suspend fun seesThePrivatePlaceholder() {

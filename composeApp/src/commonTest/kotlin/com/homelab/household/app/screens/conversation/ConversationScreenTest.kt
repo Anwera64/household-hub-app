@@ -1516,6 +1516,31 @@ class ConversationScreenTest {
         }
 
     @Test
+    fun `GIVEN a secret chat WHEN drawn THEN its message box is outlined in dashes`() =
+        runComposeUiTest {
+            conversationScreen(
+                ChatSessionUiState(
+                    session = chat.copy(isSecret = true),
+                    messages = listOf(asked, answered),
+                    agentName = "Home Coordinator",
+                    secretFrom = 2,
+                ),
+            )
+
+            onConversation { seesTheComposerDashed(dashed = true) }
+        }
+
+    @Test
+    fun `GIVEN an ordinary chat WHEN drawn THEN its message box keeps the solid outline`() =
+        runComposeUiTest {
+            conversationScreen(
+                ChatSessionUiState(session = chat, messages = listOf(asked, answered), agentName = "Home Coordinator"),
+            )
+
+            onConversation { seesTheComposerDashed(dashed = false) }
+        }
+
+    @Test
     fun `GIVEN a new chat WHEN drawn THEN there is no Secret Mode pill yet`() =
         runComposeUiTest {
             conversationScreen(stateNamed("New chat"))

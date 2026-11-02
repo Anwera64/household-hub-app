@@ -1,6 +1,5 @@
 package com.homelab.household.app.screens.conversation
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -228,14 +227,7 @@ fun ConversationContent(
     }
 
     HearthScaffold(
-        // The ghost frame: a secret chat is told apart by an achromatic edge, never by a theme change.
-        modifier = modifier.then(
-            if (secret) {
-                Modifier.border(HearthTheme.size.hairline, colors.secret.copy(alpha = colors.ghostFrame))
-            } else {
-                Modifier
-            },
-        ),
+        modifier = modifier,
         header = {
             HearthTopBar(
                 onBack = onBack,
@@ -283,6 +275,8 @@ fun ConversationContent(
                 }
                 MessageComposer(
                     value = state.composerText,
+                    // A secret chat's one sign at the edge of the screen, where you type.
+                    dashed = secret,
                     onValueChange = onComposerTextChange,
                     onSend = {
                         if (state.canSend && state.composerText.isNotBlank()) {
