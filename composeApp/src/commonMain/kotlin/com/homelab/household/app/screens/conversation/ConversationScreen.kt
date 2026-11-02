@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.ResultEffect
 import com.homelab.household.app.navigation.CalendarConnected
+import com.homelab.household.app.screens.secretunlock.SecretUnlockScreen
 import com.homelab.household.presentation.chatsession.ChatSessionViewModel
 import com.homelab.household.presentation.profile.ProfileViewModel
 import org.koin.compose.viewmodel.koinViewModel
@@ -48,6 +49,12 @@ fun ConversationScreen(
         onPauseOrDispose {}
     }
 
+    // Locked is its own screen, never the new-chat one: nothing to type into until the PIN opens it.
+    if (state.isLocked) {
+        SecretUnlockScreen(onUnlock = viewModel::unlocked, onBack = onBack, modifier = modifier)
+        return
+    }
+
     // "Remembered from this chat". Closing it recounts the quiet line, since answers inside change it.
     var lookingOver by rememberSaveable { mutableStateOf(false) }
     val lookedOverSession = state.session?.id
@@ -80,6 +87,7 @@ fun ConversationScreen(
         onApproveAutomatically = viewModel::approveAutomatically,
         onUndoAutomatic = viewModel::undoAutomatic,
         onLookedOver = { lookingOver = true },
+        onTurnOnSecret = { viewModel.toggleSecret(true) },
         memoryAge = viewModel::memoryAge,
         eventTime = viewModel::eventTime,
         modifier = modifier,

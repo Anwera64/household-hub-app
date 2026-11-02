@@ -54,6 +54,25 @@ class ChatsUiStateProvider : PreviewParameterProvider<ChatsUiState> {
             "Arriving" to ChatsUiState(isLoading = true),
             "Coming back" to ChatsUiState(isLoading = true, visible = all, loaded = true, total = all.size),
             "Hub unreachable" to ChatsUiState(errorMessage = "Can't reach your hub"),
+            // Secret, and nothing unlocked: the hub sends no title and no preview.
+            "A locked secret chat" to
+                ChatsUiState(
+                    visible =
+                        listOf(
+                            ConversationSession(
+                                id = "s-7",
+                                userId = "u-1",
+                                title = "",
+                                isSecret = true,
+                                hasSecretPart = true,
+                                isLocked = true,
+                                updatedAt = "Yesterday",
+                                agentAvatar = "🏡",
+                            ),
+                        ),
+                    loaded = true,
+                    total = 1,
+                ),
             // A conversation that outlived its agent: no emoji to draw, and it must not collapse.
             "An agent that is gone" to
                 ChatsUiState(

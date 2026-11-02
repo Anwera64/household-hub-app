@@ -2,6 +2,7 @@ package com.homelab.household.presentation.chatsession
 
 import app.cash.turbine.test
 import com.homelab.household.domain.exception.ApprovalPendingException
+import com.homelab.household.domain.exception.SecretLockedException
 import com.homelab.household.domain.exception.ServerOfflineException
 import com.homelab.household.domain.model.AgentPersonality
 import com.homelab.household.domain.model.AnswerPart
@@ -53,6 +54,7 @@ import dev.mokkery.verifySuspend
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -93,6 +95,8 @@ class ChatSessionViewModelTest {
     private val setToolApprovalUseCase = mock<SetToolApprovalUseCase>(MockMode.autofill)
 
     private lateinit var viewModel: ChatSessionViewModel
+    private var memberInputs = 0
+    private val secretLocks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
     @BeforeTest
     fun setUp() {
@@ -112,6 +116,8 @@ class ChatSessionViewModelTest {
                 listHouseholdMembersUseCase = listHouseholdMembersUseCase,
                 setToolApprovalUseCase = setToolApprovalUseCase,
                 deviceTimeZone = { ONE_HOUR },
+                onMemberInput = { memberInputs++ },
+                secretLocks = secretLocks,
             )
     }
 
@@ -524,6 +530,166 @@ class ChatSessionViewModelTest {
             assertNull(state.errorMessage)
             assertEquals(TurnState.AwaitingApproval, state.turnState)
             assertEquals(listOf("m-1", "m-2"), state.messages.map { it.id })
+        }
+
+    // ---- secret chats locked (slice 6, P1) ----------------------------------
+
+    private val secretQuestion =
+        ChatMessage(
+            id = "m-9",
+            sessionId = "s-1",
+            role = MessageRole.USER,
+            content = "Plan the surprise",
+            isSecret = true,
+        )
+
+    @Test
+    fun `GIVEN an open secret chat WHEN secret chats lock THEN it reads as locked and its messages are gone`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(secretQuestion))
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            secretLocks.emit(Unit)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isLocked)
+            assertEquals(emptyList(), state.messages)
+        }
+
+    @Test
+    fun `GIVEN an open ordinary chat WHEN secret chats lock THEN it stays as it is`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1"), listOf(question))
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            secretLocks.emit(Unit)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isLocked)
+            assertEquals(listOf("m-1"), viewModel.uiState.value.messages.map { it.id })
+        }
+
+    @Test
+    fun `GIVEN a secret chat still answering WHEN secret chats lock THEN it locks once the answer ends`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(secretQuestion))
+            val answer = MutableSharedFlow<ChatStreamEvent>()
+            every { streamChatTurnUseCase("s-1", "And the cake?", any()) } returns answer
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+            viewModel.sendMessage("And the cake?")
+            advanceUntilIdle()
+
+            secretLocks.emit(Unit)
+            advanceUntilIdle()
+            assertFalse(viewModel.uiState.value.isLocked)
+
+            answer.emit(ChatStreamEvent.Done(messageId = "m-11", assistantContent = "Chocolate."))
+            advanceUntilIdle()
+            assertTrue(viewModel.uiState.value.isLocked)
+        }
+
+    @Test
+    fun `GIVEN a locked secret chat WHEN it is unlocked THEN it is read again and shown`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } throws SecretLockedException()
+            viewModel.open("s-1")
+            advanceUntilIdle()
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(secretQuestion))
+
+            viewModel.unlocked()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isLocked)
+            assertEquals(listOf("m-9"), state.messages.map { it.id })
+            assertEquals(0, state.secretFrom)
+        }
+
+    @Test
+    fun `GIVEN an ordinary chat WHEN Secret Mode is turned on THEN the chat is secret from after its last message`() =
+        runTest(testDispatcher) {
+            val ordinary = ConversationSession(id = "s-1", userId = "u-1")
+            everySuspend { getSessionUseCase("s-1") } returns Pair(ordinary, listOf(question))
+            everySuspend { toggleSecretModeUseCase("s-1", true) } returns ordinary.copy(isSecret = true)
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            viewModel.toggleSecret(true)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.session?.isSecret == true)
+            assertEquals(1, state.secretFrom)
+        }
+
+    @Test
+    fun `GIVEN a chat that turned secret part way WHEN it is opened THEN the secret part starts at its first secret message`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(question, secretQuestion))
+
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            assertEquals(1, viewModel.uiState.value.secretFrom)
+        }
+
+    @Test
+    fun `GIVEN a secret chat with nothing unlocked WHEN it is opened THEN it reads as locked without an error`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } throws SecretLockedException()
+
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isLocked)
+            assertFalse(state.isLoading)
+            assertNull(state.errorMessage)
+        }
+
+    @Test
+    fun `GIVEN a secret chat that locked while open WHEN a message is sent THEN it reads as locked and the words go back to the composer`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(question))
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+            every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns flow { throw SecretLockedException() }
+
+            viewModel.sendMessage("Also lunch?")
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isLocked)
+            assertNull(state.errorMessage)
+            assertEquals("Also lunch?", state.composerText)
+            assertEquals(TurnState.Idle, state.turnState)
+            assertEquals(listOf("m-1"), state.messages.map { it.id })
+        }
+
+    @Test
+    fun `GIVEN an open chat WHEN the member types and sends THEN the secret lock hears both`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1"), listOf(question))
+            every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns flow { }
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            viewModel.composerTextChanged("Also lunch?")
+            viewModel.sendMessage("Also lunch?")
+            advanceUntilIdle()
+
+            assertEquals(2, memberInputs)
         }
 
     // ---- auto-approve from the card (slice 4, PR 5) -------------------------

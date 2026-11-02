@@ -79,6 +79,52 @@ class DataMappersTest {
     }
 
     @Test
+    fun `GIVEN a withheld conversation record from the hub WHEN it is mapped THEN the session reads as locked and holding a secret part`() {
+        val dto =
+            SessionReadDto(
+                id = "s-1",
+                user_id = "u-1",
+                title = "",
+                has_secret_part = true,
+                locked = true,
+            )
+        val session = SessionDataMapper.toDomain(dto)
+
+        assertEquals(true, session.hasSecretPart)
+        assertEquals(true, session.isLocked)
+    }
+
+    @Test
+    fun `GIVEN a message said in secret and withheld WHEN it is mapped THEN the message reads as secret and withheld`() {
+        val dto =
+            ChatMessageReadDto(
+                id = "m-1",
+                session_id = "s-1",
+                role = "user",
+                content = "",
+                is_secret = true,
+                withheld = true,
+            )
+        val msg = ChatMessageDataMapper.toDomain(dto)
+
+        assertEquals(true, msg.isSecret)
+        assertEquals(true, msg.withheld)
+    }
+
+    @Test
+    fun `GIVEN a withheld message as the hub sends it WHEN it is decoded THEN it reads as secret and withheld with no content`() {
+        val dto =
+            Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessageReadDto>(
+                """{"id": "m-1", "session_id": "s-1", "role": "user", "is_secret": true, "withheld": true, "content": ""}""",
+            )
+        val msg = ChatMessageDataMapper.toDomain(dto)
+
+        assertEquals(true, msg.isSecret)
+        assertEquals(true, msg.withheld)
+        assertEquals("", msg.content)
+    }
+
+    @Test
     fun `GIVEN an assistant message record from the hub WHEN it is mapped THEN the message keeps its ids and role and text`() {
         val dto =
             ChatMessageReadDto(

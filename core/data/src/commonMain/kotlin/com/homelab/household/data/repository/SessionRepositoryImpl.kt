@@ -1,8 +1,10 @@
 package com.homelab.household.data.repository
 
 import co.touchlab.kermit.Logger
+import com.homelab.household.data.datasource.local.SecretUnlockLocalDataSource
 import com.homelab.household.data.datasource.local.SessionCacheLocalDataSource
 import com.homelab.household.data.datasource.remote.`interface`.SessionRemoteDataSource
+import com.homelab.household.data.dto.SessionReadDto
 import com.homelab.household.data.mapper.ChatMessageDataMapper
 import com.homelab.household.data.mapper.ProposalDetailsDataMapper
 import com.homelab.household.data.mapper.SessionDataMapper
@@ -35,16 +37,17 @@ import kotlinx.coroutines.flow.map
 class SessionRepositoryImpl(
     private val remote: SessionRemoteDataSource,
     private val cache: SessionCacheLocalDataSource,
+    private val unlocks: SecretUnlockLocalDataSource = SecretUnlockLocalDataSource(),
     private val pollDelayMs: Long = 1000L,
     private val log: Logger = Logger.withTag("Chat"),
 ) : SessionRepository {
     override suspend fun listSessions(): List<ConversationSession> =
-        remote.listSessions().map { SessionDataMapper.toDomain(it).withLockState() }
+        remote.listSessions().map { SessionDataMapper.toDomain(it) }
 
     override suspend fun getSession(sessionId: String): Pair<ConversationSession, List<ChatMessage>> {
         val detail = remote.fetchSession(sessionId)
         cache.cacheMessages(sessionId, detail.messages)
-        return SessionDataMapper.toDomain(detail).withLockState() to
+        return SessionDataMapper.toDomain(detail) to
             detail.messages.map(ChatMessageDataMapper::toDomain)
     }
 
@@ -52,14 +55,19 @@ class SessionRepositoryImpl(
         agentId: String,
         title: String,
         isSecret: Boolean,
-    ): ConversationSession = SessionDataMapper.toDomain(remote.createSession(agentId, title, isSecret))
+    ): ConversationSession =
+        SessionDataMapper.toDomain(remote.createSession(agentId, title, isSecret).holdingItsUnlock())
 
     override suspend fun archiveSession(sessionId: String) = remote.archiveSession(sessionId)
 
     override suspend fun toggleSecretMode(
         sessionId: String,
         isSecret: Boolean,
-    ): ConversationSession = SessionDataMapper.toDomain(remote.toggleSecretMode(sessionId, isSecret))
+    ): ConversationSession = SessionDataMapper.toDomain(remote.toggleSecretMode(sessionId, isSecret).holdingItsUnlock())
+
+    /** A chat just made secret stays open to the member who made it so (locking spec §4.1.1). */
+    private fun SessionReadDto.holdingItsUnlock(): SessionReadDto =
+        apply { unlock_token?.let { unlocks.holdChat(id, it) } }
 
     override suspend fun deleteSession(sessionId: String) = remote.deleteSession(sessionId)
 
@@ -83,24 +91,6 @@ class SessionRepositoryImpl(
             sessionId,
             afterAssistantMessageId = null,
         )
-
-    override suspend fun lockAllSecretSessions(): Int {
-        val secret = remote.listSessions().filter { it.is_secret }.map { it.id }
-        cache.lockSecretSessions(secret)
-        return secret.size
-    }
-
-    /**
-     * [pinOrPassword] is accepted and dropped. That is deliberate and temporary: stage 5 slice 6
-     * sends it to `POST /auth/unlock-secret` and keeps the `secret_read` token the hub returns
-     * (the Stage 5 secret-session notes, §5). What it must *not* do is check the PIN here —
-     * the old version returned true for any non-blank string, which read like verification and was
-     * not.
-     */
-    override suspend fun unlockSecretSession(
-        sessionId: String,
-        pinOrPassword: String,
-    ): Boolean = cache.unlockSecretSession(sessionId)
 
     override fun observeMessages(sessionId: String): Flow<List<ChatMessage>> =
         cache.observeMessages(sessionId).map { it.map(ChatMessageDataMapper::toDomain) }
@@ -364,9 +354,6 @@ class SessionRepositoryImpl(
             }
         }
     }
-
-    private fun ConversationSession.withLockState(): ConversationSession =
-        if (isSecret && cache.isLocked(id)) copy(isSecretLocked = true) else this
 
     private companion object {
         const val MAX_RECOVERY_WAIT_MS = 60_000L

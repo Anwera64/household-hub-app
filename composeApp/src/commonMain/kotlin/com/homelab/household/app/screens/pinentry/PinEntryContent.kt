@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,7 +89,17 @@ fun PinEntryContent(
         gutter = HearthTheme.spacing.none,
     ) { padding ->
         PinPad(
-            state = state,
+            entered = state.entered,
+            status = state.status,
+            face = {
+                MemberAvatar(
+                    name = state.member.name,
+                    colour = state.member.avatarColor,
+                    size = HearthTheme.size.tile,
+                    glyph = HearthTheme.typography.glyphXxl,
+                )
+            },
+            title = stringResource(Res.string.pin_title, state.member.name),
             onDigit = onDigit,
             onDelete = onDelete,
             onForget = onForget,
@@ -99,13 +110,23 @@ fun PinEntryContent(
     }
 }
 
+/**
+ * The PIN pad itself, for whatever the PIN is for: [face] and [title] above six dots, [lines] of
+ * small print under the title, the line saying where things stand, and the keys. Signing in shows
+ * the member and "Forgotten your PIN?"; a locked secret chat shows a lock tile and no link
+ * (canvas SecretUnlock: "the sign-in PIN pad with a lock tile in place of the avatar").
+ */
 @Composable
-private fun PinPad(
-    state: PinEntryUiState,
+internal fun PinPad(
+    entered: Int,
+    status: PinStatus,
+    face: @Composable () -> Unit,
+    title: String,
     onDigit: (Char) -> Unit,
     onDelete: () -> Unit,
-    onForget: () -> Unit,
     modifier: Modifier = Modifier,
+    lines: List<String> = emptyList(),
+    onForget: (() -> Unit)? = null,
 ) {
     val colors = HearthTheme.colors
     val spacing = HearthTheme.spacing
@@ -118,25 +139,30 @@ private fun PinPad(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(spacing.lg),
         ) {
-            MemberAvatar(
-                name = state.member.name,
-                colour = state.member.avatarColor,
-                size = HearthTheme.size.tile,
-                glyph = HearthTheme.typography.glyphXxl,
-            )
+            face()
             Text(
-                text = stringResource(Res.string.pin_title, state.member.name),
+                text = title,
                 style = HearthTheme.typography.title,
                 color = colors.textPrimary,
+                textAlign = TextAlign.Center,
             )
+            lines.forEach { line ->
+                Text(
+                    text = line,
+                    style = HearthTheme.typography.caption,
+                    color = colors.textMuted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.widthIn(max = HearthTheme.size.readingWidth),
+                )
+            }
         }
 
         // The wave obeys the same four beats as every other wait, so a hub answering in 40ms on
         // the LAN never makes the dots twitch.
-        val wait = rememberWaitPhase(state.status == PinStatus.Checking)
+        val wait = rememberWaitPhase(status == PinStatus.Checking)
 
         Dots(
-            entered = state.entered,
+            entered = entered,
             waving = wait != WaitPhase.Hidden,
             modifier = Modifier
                 .fillMaxWidth()
@@ -144,7 +170,7 @@ private fun PinPad(
         )
 
         StatusLine(
-            status = state.status,
+            status = status,
             wait = wait,
             modifier = Modifier
                 .fillMaxWidth()
@@ -152,16 +178,18 @@ private fun PinPad(
         )
 
         // Recovery is social, and it starts here: there is no email to send a reset to.
-        Text(
-            text = stringResource(Res.string.pin_forgotten),
-            style = HearthTheme.typography.bodyStrong,
-            color = colors.primary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .clickable(onClick = onForget)
-                .padding(horizontal = spacing.md, vertical = spacing.sm),
-        )
+        if (onForget != null) {
+            Text(
+                text = stringResource(Res.string.pin_forgotten),
+                style = HearthTheme.typography.bodyStrong,
+                color = colors.primary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .clickable(onClick = onForget)
+                    .padding(horizontal = spacing.md, vertical = spacing.sm),
+            )
+        }
 
         Keypad(
             onDigit = onDigit,

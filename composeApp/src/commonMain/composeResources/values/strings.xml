@@ -479,6 +479,17 @@
 
     <!-- Conversation -->
     <string name="conversation_back">Back to chats</string>
+    <!-- Secret Mode (slice 6, P1). The pill, its marker, the private composer and the locked chat. -->
+    <string name="secret_pill_off">OFF</string>
+    <string name="secret_pill_on">ON</string>
+    <string name="a11y_secret_off">Secret Mode is off. Turn it on</string>
+    <string name="a11y_secret_on">Secret Mode is on</string>
+    <string name="secret_marker">Secret · nothing here reaches the household</string>
+    <string name="conversation_composer_secret">Message privately…</string>
+    <string name="secret_locked_title">Locked while you were away</string>
+    <string name="secret_locked_line">The hub won’t send these messages without your PIN. Ten minutes untouched, closing the app or locking your phone locks it again.</string>
+    <string name="secret_locked_not_a_safe">They’re still stored unencrypted on the hub itself — this isn’t a safe.</string>
+    <string name="chats_private_conversation">Private conversation</string>
     <string name="conversation_greeting">Evening, %1$s</string>
     <string name="conversation_change_agent">Change agent</string>
     <string name="agent_picker_title">Who do you want to talk to?</string>

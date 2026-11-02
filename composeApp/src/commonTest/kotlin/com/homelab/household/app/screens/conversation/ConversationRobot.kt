@@ -37,6 +37,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.waitUntilExactlyOneExists
 import androidx.compose.ui.unit.DpRect
+import com.homelab.household.app.components.COMPOSER_DASHED_TAG
 import com.homelab.household.app.components.NOT_SENT_GLYPH_TAG
 import com.homelab.household.app.components.PICKER_CONFIRM_TAG
 import com.homelab.household.app.components.PICKER_DISMISS_TAG
@@ -44,6 +45,8 @@ import com.homelab.household.app.components.RETRY_GLYPH_TAG
 import com.homelab.household.app.components.SENT_GLYPH_TAG
 import com.homelab.household.app.components.THINKING_DOTS_TAG
 import com.homelab.household.app.resources.Res
+import com.homelab.household.app.resources.a11y_secret_off
+import com.homelab.household.app.resources.a11y_secret_on
 import com.homelab.household.app.resources.agent_owner_member
 import com.homelab.household.app.resources.agent_picker_failed_title
 import com.homelab.household.app.resources.agent_picker_title
@@ -51,6 +54,7 @@ import com.homelab.household.app.resources.chat_looked_over_nothing
 import com.homelab.household.app.resources.chat_looked_over_remembered
 import com.homelab.household.app.resources.conversation_change_agent
 import com.homelab.household.app.resources.conversation_composer_leave
+import com.homelab.household.app.resources.conversation_composer_secret
 import com.homelab.household.app.resources.conversation_composer_waiting
 import com.homelab.household.app.resources.conversation_failed_line
 import com.homelab.household.app.resources.conversation_failed_title
@@ -70,6 +74,7 @@ import com.homelab.household.app.resources.field_changed
 import com.homelab.household.app.resources.memories_tab_household_plain
 import com.homelab.household.app.resources.memories_tab_yours_plain
 import com.homelab.household.app.resources.profile_memories_to_check
+import com.homelab.household.app.resources.secret_marker
 import com.homelab.household.app.resources.send_message
 import com.homelab.household.app.resources.steps_label_and
 import com.homelab.household.app.resources.steps_label_failed
@@ -157,6 +162,7 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.getPluralString
 import org.jetbrains.compose.resources.getString
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Instant
 
 /** Everything a conversation says and does, named as the resources it reads. */
@@ -987,6 +993,41 @@ class ConversationRobot(
         }
     }
 
+    // ---- Secret Mode (slice 6, P1) -------------------------------------------
+
+    suspend fun turnsSecretModeOn() {
+        test.onNodeWithContentDescription(getString(Res.string.a11y_secret_off)).performClick()
+    }
+
+    suspend fun seesSecretModeOn() {
+        test.onNodeWithContentDescription(getString(Res.string.a11y_secret_on)).assertIsDisplayed()
+    }
+
+    suspend fun seesNoSecretPill() {
+        test.onNodeWithContentDescription(getString(Res.string.a11y_secret_off)).assertDoesNotExist()
+        test.onNodeWithContentDescription(getString(Res.string.a11y_secret_on)).assertDoesNotExist()
+    }
+
+    /** The hairline where the chat turned secret sits between [before] and [after]. */
+    suspend fun seesTheSecretMarkerBetween(
+        before: String,
+        after: String?,
+    ) {
+        val marker = test.onNodeWithText(getString(Res.string.secret_marker)).getUnclippedBoundsInRoot()
+        assertTrue(test.onNodeWithText(before).getUnclippedBoundsInRoot().bottom <= marker.top)
+        if (after != null) assertTrue(marker.bottom <= test.onNodeWithText(after).getUnclippedBoundsInRoot().top)
+    }
+
+    /** A secret chat's message box is outlined in dashes; an ordinary one in a solid line. */
+    fun seesTheComposerDashed(dashed: Boolean) {
+        val composer = test.onNodeWithTag(COMPOSER_DASHED_TAG, useUnmergedTree = true)
+        if (dashed) composer.assertIsDisplayed() else composer.assertDoesNotExist()
+    }
+
+    suspend fun seesThePrivatePlaceholder() {
+        test.onNodeWithText(getString(Res.string.conversation_composer_secret)).assertIsDisplayed()
+    }
+
     private companion object {
         const val WAIT_MILLIS = 5_000L
         const val SEPARATOR = " · "
@@ -1027,6 +1068,7 @@ fun ComposeUiTest.conversationScreen(
     onApproveAutomatically: (String, ProposalDetails?) -> Unit = { _, _ -> },
     onUndoAutomatic: () -> Unit = {},
     onLookedOver: () -> Unit = {},
+    onTurnOnSecret: () -> Unit = {},
     memoryAge: (Instant) -> MemoryAge? = { MemoryAge.Month(MARCH) },
     eventTime: (EventTime) -> LocalEventTime? = { localEventTime(it.startsAt, offsetSeconds = 0, it.allDay) },
 ) {
@@ -1045,6 +1087,7 @@ fun ComposeUiTest.conversationScreen(
                 onApproveAutomatically = onApproveAutomatically,
                 onUndoAutomatic = onUndoAutomatic,
                 onLookedOver = onLookedOver,
+                onTurnOnSecret = onTurnOnSecret,
                 memoryAge = memoryAge,
                 eventTime = eventTime,
                 onBack = {},

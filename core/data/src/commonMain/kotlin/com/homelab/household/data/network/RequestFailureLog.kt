@@ -98,6 +98,7 @@ private val fixedSegments =
         "refresh",
         "regenerate",
         "register-initial",
+        "renew",
         "restore",
         "secret",
         "sessions",
@@ -110,5 +111,6 @@ private val fixedSegments =
         "stream",
         "tool-approvals",
         "tools",
+        "unlock-secret",
         "users",
     )

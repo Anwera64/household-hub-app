@@ -58,6 +58,10 @@ data class HearthSizes(
     val emphasis: Dp = 2.dp,
     /** A field's edge once its value is not the one proposed (canvas: ToolEdit). */
     val changed: Dp = 1.5.dp,
+    /** A secret chat's message box: its dashed edge, and each dash and gap along it. */
+    val dashedOutline: Dp = 1.5.dp,
+    val dash: Dp = 4.dp,
+    val dashGap: Dp = 3.dp,
     /** How wide centred prose is allowed to run before it stops being readable. */
     val readingWidth: Dp = 288.dp,
     /** Launch's indeterminate bar: how wide it runs, and how thick. */

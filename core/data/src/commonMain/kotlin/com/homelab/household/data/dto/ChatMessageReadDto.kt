@@ -12,4 +12,8 @@ data class ChatMessageReadDto(
     val content: String,
     @SerialName("created_at") val created_at: String? = null,
     @SerialName("metadata_json") val metadata_json: JsonObject? = null,
+    /** Said while the chat was secret. */
+    @SerialName("is_secret") val is_secret: Boolean = false,
+    /** The hub kept this message back: it comes with empty content and no metadata. */
+    val withheld: Boolean = false,
 )

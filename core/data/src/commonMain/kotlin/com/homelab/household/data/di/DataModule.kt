@@ -2,6 +2,7 @@ package com.homelab.household.data.di
 
 import com.homelab.household.data.BuildConfig
 import com.homelab.household.data.datasource.local.AuthEventsLocalDataSource
+import com.homelab.household.data.datasource.local.SecretUnlockLocalDataSource
 import com.homelab.household.data.datasource.local.SessionCacheLocalDataSource
 import com.homelab.household.data.datasource.local.StoredSessionLocalDataSource
 import com.homelab.household.data.datasource.remote.KtorAgentRemoteDataSource
@@ -9,6 +10,7 @@ import com.homelab.household.data.datasource.remote.KtorAuthRemoteDataSource
 import com.homelab.household.data.datasource.remote.KtorCalendarRemoteDataSource
 import com.homelab.household.data.datasource.remote.KtorMembersRemoteDataSource
 import com.homelab.household.data.datasource.remote.KtorMemoryRemoteDataSource
+import com.homelab.household.data.datasource.remote.KtorSecretUnlockRemoteDataSource
 import com.homelab.household.data.datasource.remote.KtorServerStatusRemoteDataSource
 import com.homelab.household.data.datasource.remote.KtorSessionRemoteDataSource
 import com.homelab.household.data.datasource.remote.KtorSpaceRemoteDataSource
@@ -18,6 +20,7 @@ import com.homelab.household.data.datasource.remote.`interface`.AuthRemoteDataSo
 import com.homelab.household.data.datasource.remote.`interface`.CalendarRemoteDataSource
 import com.homelab.household.data.datasource.remote.`interface`.MembersRemoteDataSource
 import com.homelab.household.data.datasource.remote.`interface`.MemoryRemoteDataSource
+import com.homelab.household.data.datasource.remote.`interface`.SecretUnlockRemoteDataSource
 import com.homelab.household.data.datasource.remote.`interface`.ServerStatusRemoteDataSource
 import com.homelab.household.data.datasource.remote.`interface`.SessionRemoteDataSource
 import com.homelab.household.data.datasource.remote.`interface`.SpaceRemoteDataSource
@@ -30,6 +33,7 @@ import com.homelab.household.data.network.deviceUtcOffsetSeconds
 import com.homelab.household.data.network.installBearerAuth
 import com.homelab.household.data.network.logFailedRequests
 import com.homelab.household.data.network.sendDeviceTimeZone
+import com.homelab.household.data.network.sendSecretUnlock
 import com.homelab.household.data.network.signOutOnUnauthorized
 import com.homelab.household.data.network.telemetryHttpClient
 import com.homelab.household.data.repository.AgentRepositoryImpl
@@ -37,6 +41,7 @@ import com.homelab.household.data.repository.AuthRepositoryImpl
 import com.homelab.household.data.repository.CalendarRepositoryImpl
 import com.homelab.household.data.repository.MembersRepositoryImpl
 import com.homelab.household.data.repository.MemoryRepositoryImpl
+import com.homelab.household.data.repository.SecretUnlockRepositoryImpl
 import com.homelab.household.data.repository.ServerStatusRepositoryImpl
 import com.homelab.household.data.repository.SessionRepositoryImpl
 import com.homelab.household.data.repository.SpaceRepositoryImpl
@@ -51,6 +56,7 @@ import com.homelab.household.domain.repository.AuthRepository
 import com.homelab.household.domain.repository.CalendarRepository
 import com.homelab.household.domain.repository.MembersRepository
 import com.homelab.household.domain.repository.MemoryRepository
+import com.homelab.household.domain.repository.SecretUnlockRepository
 import com.homelab.household.domain.repository.ServerStatusRepository
 import com.homelab.household.domain.repository.SessionRepository
 import com.homelab.household.domain.repository.SpaceRepository
@@ -102,6 +108,7 @@ val dataModule =
                         }
                 }
                 installBearerAuth(storage)
+                sendSecretUnlock(get())
                 sendDeviceTimeZone(::deviceTimeZoneId)
                 logFailedRequests()
                 val events: AuthEventsLocalDataSource = get()
@@ -129,6 +136,8 @@ val dataModule =
         }
         single { AuthEventsLocalDataSource() }
         single { SessionCacheLocalDataSource() }
+        single { SecretUnlockLocalDataSource() }
+        single<SecretUnlockRemoteDataSource> { KtorSecretUnlockRemoteDataSource(get(), get<HubConfig>().baseUrl) }
         single<AuthRemoteDataSource> { KtorAuthRemoteDataSource(get(), get<HubConfig>().baseUrl) }
         single<MembersRemoteDataSource> { KtorMembersRemoteDataSource(get(), get<HubConfig>().baseUrl) }
         single<AgentRemoteDataSource> { KtorAgentRemoteDataSource(get(), get<HubConfig>().baseUrl) }
@@ -142,7 +151,8 @@ val dataModule =
 
         single<AuthRepository> { AuthRepositoryImpl(get(), get(), get(), get()) }
         single<MembersRepository> { MembersRepositoryImpl(get(), get()) }
-        single<SessionRepository> { SessionRepositoryImpl(get(), get()) }
+        single<SessionRepository> { SessionRepositoryImpl(get(), get(), get()) }
+        single<SecretUnlockRepository> { SecretUnlockRepositoryImpl(get(), get()) }
         single<ServerStatusRepository> { ServerStatusRepositoryImpl(get()) }
         single<AgentRepository> { AgentRepositoryImpl(get()) }
         single<SpaceRepository> { SpaceRepositoryImpl(get()) }

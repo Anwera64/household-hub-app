@@ -7,7 +7,10 @@ data class ConversationSession(
     val title: String = "New Conversation",
     val isSecret: Boolean = false,
     val isArchived: Boolean = false,
-    val isSecretLocked: Boolean = false,
+    /** The chat holds, or held, a secret stretch of messages. */
+    val hasSecretPart: Boolean = false,
+    /** The hub withheld this chat: secret, or holding a secret part, and no unlock was sent. Its title is empty. */
+    val isLocked: Boolean = false,
     val createdAt: String? = null,
     val updatedAt: String? = null,
     /**

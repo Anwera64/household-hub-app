@@ -17,4 +17,7 @@ data class SessionDetailReadDto(
     @SerialName("turn_running") val turn_running: Boolean = false,
     @SerialName("awaiting_approval") val awaiting_approval: Boolean = false,
     @SerialName("looked_over") val looked_over: LookedOverSummaryDto? = null,
+    @SerialName("has_secret_part") val has_secret_part: Boolean = false,
+    /** The hub withheld this chat; it comes with an empty title. */
+    val locked: Boolean = false,
 )
