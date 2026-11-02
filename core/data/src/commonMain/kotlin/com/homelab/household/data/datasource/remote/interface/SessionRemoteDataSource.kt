@@ -36,6 +36,8 @@ interface SessionRemoteDataSource {
         isSecret: Boolean,
     ): SessionReadDto
 
+    suspend fun declineSecretOffer(sessionId: String)
+
     suspend fun deleteSession(sessionId: String)
 
     /**

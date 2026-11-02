@@ -88,6 +88,8 @@ fun ConversationScreen(
         onUndoAutomatic = viewModel::undoAutomatic,
         onLookedOver = { lookingOver = true },
         onTurnOnSecret = { viewModel.toggleSecret(true) },
+        onAcceptSecretOffer = viewModel::acceptSecretOffer,
+        onDeclineSecretOffer = viewModel::declineSecretOffer,
         memoryAge = viewModel::memoryAge,
         eventTime = viewModel::eventTime,
         modifier = modifier,

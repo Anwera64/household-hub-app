@@ -24,6 +24,7 @@ import com.homelab.household.presentation.chatsession.AgentChoice
 import com.homelab.household.presentation.chatsession.AgentOwner
 import com.homelab.household.presentation.chatsession.AutomaticWrite
 import com.homelab.household.presentation.chatsession.ChatSessionUiState
+import com.homelab.household.presentation.chatsession.SecretOffer
 import com.homelab.household.presentation.chatsession.TurnState
 import com.homelab.household.presentation.memories.LocalTime
 import kotlin.time.ExperimentalTime
@@ -885,6 +886,63 @@ class ConversationUiStateProvider : PreviewParameterProvider<ChatSessionUiState>
                         listOf(
                             question,
                             said("m-2", "The panel review is tomorrow at 14:30.", MessageRole.ASSISTANT),
+                        ),
+                ),
+            // Canvas: PrivacyPrompt. One message kept private, and the offer to make the whole chat secret.
+            "A private message offering Secret Mode" to
+                agent.copy(
+                    messages =
+                        listOf(
+                            said("m-1", "What does the weekend of the 14th look like?", MessageRole.USER),
+                            said(
+                                "m-2",
+                                "Nothing in either calendar yet. The whole weekend is open.",
+                                MessageRole.ASSISTANT,
+                            ),
+                            said(
+                                "m-3",
+                                "Don't tell Liam, but I want to take him to the cabin for his birthday",
+                                MessageRole.USER,
+                            )
+                                .copy(isPrivate = true),
+                            said(
+                                "m-4",
+                                "Your secret's safe with me. The weekend of the 14th is clear for both of you.",
+                                MessageRole.ASSISTANT,
+                            ),
+                        ),
+                    secretOffer = SecretOffer.Judged,
+                ),
+            // Canvas: SecretDay. A write refused because the chat is secret.
+            "An add refused in Secret Mode" to
+                agent.copy(
+                    session = session.copy(isSecret = true),
+                    secretFrom = 0,
+                    messages =
+                        listOf(
+                            said(
+                                "m-1",
+                                "A surprise. Book the restaurant for Saturday",
+                                MessageRole.USER,
+                            ).copy(isSecret = true),
+                            said(
+                                "m-2",
+                                "Secret Mode keeps me from writing to your calendar, so nothing was booked.",
+                                MessageRole.ASSISTANT,
+                                parts =
+                                    listOf(
+                                        AnswerPart.ToolFailed(
+                                            HubTool.CALENDAR_WRITE,
+                                            ToolSummary(
+                                                action = ToolAction.Create,
+                                                reason = ToolFailureReason.SecretMode,
+                                            ),
+                                        ),
+                                        AnswerPart.Text(
+                                            "Secret Mode keeps me from writing to your calendar, so nothing was booked.",
+                                        ),
+                                    ),
+                            ).copy(isSecret = true),
                         ),
                 ),
         )

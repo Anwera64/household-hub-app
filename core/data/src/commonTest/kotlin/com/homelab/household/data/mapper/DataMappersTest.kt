@@ -134,6 +134,28 @@ class DataMappersTest {
     }
 
     @Test
+    fun `GIVEN a question the hub judged private WHEN it is decoded THEN it reads as private`() {
+        val dto =
+            Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessageReadDto>(
+                """{"id": "m-1", "session_id": "s-1", "role": "user", "content": "Don't tell Liam",
+                    "metadata_json": {"privacy_trigger_detected": true}}""",
+            )
+
+        assertEquals(true, ChatMessageDataMapper.toDomain(dto).isPrivate)
+    }
+
+    @Test
+    fun `GIVEN an ordinary question WHEN it is decoded THEN it is not private`() {
+        val dto =
+            Json { ignoreUnknownKeys = true }.decodeFromString<ChatMessageReadDto>(
+                """{"id": "m-1", "session_id": "s-1", "role": "user", "content": "Hi",
+                    "metadata_json": {"privacy_trigger_detected": false}}""",
+            )
+
+        assertEquals(false, ChatMessageDataMapper.toDomain(dto).isPrivate)
+    }
+
+    @Test
     fun `GIVEN an assistant message record from the hub WHEN it is mapped THEN the message keeps its ids and role and text`() {
         val dto =
             ChatMessageReadDto(
@@ -388,6 +410,27 @@ class DataMappersTest {
                 ToolSummary(action = ToolAction.Create, reason = ToolFailureReason.CalendarRejected, fixed = true),
             )
         assertEquals(listOf(expected), parts)
+    }
+
+    @Test
+    fun `GIVEN a write refused in Secret Mode WHEN mapped THEN the part says it was locked`() {
+        val parts =
+            AnswerPartDataMapper.fromJson(
+                Json.parseToJsonElement(
+                    """[{"type": "tool", "tool": "calendar_write", "success": false,
+                        "summary": {"action": "create", "reason": "secret_mode"}}]""",
+                ),
+            )
+
+        assertEquals(
+            listOf(
+                AnswerPart.ToolFailed(
+                    "calendar_write",
+                    ToolSummary(action = ToolAction.Create, reason = ToolFailureReason.SecretMode),
+                ),
+            ),
+            parts,
+        )
     }
 
     @Test

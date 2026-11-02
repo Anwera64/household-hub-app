@@ -8,6 +8,7 @@ import com.homelab.household.domain.model.MessageStatus
 import com.homelab.household.domain.repository.SessionRepository
 import com.homelab.household.domain.usecase.impl.ArchiveSessionUseCaseImpl
 import com.homelab.household.domain.usecase.impl.CreateSessionUseCaseImpl
+import com.homelab.household.domain.usecase.impl.DeclineSecretOfferUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetSessionUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ToggleSecretModeUseCaseImpl
 import dev.mokkery.answering.returns
@@ -29,6 +30,7 @@ class SessionUseCasesTest {
     private val getSessionUseCase = GetSessionUseCaseImpl(sessionRepo)
     private val archiveSessionUseCase = ArchiveSessionUseCaseImpl(sessionRepo)
     private val toggleSecretModeUseCase = ToggleSecretModeUseCaseImpl(sessionRepo)
+    private val declineSecretOfferUseCase = DeclineSecretOfferUseCaseImpl(sessionRepo)
 
     private val dummySession =
         ConversationSession(
@@ -103,5 +105,15 @@ class SessionUseCasesTest {
             val result = toggleSecretModeUseCase("session-1", true)
 
             assertEquals(true, result.isSecret)
+        }
+
+    @Test
+    fun `GIVEN an offer of Secret Mode WHEN the member says not now THEN the repository declines it once`() =
+        runTest {
+            everySuspend { sessionRepo.declineSecretOffer("session-1") } returns Unit
+
+            declineSecretOfferUseCase("session-1")
+
+            verifySuspend(VerifyMode.exactly(1)) { sessionRepo.declineSecretOffer("session-1") }
         }
 }

@@ -14,5 +14,6 @@ class HubToolTest {
         assertEquals("read_page", HubTool.READ_PAGE)
         assertEquals("lookup_sources", HubTool.LOOKUP_SOURCES)
         assertEquals("pdf_reader", HubTool.PDF_READER)
+        assertEquals("offer_secret_mode", HubTool.OFFER_SECRET_MODE)
     }
 }

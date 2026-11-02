@@ -12,6 +12,7 @@ import com.homelab.household.domain.model.ChatStreamEvent
 import com.homelab.household.domain.model.ConversationSession
 import com.homelab.household.domain.model.DeviceTimeZone
 import com.homelab.household.domain.model.EventTime
+import com.homelab.household.domain.model.HubTool
 import com.homelab.household.domain.model.MessageRole
 import com.homelab.household.domain.model.MessageStatus
 import com.homelab.household.domain.model.ProposalDetails
@@ -21,6 +22,7 @@ import com.homelab.household.domain.model.alwaysAsks
 import com.homelab.household.domain.model.withEdit
 import com.homelab.household.domain.usecase.CreateSessionUseCase
 import com.homelab.household.domain.usecase.DecideToolProposalUseCase
+import com.homelab.household.domain.usecase.DeclineSecretOfferUseCase
 import com.homelab.household.domain.usecase.GetAgentUseCase
 import com.homelab.household.domain.usecase.GetCurrentUserUseCase
 import com.homelab.household.domain.usecase.GetSessionUseCase
@@ -65,6 +67,7 @@ class ChatSessionViewModel(
     private val resumeTurnUseCase: ResumeTurnUseCase,
     private val decideToolProposalUseCase: DecideToolProposalUseCase,
     private val toggleSecretModeUseCase: ToggleSecretModeUseCase,
+    private val declineSecretOfferUseCase: DeclineSecretOfferUseCase,
     /** Finds the Coordinator by its slug when the whole list cannot be had. */
     private val getAgentUseCase: GetAgentUseCase,
     /** Tells "yours" apart from someone else's agent in the picker. */
@@ -594,11 +597,14 @@ class ChatSessionViewModel(
                                 _uiState.update { it.copy(isThinking = true) }
                             }
 
+                            // The agent offering Secret Mode is a silent step: nothing is shown running.
                             is ChatStreamEvent.ToolExecuting -> {
                                 answer.stopThinking()
                                 _uiState.update {
                                     it.copy(
-                                        activeTool = event.tool,
+                                        activeTool = event.tool.takeUnless { tool ->
+                                            tool == HubTool.OFFER_SECRET_MODE
+                                        },
                                         activeToolAction = event.action,
                                         isThinking = false,
                                         parts = answer.parts(),
@@ -678,7 +684,9 @@ class ChatSessionViewModel(
                                         // none, and what was watched here is the next best thing.
                                         parts = event.parts.ifEmpty { answer.parts() },
                                     )
-                                _uiState.update { state -> state.endingTurn(userMessageId, assistantMsg) }
+                                _uiState.update { state ->
+                                    state.endingTurn(userMessageId, assistantMsg).keptPrivate(event, assistantMsg.parts)
+                                }
                             }
 
                             // The stream is gone but the hub has not finished; the words so far stay.
@@ -830,13 +838,62 @@ class ChatSessionViewModel(
             try {
                 val updated = toggleSecretModeUseCase(currentSession.id, isSecret)
                 _uiState.update {
-                    it.copy(session = updated, secretFrom = if (updated.isSecret) it.messages.size else it.secretFrom)
+                    it.copy(
+                        session = updated,
+                        secretFrom = if (updated.isSecret) it.messages.size else it.secretFrom,
+                        // Secret now, so there is nothing left to offer.
+                        secretOffer = if (updated.isSecret) null else it.secretOffer,
+                    )
                 }
             } catch (e: Throwable) {
                 _uiState.update { it.copy(errorMessage = e.message ?: "Failed to toggle secret mode") }
             }
         }
     }
+
+    /** "Make it secret" on the offer card: the same as the OFF pill, from after the answer. */
+    fun acceptSecretOffer() {
+        onMemberInput()
+        toggleSecret(true)
+    }
+
+    /**
+     * "Not now" on the offer card. The card goes at once; the hub is told so the agent stops
+     * offering in this chat, and the offer comes back only on the next message it judges private.
+     * A failed decline costs no more than the agent offering again, so it isn't put to the member.
+     */
+    fun declineSecretOffer() {
+        onMemberInput()
+        val currentSession = _uiState.value.session ?: return
+        _uiState.update { it.copy(secretOffer = null) }
+        viewModelScope.launch { runCatchingSafe { declineSecretOfferUseCase(currentSession.id) } }
+    }
+}
+
+/**
+ * A turn the hub kept private, in a chat that isn't secret: its question is marked so, and the
+ * chat offers to go secret when the hub suggests it. In a secret chat every message is private
+ * already, and saying so under each would be noise.
+ */
+private fun ChatSessionUiState.keptPrivate(
+    done: ChatStreamEvent.Done,
+    parts: List<AnswerPart>,
+): ChatSessionUiState {
+    if (session?.isSecret == true) return this
+    val question = messages.indexOfLast { it.role == MessageRole.USER }
+    val marked =
+        if (done.isTurnSecret && question >= 0) {
+            messages.toMutableList().also { it[question] = it[question].copy(isPrivate = true) }
+        } else {
+            messages
+        }
+    val offer =
+        when {
+            !done.suggestSecretMode -> null
+            parts.any { it is AnswerPart.ToolDone && it.tool == HubTool.OFFER_SECRET_MODE } -> SecretOffer.Agent
+            else -> SecretOffer.Judged
+        }
+    return copy(messages = marked, secretOffer = offer)
 }
 
 /**
@@ -859,12 +916,13 @@ private fun ChatSessionUiState.endingTurn(
     parts = emptyList(),
 )
 
-/** A new turn: nothing is carried over from the last one's thinking, tools or failure. */
+/** A new turn: nothing is carried over from the last one's thinking, tools, failure or offer. */
 private fun ChatSessionUiState.startingTurn() =
     copy(
         streamingMessage = "",
         turnState = TurnState.Streaming,
         errorMessage = null,
+        secretOffer = null,
         isThinking = false,
         activeTool = null,
         activeToolAction = null,

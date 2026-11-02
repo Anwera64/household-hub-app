@@ -26,6 +26,7 @@ import com.homelab.household.domain.model.ToolSummary
 import com.homelab.household.domain.model.User
 import com.homelab.household.domain.usecase.CreateSessionUseCase
 import com.homelab.household.domain.usecase.DecideToolProposalUseCase
+import com.homelab.household.domain.usecase.DeclineSecretOfferUseCase
 import com.homelab.household.domain.usecase.GetAgentUseCase
 import com.homelab.household.domain.usecase.GetCurrentUserUseCase
 import com.homelab.household.domain.usecase.GetSessionUseCase
@@ -89,6 +90,7 @@ class ChatSessionViewModelTest {
     private val createSessionUseCase = mock<CreateSessionUseCase>(MockMode.autofill)
     private val decideToolProposalUseCase = mock<DecideToolProposalUseCase>()
     private val toggleSecretModeUseCase = mock<ToggleSecretModeUseCase>()
+    private val declineSecretOfferUseCase = mock<DeclineSecretOfferUseCase>()
     private val getAgentUseCase = mock<GetAgentUseCase>(MockMode.autofill)
     private val getCurrentUserUseCase = mock<GetCurrentUserUseCase>(MockMode.autofill)
     private val listHouseholdMembersUseCase = mock<ListHouseholdMembersUseCase>(MockMode.autofill)
@@ -111,6 +113,7 @@ class ChatSessionViewModelTest {
                 resumeTurnUseCase = resumeTurnUseCase,
                 decideToolProposalUseCase = decideToolProposalUseCase,
                 toggleSecretModeUseCase = toggleSecretModeUseCase,
+                declineSecretOfferUseCase = declineSecretOfferUseCase,
                 getAgentUseCase = getAgentUseCase,
                 getCurrentUserUseCase = getCurrentUserUseCase,
                 listHouseholdMembersUseCase = listHouseholdMembersUseCase,
@@ -134,6 +137,7 @@ class ChatSessionViewModelTest {
         resumeTurnUseCase = resumeTurnUseCase,
         decideToolProposalUseCase = decideToolProposalUseCase,
         toggleSecretModeUseCase = toggleSecretModeUseCase,
+        declineSecretOfferUseCase = declineSecretOfferUseCase,
         getAgentUseCase = getAgentUseCase,
         getCurrentUserUseCase = getCurrentUserUseCase,
         listHouseholdMembersUseCase = listHouseholdMembersUseCase,
@@ -628,6 +632,128 @@ class ChatSessionViewModelTest {
             val state = viewModel.uiState.value
             assertTrue(state.session?.isSecret == true)
             assertEquals(1, state.secretFrom)
+        }
+
+    // ---- the privacy offer (slice 6, P4) ---------------------------------------
+
+    private val agentOffered =
+        listOf(AnswerPart.ToolDone(HubTool.OFFER_SECRET_MODE), AnswerPart.Text("The 14th it is."))
+
+    /** An ordinary chat whose answer to "Don't tell Liam" has just arrived, as [done] ended it. */
+    private fun TestScope.answeredPrivately(done: ChatStreamEvent.Done) {
+        loadedSession()
+        every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf(done)
+        viewModel.sendMessage("Don't tell Liam")
+        advanceUntilIdle()
+    }
+
+    private val offered =
+        ChatStreamEvent.Done(
+            messageId = "m-2",
+            assistantContent = "Your secret's safe.",
+            suggestSecretMode = true,
+            isTurnSecret = true,
+        )
+
+    @Test
+    fun `GIVEN a question the hub judged private WHEN its answer arrives THEN the question reads as private`() =
+        runTest(testDispatcher) {
+            answeredPrivately(offered)
+
+            assertTrue(viewModel.uiState.value.messages.first { it.role == MessageRole.USER }.isPrivate)
+        }
+
+    @Test
+    fun `GIVEN a secret chat WHEN an answer arrives THEN its question is not singled out as private`() =
+        runTest(testDispatcher) {
+            val secret = ConversationSession(id = "s-1", userId = "u-1", isSecret = true)
+            everySuspend { getSessionUseCase("s-1") } returns Pair(secret, emptyList())
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf(offered.copy(suggestSecretMode = false))
+
+            viewModel.sendMessage("Plan his birthday")
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.messages.first { it.role == MessageRole.USER }.isPrivate)
+        }
+
+    @Test
+    fun `GIVEN a question the hub judged private WHEN its answer arrives THEN the chat offers Secret Mode`() =
+        runTest(testDispatcher) {
+            answeredPrivately(offered)
+
+            assertEquals(SecretOffer.Judged, viewModel.uiState.value.secretOffer)
+        }
+
+    @Test
+    fun `GIVEN the agent offered Secret Mode WHEN its answer arrives THEN the offer says the agent noticed`() =
+        runTest(testDispatcher) {
+            answeredPrivately(offered.copy(parts = agentOffered))
+
+            assertEquals(SecretOffer.Agent, viewModel.uiState.value.secretOffer)
+        }
+
+    @Test
+    fun `GIVEN an ordinary answer WHEN it arrives THEN nothing offers Secret Mode`() =
+        runTest(testDispatcher) {
+            answeredPrivately(ChatStreamEvent.Done(messageId = "m-2", assistantContent = "Sure."))
+
+            assertNull(viewModel.uiState.value.secretOffer)
+        }
+
+    @Test
+    fun `GIVEN the agent offering Secret Mode WHEN its step runs THEN no tool is shown running`() =
+        runTest(testDispatcher) {
+            loadedSession()
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
+                flowOf(ChatStreamEvent.ToolExecuting(HubTool.OFFER_SECRET_MODE))
+
+            viewModel.sendMessage("Liam can't find out")
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.activeTool)
+        }
+
+    @Test
+    fun `GIVEN an offer of Secret Mode WHEN the member makes it secret THEN the chat is secret from after the answer`() =
+        runTest(testDispatcher) {
+            answeredPrivately(offered)
+            everySuspend { toggleSecretModeUseCase("s-1", true) } returns
+                ConversationSession(id = "s-1", userId = "u-1", isSecret = true)
+
+            viewModel.acceptSecretOffer()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.session?.isSecret == true)
+            assertEquals(2, state.secretFrom)
+            assertNull(state.secretOffer)
+        }
+
+    @Test
+    fun `GIVEN an offer of Secret Mode WHEN the member says not now THEN the offer goes and the hub is told`() =
+        runTest(testDispatcher) {
+            answeredPrivately(offered)
+            everySuspend { declineSecretOfferUseCase("s-1") } returns Unit
+
+            viewModel.declineSecretOffer()
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.secretOffer)
+            verifySuspend(VerifyMode.exactly(1)) { declineSecretOfferUseCase("s-1") }
+        }
+
+    @Test
+    fun `GIVEN an offer of Secret Mode WHEN the next message is sent THEN the offer goes with it`() =
+        runTest(testDispatcher) {
+            answeredPrivately(offered)
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf()
+
+            viewModel.sendMessage("Anyway, what's for dinner?")
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.secretOffer)
         }
 
     @Test

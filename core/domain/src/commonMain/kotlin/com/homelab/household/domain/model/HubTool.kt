@@ -17,4 +17,10 @@ object HubTool {
 
     /** Not a tool: the step the hub adds before a Remember or Forget card, "Looked through what’s known". */
     const val MEMORY_LOOKUP = "memory_lookup"
+
+    /**
+     * The agent offering Secret Mode because something sounded private. A silent step: it is never
+     * drawn, only read, to word the offer card as the agent noticing.
+     */
+    const val OFFER_SECRET_MODE = "offer_secret_mode"
 }

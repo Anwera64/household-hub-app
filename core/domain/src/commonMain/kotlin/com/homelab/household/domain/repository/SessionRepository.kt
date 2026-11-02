@@ -24,6 +24,9 @@ interface SessionRepository {
         isSecret: Boolean,
     ): ConversationSession
 
+    /** "Not now" on an offer of Secret Mode: the agent stops offering in this chat. */
+    suspend fun declineSecretOffer(sessionId: String)
+
     suspend fun deleteSession(sessionId: String)
 
     /**

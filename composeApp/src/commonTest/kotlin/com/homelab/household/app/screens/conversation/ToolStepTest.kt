@@ -4,19 +4,24 @@ import com.homelab.household.app.icons.HearthIcon
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.tool_calendar_add_declined
 import com.homelab.household.app.resources.tool_calendar_add_done
+import com.homelab.household.app.resources.tool_calendar_add_failed
 import com.homelab.household.app.resources.tool_calendar_change_failed
 import com.homelab.household.app.resources.tool_calendar_read_done
 import com.homelab.household.app.resources.tool_calendar_remove_done
 import com.homelab.household.app.resources.tool_calendar_remove_failed
 import com.homelab.household.app.resources.tool_calendar_write_done
 import com.homelab.household.app.resources.tool_calendar_write_failed
+import com.homelab.household.app.resources.tool_forget_failed
+import com.homelab.household.app.resources.tool_note_create_failed
 import com.homelab.household.app.resources.tool_note_replace_done
 import com.homelab.household.app.resources.tool_reason_blocked
 import com.homelab.household.app.resources.tool_reason_event_not_found
 import com.homelab.household.app.resources.tool_reason_not_found
 import com.homelab.household.app.resources.tool_reason_search_unavailable
+import com.homelab.household.app.resources.tool_reason_secret_mode
 import com.homelab.household.app.resources.tool_reason_site_unavailable
 import com.homelab.household.app.resources.tool_reason_throttled
+import com.homelab.household.app.resources.tool_remember_failed
 import com.homelab.household.app.resources.tool_search_done
 import com.homelab.household.app.resources.tool_search_failed
 import com.homelab.household.domain.model.AnswerPart
@@ -184,6 +189,40 @@ class ToolStepTest {
 
         assertEquals(StepWords.Failed(Res.string.tool_calendar_remove_failed, reason = null), step.words)
         assertTrue(step.failed)
+    }
+
+    @Test
+    fun `GIVEN an add refused in Secret Mode WHEN described THEN it says it couldn't add it because Secret Mode locks it`() {
+        val locked = ToolSummary(action = ToolAction.Create, reason = ToolFailureReason.SecretMode)
+
+        val step = toolStep(AnswerPart.ToolFailed("calendar_write", locked))
+
+        assertEquals(
+            StepWords.Failed(Res.string.tool_calendar_add_failed, Res.string.tool_reason_secret_mode),
+            step.words,
+        )
+        assertTrue(step.failed)
+    }
+
+    @Test
+    fun `GIVEN every write refused in Secret Mode WHEN described THEN each says its own failure and that Secret Mode locks it`() {
+        val writes =
+            listOf(
+                Triple("calendar_write", ToolAction.Update, Res.string.tool_calendar_change_failed),
+                Triple("calendar_write", ToolAction.Delete, Res.string.tool_calendar_remove_failed),
+                Triple("document_writer", ToolAction.Create, Res.string.tool_note_create_failed),
+                Triple("remember", ToolAction.Create, Res.string.tool_remember_failed),
+                Triple("forget", ToolAction.Delete, Res.string.tool_forget_failed),
+            )
+
+        writes.forEach { (tool, action, failed) ->
+            val step =
+                toolStep(
+                    AnswerPart.ToolFailed(tool, ToolSummary(action = action, reason = ToolFailureReason.SecretMode)),
+                )
+
+            assertEquals(StepWords.Failed(failed, Res.string.tool_reason_secret_mode), step.words, "$tool $action")
+        }
     }
 
     @Test
