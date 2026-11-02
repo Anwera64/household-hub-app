@@ -105,6 +105,16 @@ class SecretLockControllerTest {
         }
 
     @Test
+    fun `GIVEN unlocked WHEN Lock now is tapped THEN secret chats lock`() =
+        runTest {
+            val controller = unlockedController()
+
+            controller.lockNow()
+
+            assertFalse(unlocks.holding.value)
+        }
+
+    @Test
     fun `GIVEN unlocked WHEN the member is signed out THEN secret chats lock`() =
         runTest {
             unlockedController()

@@ -42,6 +42,39 @@ class ChatsUiStateProvider : PreviewParameterProvider<ChatsUiState> {
 
     private val all = listOf(dinner, papers, groceries)
 
+    // Two secret chats as the hub sends them with nothing unlocked: no title, no preview.
+    private val anniversary =
+        ConversationSession(
+            id = "s-4",
+            userId = "u-1",
+            title = "",
+            isSecret = true,
+            hasSecretPart = true,
+            isLocked = true,
+            agentAvatar = "🏡",
+            updatedAt = "Yesterday",
+        )
+    private val lisbon = anniversary.copy(id = "s-5", agentAvatar = "📚", updatedAt = "Sun")
+    private val withSecrets = listOf(dinner, anniversary, papers, groceries, lisbon)
+
+    // The same two once the PIN has opened them (canvas ChatsUnlocked).
+    private val unlocked =
+        listOf(
+            dinner,
+            anniversary.copy(
+                title = "Anniversary surprise",
+                lastMessagePreview = "The cabin is free on the 14th — I've kept it off the shared calendar.",
+                isLocked = false,
+            ),
+            papers,
+            groceries,
+            lisbon.copy(
+                title = "Thinking about the Lisbon offer",
+                lastMessagePreview = "The relocation package covers six months of rent, which changes the maths.",
+                isLocked = false,
+            ),
+        )
+
     private val named =
         listOf(
             "The list" to ChatsUiState(visible = all, loaded = true, total = all.size),
@@ -73,6 +106,8 @@ class ChatsUiStateProvider : PreviewParameterProvider<ChatsUiState> {
                     loaded = true,
                     total = 1,
                 ),
+            "Secret chats locked" to ChatsUiState(visible = withSecrets, loaded = true, total = withSecrets.size),
+            "Secret chats unlocked" to ChatsUiState(visible = unlocked, loaded = true, total = unlocked.size),
             // A conversation that outlived its agent: no emoji to draw, and it must not collapse.
             "An agent that is gone" to
                 ChatsUiState(

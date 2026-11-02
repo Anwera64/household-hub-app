@@ -43,6 +43,8 @@ import com.homelab.household.app.resources.chats_search_cancel
 import com.homelab.household.app.resources.chats_search_count
 import com.homelab.household.app.resources.chats_search_footnote
 import com.homelab.household.app.resources.chats_search_placeholder
+import com.homelab.household.app.resources.chats_secret_chip
+import com.homelab.household.app.resources.chats_secret_chip_locked
 import com.homelab.household.app.resources.chats_title
 import com.homelab.household.app.resources.chats_unreachable
 import com.homelab.household.app.theme.HearthTheme
@@ -71,6 +73,8 @@ fun ChatsContent(
     onRetry: () -> Unit,
     tabs: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    onUnlockSecretChats: () -> Unit = {},
+    onLockNow: () -> Unit = {},
 ) {
     val colors = HearthTheme.colors
     val type = HearthTheme.typography
@@ -205,6 +209,16 @@ fun ChatsContent(
                             androidx.compose.foundation.layout
                                 .PaddingValues(HearthTheme.spacing.xl),
                     ) {
+                        state.secretBar?.let { bar ->
+                            item(key = "secret-bar") {
+                                SecretChatsBar(
+                                    bar = bar,
+                                    onUnlock = onUnlockSecretChats,
+                                    onLockNow = onLockNow,
+                                    modifier = Modifier.padding(bottom = HearthTheme.spacing.sm),
+                                )
+                            }
+                        }
                         if (searching) {
                             item {
                                 Text(
@@ -233,6 +247,17 @@ fun ChatsContent(
                                 preview = session.lastMessagePreview,
                                 agentAvatar = session.agentAvatar,
                                 onClick = { onOpen(session.id) },
+                                secretMark =
+                                    when {
+                                        session.isLocked -> stringResource(Res.string.chats_secret_chip_locked)
+
+                                        session.isSecret || session.hasSecretPart -> stringResource(
+                                            Res.string.chats_secret_chip,
+                                        )
+
+                                        else -> null
+                                    },
+                                secretOpen = !session.isLocked,
                             )
                         }
                         if (searching) {

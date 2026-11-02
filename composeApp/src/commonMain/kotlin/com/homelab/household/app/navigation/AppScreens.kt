@@ -26,6 +26,7 @@ import com.homelab.household.app.screens.profilepicker.ProfilePickerScreen
 import com.homelab.household.app.screens.removemember.RemoveMemberScreen
 import com.homelab.household.app.screens.resetpin.NewPinScreen
 import com.homelab.household.app.screens.resetpin.ResetCodeScreen
+import com.homelab.household.app.screens.secretunlock.SecretUnlockScreen
 import com.homelab.household.app.screens.whenagentsact.WhenAgentsActScreen
 import com.homelab.household.domain.model.CalendarProvider
 import com.homelab.household.domain.model.InvitePreview
@@ -108,7 +109,13 @@ interface AppScreens {
         onProfile: () -> Unit,
         onOpen: (String) -> Unit,
         onNewChat: () -> Unit,
+        onUnlockSecretChats: () -> Unit,
         tabs: @Composable () -> Unit,
+    )
+
+    @Composable fun SecretChatsUnlock(
+        onUnlock: () -> Unit,
+        onBack: () -> Unit,
     )
 
     @Composable fun Conversation(
@@ -300,9 +307,18 @@ object RealAppScreens : AppScreens {
         onProfile: () -> Unit,
         onOpen: (String) -> Unit,
         onNewChat: () -> Unit,
+        onUnlockSecretChats: () -> Unit,
         tabs: @Composable () -> Unit,
     ) {
-        ChatsScreen(onOpen = onOpen, onNewChat = onNewChat, tabs = tabs)
+        ChatsScreen(onOpen = onOpen, onNewChat = onNewChat, tabs = tabs, onUnlockSecretChats = onUnlockSecretChats)
+    }
+
+    @Composable
+    override fun SecretChatsUnlock(
+        onUnlock: () -> Unit,
+        onBack: () -> Unit,
+    ) {
+        SecretUnlockScreen(onUnlock = onUnlock, onBack = onBack, allChats = true)
     }
 
     @Composable

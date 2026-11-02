@@ -12,7 +12,7 @@ import kotlin.time.Duration.Companion.minutes
 
 /**
  * When secret chats lock again (locking spec §4.1): ten minutes without the member's own input, the
- * app leaving the screen, or signing out.
+ * app leaving the screen, signing out, or the member locking them.
  *
  * Only [onUserInput] keeps them open. Stream events, polls and syncs never reach this class, so an
  * answer arriving on an unattended phone can't keep a secret chat readable. Locking only forgets the
@@ -51,6 +51,9 @@ class SecretLockController(
 
     /** The app left the screen: backgrounded, or the device locked. */
     fun onAppStopped() = lock()
+
+    /** The member asked: Lock now, on the bar over Chats. */
+    fun lockNow() = lock()
 
     private fun lock() {
         idle?.cancel()

@@ -194,13 +194,26 @@ class StubScreens : AppScreens {
         onProfile: () -> Unit,
         onOpen: (String) -> Unit,
         onNewChat: () -> Unit,
+        onUnlockSecretChats: () -> Unit,
         tabs: @Composable () -> Unit,
     ) {
         Column {
             Text(CHATS)
             Text(OPEN_A_CHAT, modifier = Modifier.clickable { onOpen("s-1") })
             Text(START_A_CHAT, modifier = Modifier.clickable { onNewChat() })
+            Text(UNLOCK_SECRET_CHATS, modifier = Modifier.clickable { onUnlockSecretChats() })
             tabs()
+        }
+    }
+
+    @Composable
+    override fun SecretChatsUnlock(
+        onUnlock: () -> Unit,
+        onBack: () -> Unit,
+    ) {
+        Column {
+            Text(SECRET_CHATS_PIN)
+            Text(UNLOCKED, modifier = Modifier.clickable { onUnlock() })
         }
     }
 
@@ -411,6 +424,9 @@ class StubScreens : AppScreens {
         const val NEW_CONVERSATION = "new conversation screen"
         const val OPEN_A_CHAT = "open a chat"
         const val START_A_CHAT = "start a chat"
+        const val UNLOCK_SECRET_CHATS = "unlock secret chats"
+        const val SECRET_CHATS_PIN = "secret chats pin screen"
+        const val UNLOCKED = "unlocked"
 
         fun conversationOf(sessionId: String) = "conversation screen $sessionId"
 
