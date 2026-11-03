@@ -15,6 +15,7 @@ import com.homelab.household.domain.model.ProposalDetails
 import com.homelab.household.domain.model.RepeatChange
 import com.homelab.household.domain.model.RepeatEvery
 import com.homelab.household.presentation.chatsession.ChatSessionUiState
+import com.homelab.household.presentation.chatsession.SecretPart
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -1479,7 +1480,7 @@ class ConversationScreenTest {
                     session = chat.copy(isSecret = true),
                     messages = listOf(asked, answered),
                     agentName = "Home Coordinator",
-                    secretFrom = 2,
+                    secretParts = listOf(SecretPart(from = 2)),
                 ),
             )
 
@@ -1506,7 +1507,7 @@ class ConversationScreenTest {
                     session = chat.copy(isSecret = true),
                     messages = listOf(asked, answered, secret),
                     agentName = "Home Coordinator",
-                    secretFrom = 2,
+                    secretParts = listOf(SecretPart(from = 2)),
                 ),
             )
 
@@ -1523,7 +1524,7 @@ class ConversationScreenTest {
                     session = chat.copy(isSecret = true),
                     messages = listOf(asked, answered),
                     agentName = "Home Coordinator",
-                    secretFrom = 2,
+                    secretParts = listOf(SecretPart(from = 2)),
                 ),
             )
 
@@ -1541,10 +1542,214 @@ class ConversationScreenTest {
         }
 
     @Test
-    fun `GIVEN a new chat WHEN drawn THEN there is no Secret Mode pill yet`() =
+    fun `GIVEN a new chat WHEN drawn THEN its Secret Mode pill reads off with no marker`() =
         runComposeUiTest {
             conversationScreen(stateNamed("New chat"))
 
-            onConversation { seesNoSecretPill() }
+            onConversation {
+                seesSecretModeOff()
+                seesNoSecretLine()
+            }
+        }
+
+    @Test
+    fun `GIVEN a new chat WHEN its OFF pill is tapped THEN it is asked to start secret`() =
+        runComposeUiTest {
+            var turnedOn = 0
+            conversationScreen(stateNamed("New chat"), onTurnOnSecret = { turnedOn++ })
+
+            onConversation { turnsSecretModeOn() }
+
+            assertEquals(1, turnedOn)
+        }
+
+    @Test
+    fun `GIVEN a new chat set to start secret WHEN drawn THEN the marker sits under the greeting and the message box is private`() =
+        runComposeUiTest {
+            conversationScreen(
+                stateNamed("New chat").copy(startsSecret = true, secretParts = listOf(SecretPart(from = 0))),
+            )
+
+            onConversation {
+                seesSecretModeOn()
+                seesTheSecretMarkerUnderTheGreeting(memberName = "Emma")
+                seesTheComposerDashed(dashed = true)
+                seesThePrivatePlaceholder()
+            }
+        }
+
+    @Test
+    fun `GIVEN a new chat set to start secret WHEN its ON pill is tapped THEN it is asked to turn back off`() =
+        runComposeUiTest {
+            var tapped = 0
+            conversationScreen(
+                stateNamed("New chat").copy(startsSecret = true, secretParts = listOf(SecretPart(from = 0))),
+                onTurnOffSecret = { tapped++ },
+            )
+
+            onConversation { turnsSecretModeOff() }
+
+            assertEquals(1, tapped)
+        }
+
+    // ---- Secret Mode off (slice 6, P2) ---------------------------------------
+
+    private val secretAsk =
+        ChatMessage(
+            id = "m-3",
+            sessionId = "s-1",
+            role = MessageRole.USER,
+            content = "Plan the surprise",
+            isSecret = true,
+        )
+    private val secretAnswer =
+        ChatMessage(
+            id = "m-4",
+            sessionId = "s-1",
+            role = MessageRole.ASSISTANT,
+            content = "Can Pere does a set menu.",
+            isSecret = true,
+        )
+    private val afterwards =
+        ChatMessage(id = "m-5", sessionId = "s-1", role = MessageRole.USER, content = "Add the plumber on Monday")
+
+    private fun withheld(message: ChatMessage) = message.copy(content = "", withheld = true)
+
+    /** The chat turned secret after [answered] and was turned off again after [secretAnswer]. */
+    private fun turnedOff(vararg messages: ChatMessage) =
+        ChatSessionUiState(
+            session = chat,
+            messages = messages.toList(),
+            agentName = "Home Coordinator",
+            secretParts = listOf(SecretPart(from = 2, until = 4)),
+        )
+
+    private val secretNow =
+        ChatSessionUiState(
+            session = chat.copy(isSecret = true),
+            messages = listOf(asked, answered, secretAsk),
+            agentName = "Home Coordinator",
+            secretParts = listOf(SecretPart(from = 2)),
+        )
+
+    @Test
+    fun `GIVEN a secret chat WHEN ON is tapped THEN it is asked to turn off`() =
+        runComposeUiTest {
+            var tapped = 0
+            conversationScreen(secretNow, onTurnOffSecret = { tapped++ })
+
+            onConversation { turnsSecretModeOff() }
+
+            assertEquals(1, tapped)
+        }
+
+    @Test
+    fun `GIVEN ON was tapped WHEN the sheet asks THEN it says what turning off does and what stays locked`() =
+        runComposeUiTest {
+            conversationScreen(secretNow.copy(askingToTurnOffSecret = true))
+
+            onConversation { seesTheTurnOffSheet() }
+        }
+
+    @Test
+    fun `GIVEN the sheet asking WHEN Keep secret is tapped THEN the chat is kept secret`() =
+        runComposeUiTest {
+            var kept = 0
+            conversationScreen(secretNow.copy(askingToTurnOffSecret = true), onKeepSecret = { kept++ })
+
+            onConversation { keepsItSecret() }
+
+            assertEquals(1, kept)
+        }
+
+    @Test
+    fun `GIVEN the sheet asking WHEN Turn off is tapped THEN it turns off and asks again next time`() =
+        runComposeUiTest {
+            val answers = mutableListOf<Boolean>()
+            conversationScreen(secretNow.copy(askingToTurnOffSecret = true), onConfirmSecretOff = { answers += it })
+
+            onConversation { turnsItOff() }
+
+            assertEquals(listOf(false), answers)
+        }
+
+    @Test
+    fun `GIVEN the sheet asking WHEN Don't ask again is ticked and Turn off tapped THEN it turns off and stops asking`() =
+        runComposeUiTest {
+            val answers = mutableListOf<Boolean>()
+            conversationScreen(secretNow.copy(askingToTurnOffSecret = true), onConfirmSecretOff = { answers += it })
+
+            onConversation {
+                ticksDontAskAgain()
+                turnsItOff()
+            }
+
+            assertEquals(listOf(true), answers)
+        }
+
+    @Test
+    fun `GIVEN a chat turned off after an open secret part WHEN drawn THEN markers sit where it turned secret and back`() =
+        runComposeUiTest {
+            conversationScreen(turnedOff(asked, answered, secretAsk, secretAnswer, afterwards))
+
+            onConversation {
+                seesSecretFromHereOnBetween(before = "Dinner with Liam at eight.", after = "Plan the surprise")
+                seesNoLongerSecretBetween(before = "Can Pere does a set menu.", after = "Add the plumber on Monday")
+                seesNoSecretLine()
+            }
+        }
+
+    @Test
+    fun `GIVEN a chat just turned off WHEN drawn THEN the chat is no longer secret from after its last message`() =
+        runComposeUiTest {
+            conversationScreen(turnedOff(asked, answered, secretAsk, secretAnswer))
+
+            onConversation { seesNoLongerSecretBetween(before = "Can Pere does a set menu.", after = null) }
+        }
+
+    @Test
+    fun `GIVEN a chat turned off whose secret part the hub withheld WHEN drawn THEN one locked band stands in for it`() =
+        runComposeUiTest {
+            conversationScreen(turnedOff(asked, answered, withheld(secretAsk), withheld(secretAnswer), afterwards))
+
+            onConversation {
+                seesTheLockedSecretPartBetween(messages = 2, before = "Dinner with Liam at eight.", after = null)
+                seesNoLongerSecretBetween(before = null, after = "Add the plumber on Monday")
+                seesNoSecretFromHereOn()
+            }
+        }
+
+    @Test
+    fun `GIVEN a locked secret part WHEN Unlock is tapped THEN the PIN is asked for`() =
+        runComposeUiTest {
+            var unlocking = 0
+            conversationScreen(
+                turnedOff(asked, answered, withheld(secretAsk), withheld(secretAnswer)),
+                onUnlockSecretPart = { unlocking++ },
+            )
+
+            onConversation { unlocksTheSecretPart() }
+
+            assertEquals(1, unlocking)
+        }
+
+    @Test
+    fun `GIVEN a chat secret again after an earlier secret part WHEN drawn THEN the earlier part reads from here on and the live one keeps its promise`() =
+        runComposeUiTest {
+            val secretAgain = secretAsk.copy(id = "m-6", content = "And the cake")
+            conversationScreen(
+                ChatSessionUiState(
+                    session = chat.copy(isSecret = true),
+                    messages = listOf(asked, answered, secretAsk, secretAnswer, afterwards, secretAgain),
+                    agentName = "Home Coordinator",
+                    secretParts = listOf(SecretPart(from = 2, until = 4), SecretPart(from = 5)),
+                ),
+            )
+
+            onConversation {
+                seesSecretFromHereOnBetween(before = "Dinner with Liam at eight.", after = "Plan the surprise")
+                seesNoLongerSecretBetween(before = "Can Pere does a set menu.", after = "Add the plumber on Monday")
+                seesTheSecretMarkerBetween(before = "Add the plumber on Monday", after = "And the cake")
+            }
         }
 }

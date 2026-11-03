@@ -26,10 +26,15 @@ ktlint = "1.8.0"
 ktlint-gradle = "14.2.0"
 compose-rules = "0.6.8"
 markdown = "0.7.18"
+multiplatform-settings = "1.3.0"
 
 [libraries]
 # Markdown (parser only; answers are drawn in Hearth's own styles)
 jetbrains-markdown = { module = "org.jetbrains:markdown", version.ref = "markdown" }
+
+# Small choices kept on the phone across restarts: SharedPreferences, NSUserDefaults, Java Preferences
+multiplatform-settings = { module = "com.russhwolf:multiplatform-settings", version.ref = "multiplatform-settings" }
+multiplatform-settings-test = { module = "com.russhwolf:multiplatform-settings-test", version.ref = "multiplatform-settings" }
 
 # Coroutines
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }

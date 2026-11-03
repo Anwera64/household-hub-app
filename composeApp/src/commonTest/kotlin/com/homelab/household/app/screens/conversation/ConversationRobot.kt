@@ -75,6 +75,17 @@ import com.homelab.household.app.resources.memories_tab_household_plain
 import com.homelab.household.app.resources.memories_tab_yours_plain
 import com.homelab.household.app.resources.profile_memories_to_check
 import com.homelab.household.app.resources.secret_marker
+import com.homelab.household.app.resources.secret_marker_ended
+import com.homelab.household.app.resources.secret_marker_from_here
+import com.homelab.household.app.resources.secret_off_confirm
+import com.homelab.household.app.resources.secret_off_dont_ask
+import com.homelab.household.app.resources.secret_off_from_here
+import com.homelab.household.app.resources.secret_off_keep
+import com.homelab.household.app.resources.secret_off_stays_locked
+import com.homelab.household.app.resources.secret_off_title
+import com.homelab.household.app.resources.secret_part_locked
+import com.homelab.household.app.resources.secret_part_title
+import com.homelab.household.app.resources.secret_part_unlock
 import com.homelab.household.app.resources.send_message
 import com.homelab.household.app.resources.steps_label_and
 import com.homelab.household.app.resources.steps_label_failed
@@ -1003,19 +1014,95 @@ class ConversationRobot(
         test.onNodeWithContentDescription(getString(Res.string.a11y_secret_on)).assertIsDisplayed()
     }
 
-    suspend fun seesNoSecretPill() {
-        test.onNodeWithContentDescription(getString(Res.string.a11y_secret_off)).assertDoesNotExist()
-        test.onNodeWithContentDescription(getString(Res.string.a11y_secret_on)).assertDoesNotExist()
+    suspend fun seesSecretModeOff() {
+        test.onNodeWithContentDescription(getString(Res.string.a11y_secret_off)).assertIsDisplayed()
     }
+
+    /** A new chat that starts secret: its marker sits under the agent's greeting. */
+    suspend fun seesTheSecretMarkerUnderTheGreeting(memberName: String) =
+        seesBetween(getString(Res.string.secret_marker), getString(Res.string.conversation_greeting, memberName), null)
 
     /** The hairline where the chat turned secret sits between [before] and [after]. */
     suspend fun seesTheSecretMarkerBetween(
-        before: String,
+        before: String?,
+        after: String?,
+    ) = seesBetween(getString(Res.string.secret_marker), before, after)
+
+    // ---- Secret Mode off (slice 6, P2) ---------------------------------------
+
+    suspend fun turnsSecretModeOff() {
+        test.onNodeWithContentDescription(getString(Res.string.a11y_secret_on)).performClick()
+    }
+
+    /** The sheet says what turning it off does, and what stays locked. */
+    suspend fun seesTheTurnOffSheet() {
+        listOf(
+            Res.string.secret_off_title,
+            Res.string.secret_off_from_here,
+            Res.string.secret_off_stays_locked,
+            Res.string.secret_off_dont_ask,
+            Res.string.secret_off_keep,
+            Res.string.secret_off_confirm,
+        ).forEach { test.onNodeWithText(getString(it)).assertIsDisplayed() }
+    }
+
+    suspend fun keepsItSecret() {
+        test.onNodeWithText(getString(Res.string.secret_off_keep)).performClick()
+        test.waitForIdle()
+    }
+
+    suspend fun ticksDontAskAgain() {
+        test.onNodeWithText(getString(Res.string.secret_off_dont_ask)).performClick()
+    }
+
+    suspend fun turnsItOff() {
+        test.onNodeWithText(getString(Res.string.secret_off_confirm)).performClick()
+        test.waitForIdle()
+    }
+
+    /** "Secret from here on", where an earlier secret part that is open starts. */
+    suspend fun seesSecretFromHereOnBetween(
+        before: String?,
+        after: String?,
+    ) = seesBetween(getString(Res.string.secret_marker_from_here), before, after)
+
+    /** "No longer secret from here", where the chat stopped being secret. */
+    suspend fun seesNoLongerSecretBetween(
+        before: String?,
+        after: String?,
+    ) = seesBetween(getString(Res.string.secret_marker_ended), before, after)
+
+    suspend fun seesNoSecretLine() {
+        test.onNodeWithText(getString(Res.string.secret_marker)).assertDoesNotExist()
+    }
+
+    suspend fun seesNoSecretFromHereOn() {
+        test.onNodeWithText(getString(Res.string.secret_marker_from_here)).assertDoesNotExist()
+    }
+
+    /** One locked band in place of the secret part, counting what it holds, between [before] and [after]. */
+    suspend fun seesTheLockedSecretPartBetween(
+        messages: Int,
+        before: String?,
         after: String?,
     ) {
-        val marker = test.onNodeWithText(getString(Res.string.secret_marker)).getUnclippedBoundsInRoot()
-        assertTrue(test.onNodeWithText(before).getUnclippedBoundsInRoot().bottom <= marker.top)
-        if (after != null) assertTrue(marker.bottom <= test.onNodeWithText(after).getUnclippedBoundsInRoot().top)
+        test.onNodeWithText(getString(Res.string.secret_part_locked)).assertIsDisplayed()
+        seesBetween(getPluralString(Res.plurals.secret_part_title, messages, messages), before, after)
+    }
+
+    suspend fun unlocksTheSecretPart() {
+        test.onNodeWithText(getString(Res.string.secret_part_unlock)).performClick()
+    }
+
+    /** [text] sits below [before] and above [after]; a null side is not checked. */
+    private fun seesBetween(
+        text: String,
+        before: String?,
+        after: String?,
+    ) {
+        val line = test.onNodeWithText(text).getUnclippedBoundsInRoot()
+        if (before != null) assertTrue(test.onNodeWithText(before).getUnclippedBoundsInRoot().bottom <= line.top)
+        if (after != null) assertTrue(line.bottom <= test.onNodeWithText(after).getUnclippedBoundsInRoot().top)
     }
 
     /** A secret chat's message box is outlined in dashes; an ordinary one in a solid line. */
@@ -1069,6 +1156,10 @@ fun ComposeUiTest.conversationScreen(
     onUndoAutomatic: () -> Unit = {},
     onLookedOver: () -> Unit = {},
     onTurnOnSecret: () -> Unit = {},
+    onTurnOffSecret: () -> Unit = {},
+    onKeepSecret: () -> Unit = {},
+    onConfirmSecretOff: (dontAskAgain: Boolean) -> Unit = {},
+    onUnlockSecretPart: () -> Unit = {},
     memoryAge: (Instant) -> MemoryAge? = { MemoryAge.Month(MARCH) },
     eventTime: (EventTime) -> LocalEventTime? = { localEventTime(it.startsAt, offsetSeconds = 0, it.allDay) },
 ) {
@@ -1088,6 +1179,10 @@ fun ComposeUiTest.conversationScreen(
                 onUndoAutomatic = onUndoAutomatic,
                 onLookedOver = onLookedOver,
                 onTurnOnSecret = onTurnOnSecret,
+                onTurnOffSecret = onTurnOffSecret,
+                onKeepSecret = onKeepSecret,
+                onConfirmSecretOff = onConfirmSecretOff,
+                onUnlockSecretPart = onUnlockSecretPart,
                 memoryAge = memoryAge,
                 eventTime = eventTime,
                 onBack = {},

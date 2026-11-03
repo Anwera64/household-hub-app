@@ -86,6 +86,8 @@ kotlin {
                 implementation(libs.opentelemetry.kotlin.implementation)
                 implementation(libs.opentelemetry.kotlin.exporters.otlp)
                 implementation(libs.ktor.client.encoding)
+                // A member's choices on this phone, such as "Don't ask again" before Secret Mode turns off.
+                api(libs.multiplatform.settings)
             }
         }
         commonTest.dependencies {
@@ -93,6 +95,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
             implementation(libs.turbine)
+            implementation(libs.multiplatform.settings.test)
         }
         jvmTest.dependencies {
             implementation(libs.junit.jupiter)

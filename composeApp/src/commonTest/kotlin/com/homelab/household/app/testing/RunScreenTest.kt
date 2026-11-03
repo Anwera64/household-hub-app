@@ -8,6 +8,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import org.koin.core.context.stopKoin
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 
 /**
  * Runs one composition of a screen.
@@ -20,13 +22,20 @@ import org.koin.core.context.stopKoin
  *   stopping it here a second composition silently resolves the first one's fakes.
  *
  * It is a function rather than a base class so a single test can compose more than once.
+ *
+ * The test runtime runs effects eagerly, before the frame is measured, where a phone runs them
+ * after. A screen whose effects react to its own layout, like the transcript following a new row,
+ * passes a queued [effectContext] (`StandardTestDispatcher()`) to run them in the phone's order.
  */
 @OptIn(ExperimentalTestApi::class, ExperimentalCoroutinesApi::class)
-fun runScreenTest(block: suspend ComposeUiTest.() -> Unit) {
+fun runScreenTest(
+    effectContext: CoroutineContext = EmptyCoroutineContext,
+    block: suspend ComposeUiTest.() -> Unit,
+) {
     Dispatchers.setMain(Dispatchers.Unconfined)
     stopKoin()
     try {
-        runComposeUiTest { block() }
+        runComposeUiTest(effectContext = effectContext) { block() }
     } finally {
         stopKoin()
         Dispatchers.resetMain()

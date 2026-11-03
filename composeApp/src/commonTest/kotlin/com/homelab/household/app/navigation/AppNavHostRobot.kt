@@ -100,6 +100,10 @@ class AppNavHostRobot(
 
     fun tapsUnlocked() = tapsText(StubScreens.UNLOCKED)
 
+    fun tapsUnlockTheSecretPart() = tapsText(StubScreens.UNLOCK_SECRET_PART)
+
+    fun tapsBackFromThePin() = tapsText(StubScreens.BACK_FROM_PIN)
+
     fun tapsSignedIn() = tapsText(StubScreens.SIGNED_IN)
 
     fun tapsHaveAnInvite() = tapsText(StubScreens.HAVE_AN_INVITE)

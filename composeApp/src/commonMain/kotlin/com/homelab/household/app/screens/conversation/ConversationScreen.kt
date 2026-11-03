@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.ResultEffect
 import com.homelab.household.app.navigation.CalendarConnected
+import com.homelab.household.app.navigation.SecretChatsUnlocked
 import com.homelab.household.app.screens.secretunlock.SecretUnlockScreen
 import com.homelab.household.presentation.chatsession.ChatSessionViewModel
 import com.homelab.household.presentation.profile.ProfileViewModel
@@ -33,6 +34,7 @@ fun ConversationScreen(
     modifier: Modifier = Modifier,
     onConnectCalendar: () -> Unit = {},
     onAllMemories: () -> Unit = {},
+    onUnlockSecretChats: () -> Unit = {},
 ) {
     val viewModel: ChatSessionViewModel = koinViewModel()
     val profileViewModel: ProfileViewModel = koinViewModel()
@@ -44,6 +46,8 @@ fun ConversationScreen(
     LaunchedEffect(viewModel) { viewModel.onShown() }
     // Back from connecting a calendar from a fix card: the hub has marked those steps fixed.
     ResultEffect<CalendarConnected> { viewModel.refresh() }
+    // Back from the secret chats PIN pad, opened from a locked secret part: it opens in place.
+    ResultEffect<SecretChatsUnlocked> { viewModel.unlocked() }
     LifecycleResumeEffect(viewModel) {
         viewModel.onForeground()
         onPauseOrDispose {}
@@ -88,6 +92,10 @@ fun ConversationScreen(
         onUndoAutomatic = viewModel::undoAutomatic,
         onLookedOver = { lookingOver = true },
         onTurnOnSecret = { viewModel.toggleSecret(true) },
+        onTurnOffSecret = viewModel::secretPillTapped,
+        onKeepSecret = viewModel::keepSecret,
+        onConfirmSecretOff = viewModel::turnOffSecret,
+        onUnlockSecretPart = onUnlockSecretChats,
         memoryAge = viewModel::memoryAge,
         eventTime = viewModel::eventTime,
         modifier = modifier,

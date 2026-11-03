@@ -2,6 +2,7 @@ package com.homelab.household.data.di
 
 import com.homelab.household.data.BuildConfig
 import com.homelab.household.data.datasource.local.AuthEventsLocalDataSource
+import com.homelab.household.data.datasource.local.SecretPreferencesLocalDataSource
 import com.homelab.household.data.datasource.local.SecretUnlockLocalDataSource
 import com.homelab.household.data.datasource.local.SessionCacheLocalDataSource
 import com.homelab.household.data.datasource.local.StoredSessionLocalDataSource
@@ -41,6 +42,7 @@ import com.homelab.household.data.repository.AuthRepositoryImpl
 import com.homelab.household.data.repository.CalendarRepositoryImpl
 import com.homelab.household.data.repository.MembersRepositoryImpl
 import com.homelab.household.data.repository.MemoryRepositoryImpl
+import com.homelab.household.data.repository.SecretPreferencesRepositoryImpl
 import com.homelab.household.data.repository.SecretUnlockRepositoryImpl
 import com.homelab.household.data.repository.ServerStatusRepositoryImpl
 import com.homelab.household.data.repository.SessionRepositoryImpl
@@ -56,6 +58,7 @@ import com.homelab.household.domain.repository.AuthRepository
 import com.homelab.household.domain.repository.CalendarRepository
 import com.homelab.household.domain.repository.MembersRepository
 import com.homelab.household.domain.repository.MemoryRepository
+import com.homelab.household.domain.repository.SecretPreferencesRepository
 import com.homelab.household.domain.repository.SecretUnlockRepository
 import com.homelab.household.domain.repository.ServerStatusRepository
 import com.homelab.household.domain.repository.SessionRepository
@@ -137,6 +140,8 @@ val dataModule =
         single { AuthEventsLocalDataSource() }
         single { SessionCacheLocalDataSource() }
         single { SecretUnlockLocalDataSource() }
+        // The platform's own small store comes from the platform module.
+        single { SecretPreferencesLocalDataSource(get()) }
         single<SecretUnlockRemoteDataSource> { KtorSecretUnlockRemoteDataSource(get(), get<HubConfig>().baseUrl) }
         single<AuthRemoteDataSource> { KtorAuthRemoteDataSource(get(), get<HubConfig>().baseUrl) }
         single<MembersRemoteDataSource> { KtorMembersRemoteDataSource(get(), get<HubConfig>().baseUrl) }
@@ -153,6 +158,7 @@ val dataModule =
         single<MembersRepository> { MembersRepositoryImpl(get(), get()) }
         single<SessionRepository> { SessionRepositoryImpl(get(), get(), get()) }
         single<SecretUnlockRepository> { SecretUnlockRepositoryImpl(get(), get()) }
+        single<SecretPreferencesRepository> { SecretPreferencesRepositoryImpl(get()) }
         single<ServerStatusRepository> { ServerStatusRepositoryImpl(get()) }
         single<AgentRepository> { AgentRepositoryImpl(get()) }
         single<SpaceRepository> { SpaceRepositoryImpl(get()) }

@@ -24,6 +24,7 @@ import com.homelab.household.domain.model.ToolFailureReason
 import com.homelab.household.domain.model.ToolSource
 import com.homelab.household.domain.model.ToolSummary
 import com.homelab.household.domain.model.User
+import com.homelab.household.domain.usecase.AsksBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.CreateSessionUseCase
 import com.homelab.household.domain.usecase.DecideToolProposalUseCase
 import com.homelab.household.domain.usecase.GetAgentUseCase
@@ -34,6 +35,7 @@ import com.homelab.household.domain.usecase.ListHouseholdMembersUseCase
 import com.homelab.household.domain.usecase.RegenerateAnswerUseCase
 import com.homelab.household.domain.usecase.ResumeTurnUseCase
 import com.homelab.household.domain.usecase.SetToolApprovalUseCase
+import com.homelab.household.domain.usecase.StopAskingBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.StreamChatTurnUseCase
 import com.homelab.household.domain.usecase.ToggleSecretModeUseCase
 import com.homelab.household.presentation.memories.LocalEventTime
@@ -93,6 +95,8 @@ class ChatSessionViewModelTest {
     private val getCurrentUserUseCase = mock<GetCurrentUserUseCase>(MockMode.autofill)
     private val listHouseholdMembersUseCase = mock<ListHouseholdMembersUseCase>(MockMode.autofill)
     private val setToolApprovalUseCase = mock<SetToolApprovalUseCase>(MockMode.autofill)
+    private val asksBeforeSecretOff = mock<AsksBeforeSecretOffUseCase>()
+    private val stopAskingBeforeSecretOff = mock<StopAskingBeforeSecretOffUseCase>(MockMode.autoUnit)
 
     private lateinit var viewModel: ChatSessionViewModel
     private var memberInputs = 0
@@ -116,6 +120,8 @@ class ChatSessionViewModelTest {
                 listHouseholdMembersUseCase = listHouseholdMembersUseCase,
                 setToolApprovalUseCase = setToolApprovalUseCase,
                 deviceTimeZone = { ONE_HOUR },
+                asksBeforeSecretOff = asksBeforeSecretOff,
+                stopAskingBeforeSecretOff = stopAskingBeforeSecretOff,
                 onMemberInput = { memberInputs++ },
                 secretLocks = secretLocks,
             )
@@ -610,7 +616,7 @@ class ChatSessionViewModelTest {
             val state = viewModel.uiState.value
             assertFalse(state.isLocked)
             assertEquals(listOf("m-9"), state.messages.map { it.id })
-            assertEquals(0, state.secretFrom)
+            assertEquals(listOf(SecretPart(from = 0)), state.secretParts)
         }
 
     @Test
@@ -627,7 +633,7 @@ class ChatSessionViewModelTest {
 
             val state = viewModel.uiState.value
             assertTrue(state.session?.isSecret == true)
-            assertEquals(1, state.secretFrom)
+            assertEquals(listOf(SecretPart(from = 1)), state.secretParts)
         }
 
     @Test
@@ -639,7 +645,7 @@ class ChatSessionViewModelTest {
             viewModel.loadSession("s-1")
             advanceUntilIdle()
 
-            assertEquals(1, viewModel.uiState.value.secretFrom)
+            assertEquals(listOf(SecretPart(from = 1)), viewModel.uiState.value.secretParts)
         }
 
     @Test
@@ -690,6 +696,233 @@ class ChatSessionViewModelTest {
             advanceUntilIdle()
 
             assertEquals(2, memberInputs)
+        }
+
+    // ---- Secret Mode off (slice 6, P2) --------------------------------------
+
+    private val ordinaryAfter =
+        ChatMessage(id = "m-12", sessionId = "s-1", role = MessageRole.USER, content = "Add the plumber")
+
+    private val secretChat = ConversationSession(id = "s-1", userId = "u-1", isSecret = true)
+
+    /** A chat that turned secret after [question] and is open on the secret part. */
+    private fun TestScope.openSecretChat() {
+        everySuspend { getSessionUseCase("s-1") } returns Pair(secretChat, listOf(question, secretQuestion))
+        viewModel.loadSession("s-1")
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `GIVEN a secret chat and a member who is asked first WHEN ON is tapped THEN the sheet asks and nothing turns off yet`() =
+        runTest(testDispatcher) {
+            openSecretChat()
+            everySuspend { asksBeforeSecretOff() } returns true
+
+            viewModel.secretPillTapped()
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.askingToTurnOffSecret)
+            verifySuspend(VerifyMode.not) { toggleSecretModeUseCase(any(), any()) }
+        }
+
+    @Test
+    fun `GIVEN a member who ticked Don't ask again WHEN ON is tapped THEN Secret Mode turns off with no sheet`() =
+        runTest(testDispatcher) {
+            openSecretChat()
+            everySuspend { asksBeforeSecretOff() } returns false
+            everySuspend { toggleSecretModeUseCase("s-1", false) } returns secretChat.copy(isSecret = false)
+
+            viewModel.secretPillTapped()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.askingToTurnOffSecret)
+            assertEquals(false, viewModel.uiState.value.session?.isSecret)
+        }
+
+    @Test
+    fun `GIVEN the sheet asking WHEN Keep secret is tapped THEN it closes and the chat stays secret`() =
+        runTest(testDispatcher) {
+            openSecretChat()
+            everySuspend { asksBeforeSecretOff() } returns true
+            viewModel.secretPillTapped()
+            advanceUntilIdle()
+
+            viewModel.keepSecret()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.askingToTurnOffSecret)
+            assertEquals(true, viewModel.uiState.value.session?.isSecret)
+            verifySuspend(VerifyMode.not) { toggleSecretModeUseCase(any(), any()) }
+        }
+
+    @Test
+    fun `GIVEN the sheet asking WHEN Turn off is tapped THEN the hub turns it off and the sheet closes`() =
+        runTest(testDispatcher) {
+            openSecretChat()
+            everySuspend { asksBeforeSecretOff() } returns true
+            everySuspend { toggleSecretModeUseCase("s-1", false) } returns secretChat.copy(isSecret = false)
+            viewModel.secretPillTapped()
+            advanceUntilIdle()
+
+            viewModel.turnOffSecret(dontAskAgain = false)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.askingToTurnOffSecret)
+            assertEquals(false, state.session?.isSecret)
+            verifySuspend(VerifyMode.not) { stopAskingBeforeSecretOff() }
+        }
+
+    @Test
+    fun `GIVEN the sheet asking WHEN Turn off is tapped with Don't ask again ticked THEN the phone stops asking`() =
+        runTest(testDispatcher) {
+            openSecretChat()
+            everySuspend { asksBeforeSecretOff() } returns true
+            everySuspend { toggleSecretModeUseCase("s-1", false) } returns secretChat.copy(isSecret = false)
+            viewModel.secretPillTapped()
+            advanceUntilIdle()
+
+            viewModel.turnOffSecret(dontAskAgain = true)
+            advanceUntilIdle()
+
+            verifySuspend(VerifyMode.exactly(1)) { stopAskingBeforeSecretOff() }
+        }
+
+    @Test
+    fun `GIVEN a chat that turned secret after its first message WHEN Secret Mode is turned off THEN its secret part ends where it was turned off`() =
+        runTest(testDispatcher) {
+            openSecretChat()
+            everySuspend { toggleSecretModeUseCase("s-1", false) } returns secretChat.copy(isSecret = false)
+
+            viewModel.turnOffSecret(dontAskAgain = false)
+            advanceUntilIdle()
+
+            assertEquals(listOf(SecretPart(from = 1, until = 2)), viewModel.uiState.value.secretParts)
+        }
+
+    @Test
+    fun `GIVEN a chat made secret with nothing said since WHEN Secret Mode is turned off THEN no secret part is left`() =
+        runTest(testDispatcher) {
+            val ordinary = ConversationSession(id = "s-1", userId = "u-1")
+            everySuspend { getSessionUseCase("s-1") } returns Pair(ordinary, listOf(question))
+            everySuspend { toggleSecretModeUseCase("s-1", true) } returns ordinary.copy(isSecret = true)
+            everySuspend { toggleSecretModeUseCase("s-1", false) } returns ordinary
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+            viewModel.toggleSecret(true)
+            advanceUntilIdle()
+
+            viewModel.turnOffSecret(dontAskAgain = false)
+            advanceUntilIdle()
+
+            assertEquals(emptyList(), viewModel.uiState.value.secretParts)
+        }
+
+    @Test
+    fun `GIVEN a chat turned off after a secret stretch WHEN it is opened THEN the secret part runs over the secret messages only`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(secretChat.copy(isSecret = false), listOf(question, secretQuestion, ordinaryAfter))
+
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            assertEquals(listOf(SecretPart(from = 1, until = 2)), viewModel.uiState.value.secretParts)
+        }
+
+    @Test
+    fun `GIVEN a chat made secret twice and secret now WHEN it is opened THEN each stretch is a part and the last runs on`() =
+        runTest(testDispatcher) {
+            val secretAgain = secretQuestion.copy(id = "m-13", content = "And the cake")
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(secretChat, listOf(question, secretQuestion, ordinaryAfter, secretAgain))
+
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(SecretPart(from = 1, until = 2), SecretPart(from = 3)),
+                viewModel.uiState.value.secretParts,
+            )
+        }
+
+    @Test
+    fun `GIVEN a chat turned off right after its secret part WHEN it is opened THEN the part ends at the last message`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(secretChat.copy(isSecret = false), listOf(question, secretQuestion))
+
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            assertEquals(listOf(SecretPart(from = 1, until = 2)), viewModel.uiState.value.secretParts)
+        }
+
+    private val withheldQuestion = secretQuestion.copy(content = "", withheld = true)
+
+    /** A chat turned off after a secret stretch the hub withholds, opened without the unlock. */
+    private fun TestScope.openTurnedOffLocked() {
+        everySuspend { getSessionUseCase("s-1") } returns
+            Pair(secretChat.copy(isSecret = false), listOf(question, withheldQuestion, ordinaryAfter))
+        viewModel.open("s-1")
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `GIVEN a locked secret part WHEN the PIN opens secret chats THEN the chat is read again with the part in place`() =
+        runTest(testDispatcher) {
+            openTurnedOffLocked()
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(secretChat.copy(isSecret = false), listOf(question, secretQuestion, ordinaryAfter))
+
+            viewModel.unlocked()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(
+                listOf("Dinner Saturday?", "Plan the surprise", "Add the plumber"),
+                state.messages.map {
+                    it.content
+                },
+            )
+        }
+
+    @Test
+    fun `GIVEN a turned off chat with its secret part open WHEN secret chats lock THEN the part folds back and the rest stays`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(secretChat.copy(isSecret = false), listOf(question, secretQuestion, ordinaryAfter))
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            secretLocks.emit(Unit)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isLocked)
+            assertEquals(listOf("Dinner Saturday?", "", "Add the plumber"), state.messages.map { it.content })
+            assertEquals(listOf(false, true, false), state.messages.map { it.withheld })
+        }
+
+    @Test
+    fun `GIVEN a chat just turned off with its secret words on screen WHEN secret chats lock THEN those words fold away`() =
+        runTest(testDispatcher) {
+            val said = question.copy(id = "m-14", content = "Find a restaurant near the cabin")
+            everySuspend { getSessionUseCase("s-1") } returns Pair(secretChat, emptyList())
+            every { streamChatTurnUseCase("s-1", said.content, any()) } returns
+                flowOf(ChatStreamEvent.Done(messageId = "m-15", assistantContent = "Can Pere."))
+            everySuspend { toggleSecretModeUseCase("s-1", false) } returns secretChat.copy(isSecret = false)
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+            viewModel.sendMessage(said.content)
+            advanceUntilIdle()
+            viewModel.turnOffSecret(dontAskAgain = false)
+            advanceUntilIdle()
+
+            secretLocks.emit(Unit)
+            advanceUntilIdle()
+
+            assertEquals(listOf("", ""), viewModel.uiState.value.messages.map { it.content })
         }
 
     // ---- auto-approve from the card (slice 4, PR 5) -------------------------
@@ -1985,6 +2218,55 @@ class ChatSessionViewModelTest {
 
             verifySuspend { createSessionUseCase("agent-research", any(), any()) }
             assertFalse(viewModel.uiState.value.canChangeAgent)
+        }
+
+    @Test
+    fun `GIVEN a new chat WHEN its OFF pill is tapped THEN it will start secret with nothing asked of the hub`() =
+        runTest(testDispatcher) {
+            newChatWithAgents()
+
+            viewModel.toggleSecret(true)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isSecret)
+            assertEquals(listOf(SecretPart(from = 0)), state.secretParts)
+            verifySuspend(VerifyMode.not) { toggleSecretModeUseCase(any(), any()) }
+        }
+
+    @Test
+    fun `GIVEN a new chat set to start secret WHEN its ON pill is tapped THEN it turns back off at once with no sheet`() =
+        runTest(testDispatcher) {
+            newChatWithAgents()
+            viewModel.toggleSecret(true)
+            advanceUntilIdle()
+
+            viewModel.secretPillTapped()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isSecret)
+            assertFalse(state.askingToTurnOffSecret)
+            assertEquals(emptyList(), state.secretParts)
+            verifySuspend(VerifyMode.not) { asksBeforeSecretOff() }
+        }
+
+    @Test
+    fun `GIVEN a new chat set to start secret WHEN the first message is sent THEN the chat is created secret`() =
+        runTest(testDispatcher) {
+            newChatWithAgents()
+            everySuspend { createSessionUseCase(any(), any(), any()) } returns
+                ConversationSession(id = "s-new", userId = "user-emma", agentId = "agent-coord", isSecret = true)
+            every { streamChatTurnUseCase("s-new", "Hi", any()) } returns
+                flowOf(ChatStreamEvent.Done(messageId = "m-1", assistantContent = "Hello"))
+            viewModel.toggleSecret(true)
+            advanceUntilIdle()
+
+            viewModel.sendMessage("Hi")
+            advanceUntilIdle()
+
+            verifySuspend { createSessionUseCase("agent-coord", any(), true) }
+            assertEquals(listOf(SecretPart(from = 0)), viewModel.uiState.value.secretParts)
         }
 
     @Test

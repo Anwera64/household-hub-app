@@ -123,6 +123,7 @@ interface AppScreens {
         onBack: () -> Unit,
         onConnectCalendar: () -> Unit,
         onAllMemories: () -> Unit,
+        onUnlockSecretChats: () -> Unit,
     )
 
     @Composable fun Profile(
@@ -327,12 +328,14 @@ object RealAppScreens : AppScreens {
         onBack: () -> Unit,
         onConnectCalendar: () -> Unit,
         onAllMemories: () -> Unit,
+        onUnlockSecretChats: () -> Unit,
     ) {
         ConversationScreen(
             sessionId = sessionId,
             onBack = onBack,
             onConnectCalendar = onConnectCalendar,
             onAllMemories = onAllMemories,
+            onUnlockSecretChats = onUnlockSecretChats,
         )
     }
 

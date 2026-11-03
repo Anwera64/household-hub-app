@@ -1,5 +1,6 @@
 package com.homelab.household.app.screens.conversation
 
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewParameter
+import androidx.compose.ui.unit.IntOffset
 import com.homelab.household.app.components.AnswerText
 import com.homelab.household.app.components.HearthScaffold
 import com.homelab.household.app.components.HearthTopBar
@@ -61,6 +63,8 @@ import com.homelab.household.app.resources.conversation_still_working
 import com.homelab.household.app.resources.conversation_still_working_detail
 import com.homelab.household.app.resources.conversation_thought
 import com.homelab.household.app.resources.conversation_try_again
+import com.homelab.household.app.resources.secret_marker_ended
+import com.homelab.household.app.resources.secret_marker_from_here
 import com.homelab.household.app.resources.tool_card_hold
 import com.homelab.household.app.theme.HearthTheme
 import com.homelab.household.app.theme.LocalHearthMotion
@@ -87,8 +91,9 @@ const val CONVERSATION_TRANSCRIPT_TAG = "ConversationTranscript"
 
 /** The Undo line's place in the transcript, which no message id can take. */
 private const val MADE_AUTOMATIC_KEY = "made-automatic"
-private const val LOOKED_OVER_KEY = "looked-over"
-private const val SECRET_MARKER_KEY = "secret-marker"
+
+/** The answer being written, as the end of the transcript; its item has no key of its own. */
+private const val TURN_KEY = "turn"
 
 /**
  * A conversation, and a new one — the same screen.
@@ -124,6 +129,14 @@ fun ConversationContent(
     onLookedOver: () -> Unit = {},
     /** The header's OFF pill: make this chat secret from here on. */
     onTurnOnSecret: () -> Unit = {},
+    /** The header's ON pill: turn Secret Mode off, after the sheet unless the member said not to ask. */
+    onTurnOffSecret: () -> Unit = {},
+    /** "Keep secret" on that sheet, or the sheet dismissed. */
+    onKeepSecret: () -> Unit = {},
+    /** "Turn off" on that sheet, with whether "Don't ask again" was ticked. */
+    onConfirmSecretOff: (dontAskAgain: Boolean) -> Unit = {},
+    /** Unlock on a locked secret part: the PIN, then the part opens in place. */
+    onUnlockSecretPart: () -> Unit = {},
     /** When a stored memory on a Remember or Forget card was noted. */
     memoryAge: (Instant) -> MemoryAge? = { null },
     /** The day and time a card's event memory adds to its title, on this phone. */
@@ -160,16 +173,14 @@ fun ConversationContent(
     // be asked about what was there before this change.
     var seenCount by remember { mutableIntStateOf(0) }
 
+    // What the transcript ended on then: the answer being written, or its last row.
+    var seenEnd by remember { mutableStateOf<Any?>(null) }
+
     // Counted from the state rather than read off the layout, because the first pass runs before
     // there is any layout to read and the answer is already on screen by then.
     val turnIsDrawn = state.streamingMessage != null || state.turnState == TurnState.Failed
     val lookedOverDrawn = state.session?.lookedOver != null && state.lookedOverAt != null
-    val secret = state.session?.isSecret == true
-    // Where the chat turned secret, kept inside the transcript; the marker is drawn there.
-    val secretAt = state.secretFrom?.takeIf { secret }?.coerceIn(0, state.messages.size)
-    val itemCount =
-        state.messages.size + (if (turnIsDrawn) 1 else 0) + (if (lookedOverDrawn) 1 else 0) +
-            if (secretAt != null) 1 else 0
+    val secret = state.isSecret
 
     // How many messages come before the look-over line: through the last one it read, or all of them
     // when that message isn't in the transcript.
@@ -177,6 +188,11 @@ fun ConversationContent(
         state.session?.lookedOver?.let { line ->
             state.messages.indexOfLast { it.id == line.throughMessageId }.takeIf { it >= 0 }?.plus(1)
         } ?: state.messages.size
+
+    // The messages with the look-over line, the secret markers and any locked part between them.
+    val rows = transcriptRows(state.messages, state.secretParts, lookedOverCut.takeIf { lookedOverDrawn })
+    val itemCount = rows.size + if (turnIsDrawn) 1 else 0
+    val end = if (turnIsDrawn) TURN_KEY else rows.lastOrNull()?.key
 
     // An answer arrives faster than anyone reads it, and it arrives at the bottom: without this the
     // words land below the fold and the screen sits still while the agent talks.
@@ -209,12 +225,17 @@ fun ConversationContent(
                 .lastOrNull()
                 ?.index
         val atEnd = lastVisible == null || lastVisible >= seenCount - 1
+        // Rows that came or went above the end, like a secret part opening or folding back, are not
+        // new talk. The list keeps its place by key, and following would snap the view away from
+        // the part just opened.
+        val onlyTheMiddleChanged = itemCount != seenCount && end == seenEnd
         seenCount = itemCount
+        seenEnd = end
 
         // Scroll up to re-read something and the answer keeps arriving without dragging you back
         // down; return to the bottom and it picks the thread up again. Forcing it would make a
         // long answer impossible to read back while it is still being written.
-        if (!atEnd) return@LaunchedEffect
+        if (!atEnd || onlyTheMiddleChanged) return@LaunchedEffect
 
         // Wait until the list has actually measured these items. Opening a conversation delivers
         // the whole transcript in one go, and a scroll asked for before there is any layout lands
@@ -226,6 +247,10 @@ fun ConversationContent(
         transcript.scrollToItem(itemCount - 1, Int.MAX_VALUE)
     }
 
+    if (state.askingToTurnOffSecret) {
+        SecretOffSheet(onKeep = onKeepSecret, onTurnOff = onConfirmSecretOff)
+    }
+
     HearthScaffold(
         modifier = modifier,
         header = {
@@ -233,11 +258,8 @@ fun ConversationContent(
                 onBack = onBack,
                 backDescription = stringResource(Res.string.conversation_back),
                 actions = {
-                    // A chat exists on the hub once something is said in it; only then can it turn secret.
-                    val session = state.session
-                    if (session != null && !state.isNew) {
-                        SecretPill(on = session.isSecret, onTurnOn = onTurnOnSecret)
-                    }
+                    // A new chat can start secret too: the hub creates it so with the first message.
+                    SecretPill(on = secret, onTurnOn = onTurnOnSecret, onTurnOff = onTurnOffSecret)
                 },
             ) {
                 Row(
@@ -348,6 +370,10 @@ fun ConversationContent(
                     textAlign = TextAlign.Center,
                     modifier = Modifier.widthIn(max = HearthTheme.size.readingWidth),
                 )
+                // A chat starting secret says so under the greeting (canvas NewChatSecret).
+                if (secret) {
+                    SecretMarker(modifier = Modifier.padding(top = HearthTheme.spacing.sm))
+                }
             }
             return@HearthScaffold
         }
@@ -393,6 +419,12 @@ fun ConversationContent(
             }
         }
 
+        val motion = HearthTheme.motion
+        val reveal = tween<Float>(durationMillis = motion.reveal.inWholeMilliseconds.toInt()).takeIf { motion.animate }
+        val slide = tween<IntOffset>(durationMillis = motion.reveal.inWholeMilliseconds.toInt()).takeIf {
+            motion.animate
+        }
+
         LazyColumn(
             state = transcript,
             modifier = Modifier
@@ -402,22 +434,41 @@ fun ConversationContent(
             contentPadding = PaddingValues(HearthTheme.spacing.xl),
             verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.lg),
         ) {
-            // The messages, cut where the look-over line and the secret marker sit between them.
-            val lookedOver = state.session?.lookedOver
-            val lookedOverAt = state.lookedOverAt
-            var from = 0
-            for (cut in listOfNotNull(lookedOverCut, secretAt).distinct().sorted()) {
-                items(state.messages.subList(from, cut), key = { it.id }) { message -> drawMessage(message) }
-                // After the last message the look-over read; the chat went on below it.
-                if (cut == lookedOverCut && lookedOver != null && lookedOverAt != null) {
-                    item(key = LOOKED_OVER_KEY) { LookedOverLine(lookedOver, lookedOverAt, onOpen = onLookedOver) }
+            items(rows, key = { it.key }) { row ->
+                // A secret part opening or folding back fades in place, and the rows below slide to
+                // make room; every other row only slides, so talk arrives as it always has.
+                val fade = reveal.takeIf { row.fades }
+                Box(
+                    modifier = Modifier.animateItem(fadeInSpec = fade, placementSpec = slide, fadeOutSpec = fade),
+                ) {
+                    when (row) {
+                        is TranscriptRow.Message -> {
+                            drawMessage(row.message)
+                        }
+
+                        // After the last message the look-over read; the chat went on below it.
+                        TranscriptRow.LookedOver -> {
+                            val lookedOver = state.session?.lookedOver
+                            val lookedOverAt = state.lookedOverAt
+                            if (lookedOver != null && lookedOverAt != null) {
+                                LookedOverLine(lookedOver, lookedOverAt, onOpen = onLookedOver)
+                            }
+                        }
+
+                        is TranscriptRow.SecretStart -> {
+                            if (row.live) SecretMarker() else SecretMarker(text = Res.string.secret_marker_from_here)
+                        }
+
+                        is TranscriptRow.SecretEnd -> {
+                            SecretMarker(text = Res.string.secret_marker_ended, ended = true)
+                        }
+
+                        is TranscriptRow.LockedPart -> {
+                            LockedSecretPart(messages = row.messages, onUnlock = onUnlockSecretPart)
+                        }
+                    }
                 }
-                if (cut == secretAt) {
-                    item(key = SECRET_MARKER_KEY) { SecretMarker() }
-                }
-                from = cut
             }
-            items(state.messages.drop(from), key = { it.id }) { message -> drawMessage(message) }
 
             // The answer being written, with whatever has become of it sitting where it stopped.
             if (state.streamingMessage != null || state.turnState == TurnState.Failed) {

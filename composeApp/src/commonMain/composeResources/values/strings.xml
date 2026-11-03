@@ -504,11 +504,26 @@
     <string name="secret_pill_off">OFF</string>
     <string name="secret_pill_on">ON</string>
     <string name="a11y_secret_off">Secret Mode is off. Turn it on</string>
-    <string name="a11y_secret_on">Secret Mode is on</string>
+    <string name="a11y_secret_on">Secret Mode is on. Turn it off</string>
     <string name="secret_marker">Secret · nothing here reaches the household</string>
     <string name="conversation_composer_secret">Message privately…</string>
     <string name="secret_locked_title">Locked while you were away</string>
     <string name="secret_locked_line">The hub won’t send these messages without your PIN. Ten minutes untouched, closing the app or locking your phone locks it again.</string>
+    <!-- Secret Mode off (slice 6, P2). The sheet, the markers where it turned and the locked band. -->
+    <string name="secret_off_title">Turn off Secret Mode?</string>
+    <string name="secret_off_from_here">From here on, this chat is shared and remembered again, and agents can write to your calendar.</string>
+    <string name="secret_off_stays_locked">What you said in secret stays locked behind your PIN.</string>
+    <string name="secret_off_dont_ask">Don’t ask again on this phone</string>
+    <string name="secret_off_keep">Keep secret</string>
+    <string name="secret_off_confirm">Turn off</string>
+    <string name="secret_marker_from_here">Secret from here on</string>
+    <string name="secret_marker_ended">No longer secret from here</string>
+    <plurals name="secret_part_title">
+        <item quantity="one">Secret part · %1$d message</item>
+        <item quantity="other">Secret part · %1$d messages</item>
+    </plurals>
+    <string name="secret_part_locked">Locked. Your PIN opens it here.</string>
+    <string name="secret_part_unlock">Unlock</string>
     <string name="secret_locked_not_a_safe">They’re still stored unencrypted on the hub itself — this isn’t a safe.</string>
     <string name="chats_private_conversation">Private conversation</string>
     <string name="conversation_greeting">Evening, %1$s</string>

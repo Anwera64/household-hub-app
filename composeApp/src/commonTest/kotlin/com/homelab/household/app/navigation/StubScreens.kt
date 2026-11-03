@@ -25,6 +25,9 @@ class StubScreens : AppScreens {
 
     /** How many times a conversation heard that a calendar was connected from it. */
     var calendarsConnected = 0
+
+    /** How often the secret chats PIN pad told a chat that the PIN opened them. */
+    var secretChatsUnlocked = 0
         private set
 
     class ScreenViewModel : ViewModel() {
@@ -214,6 +217,7 @@ class StubScreens : AppScreens {
         Column {
             Text(SECRET_CHATS_PIN)
             Text(UNLOCKED, modifier = Modifier.clickable { onUnlock() })
+            Text(BACK_FROM_PIN, modifier = Modifier.clickable { onBack() })
         }
     }
 
@@ -223,11 +227,14 @@ class StubScreens : AppScreens {
         onBack: () -> Unit,
         onConnectCalendar: () -> Unit,
         onAllMemories: () -> Unit,
+        onUnlockSecretChats: () -> Unit,
     ) {
         TakeViewModel()
         // Listens as the real screen does, so a test sees what the connect flow sends back.
         ResultEffect<CalendarConnected> { calendarsConnected++ }
+        ResultEffect<SecretChatsUnlocked> { secretChatsUnlocked++ }
         Column {
+            Text(UNLOCK_SECRET_PART, modifier = Modifier.clickable { onUnlockSecretChats() })
             Text(if (sessionId == null) NEW_CONVERSATION else conversationOf(sessionId))
             Text(RECONNECT_CALENDAR, modifier = Modifier.clickable { onConnectCalendar() })
             Text(GO_TO_ALL_MEMORIES, modifier = Modifier.clickable { onAllMemories() })
@@ -455,6 +462,8 @@ class StubScreens : AppScreens {
         const val CALENDARS_CHOSEN = "calendars chosen"
         const val GO_TO_CHOOSE_CALENDARS = "go to choose calendars"
         const val RECONNECT_CALENDAR = "reconnect calendar"
+        const val UNLOCK_SECRET_PART = "unlock secret part"
+        const val BACK_FROM_PIN = "back from the pin pad"
 
         fun calendarConnectOf(provider: CalendarProvider) = "calendar connect screen for $provider"
 
