@@ -5,6 +5,7 @@ import com.homelab.household.domain.secret.SecretLockController
 import com.homelab.household.domain.usecase.AnswerChangeUseCase
 import com.homelab.household.domain.usecase.ApprovePinResetUseCase
 import com.homelab.household.domain.usecase.ArchiveSessionUseCase
+import com.homelab.household.domain.usecase.AsksBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.ChangePinUseCase
 import com.homelab.household.domain.usecase.CheckAuthStatusUseCase
 import com.homelab.household.domain.usecase.CheckServerHealthUseCase
@@ -56,6 +57,7 @@ import com.homelab.household.domain.usecase.ResumeTurnUseCase
 import com.homelab.household.domain.usecase.RetryMessageUseCase
 import com.homelab.household.domain.usecase.SetToolApprovalUseCase
 import com.homelab.household.domain.usecase.StartGoogleCalendarSignInUseCase
+import com.homelab.household.domain.usecase.StopAskingBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.StreamChatTurnUseCase
 import com.homelab.household.domain.usecase.ToggleSecretModeUseCase
 import com.homelab.household.domain.usecase.UndoChangeAnswerUseCase
@@ -66,6 +68,7 @@ import com.homelab.household.domain.usecase.WithdrawChangeUseCase
 import com.homelab.household.domain.usecase.impl.AnswerChangeUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ApprovePinResetUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ArchiveSessionUseCaseImpl
+import com.homelab.household.domain.usecase.impl.AsksBeforeSecretOffUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ChangePinUseCaseImpl
 import com.homelab.household.domain.usecase.impl.CheckAuthStatusUseCaseImpl
 import com.homelab.household.domain.usecase.impl.CheckServerHealthUseCaseImpl
@@ -117,6 +120,7 @@ import com.homelab.household.domain.usecase.impl.ResumeTurnUseCaseImpl
 import com.homelab.household.domain.usecase.impl.RetryMessageUseCaseImpl
 import com.homelab.household.domain.usecase.impl.SetToolApprovalUseCaseImpl
 import com.homelab.household.domain.usecase.impl.StartGoogleCalendarSignInUseCaseImpl
+import com.homelab.household.domain.usecase.impl.StopAskingBeforeSecretOffUseCaseImpl
 import com.homelab.household.domain.usecase.impl.StreamChatTurnUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ToggleSecretModeUseCaseImpl
 import com.homelab.household.domain.usecase.impl.UndoChangeAnswerUseCaseImpl
@@ -164,6 +168,8 @@ val domainModule =
         factory<GetCurrentUserUseCase> { GetCurrentUserUseCaseImpl(get()) }
         factory<LogoutUseCase> { LogoutUseCaseImpl(get(), get()) }
         factory<UnlockSecretChatsUseCase> { UnlockSecretChatsUseCaseImpl(get()) }
+        factory<AsksBeforeSecretOffUseCase> { AsksBeforeSecretOffUseCaseImpl(get(), get()) }
+        factory<StopAskingBeforeSecretOffUseCase> { StopAskingBeforeSecretOffUseCaseImpl(get(), get()) }
         factory<GetHubHostUseCase> { GetHubHostUseCaseImpl(get()) }
         factory<HasStoredSessionUseCase> { HasStoredSessionUseCaseImpl(get()) }
         factory<ObserveSignedOutUseCase> { ObserveSignedOutUseCaseImpl(get()) }

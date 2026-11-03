@@ -7,13 +7,16 @@ import com.homelab.household.domain.repository.AgentRepository
 import com.homelab.household.domain.repository.AuthRepository
 import com.homelab.household.domain.repository.CalendarRepository
 import com.homelab.household.domain.repository.MemoryRepository
+import com.homelab.household.domain.repository.SecretPreferencesRepository
 import com.homelab.household.domain.repository.ServerStatusRepository
 import com.homelab.household.domain.repository.SessionRepository
 import com.homelab.household.domain.repository.SpaceRepository
+import com.homelab.household.domain.usecase.AsksBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.CheckAuthStatusUseCase
 import com.homelab.household.domain.usecase.GetSessionUseCase
 import com.homelab.household.domain.usecase.HasStoredSessionUseCase
 import com.homelab.household.domain.usecase.LoginUseCase
+import com.homelab.household.domain.usecase.StopAskingBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.StreamChatTurnUseCase
 import com.homelab.household.presentation.calendarconnect.CalendarConnectViewModel
 import com.homelab.household.presentation.chatsession.ChatSessionViewModel
@@ -58,6 +61,7 @@ class KoinDependencyGraphTest : KoinTest {
         assertNotNull(get<SpaceRepository>())
         assertNotNull(get<MemoryRepository>())
         assertNotNull(get<CalendarRepository>())
+        assertNotNull(get<SecretPreferencesRepository>())
 
         // Use cases
         assertNotNull(get<LoginUseCase>())
@@ -65,6 +69,8 @@ class KoinDependencyGraphTest : KoinTest {
         assertNotNull(get<StreamChatTurnUseCase>())
         assertNotNull(get<CheckAuthStatusUseCase>())
         assertNotNull(get<HasStoredSessionUseCase>())
+        assertNotNull(get<AsksBeforeSecretOffUseCase>())
+        assertNotNull(get<StopAskingBeforeSecretOffUseCase>())
 
         // ViewModels
         assertNotNull(get<ChatSessionViewModel>())

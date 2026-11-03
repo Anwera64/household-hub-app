@@ -12,9 +12,11 @@ import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import com.homelab.household.app.testing.StillTheme
 import com.homelab.household.domain.model.ChatMessage
+import com.homelab.household.domain.model.ConversationSession
 import com.homelab.household.domain.model.MessageRole
 import com.homelab.household.presentation.chatsession.ChatSessionUiState
 import com.homelab.household.presentation.chatsession.SecretOffer
+import com.homelab.household.presentation.chatsession.SecretPart
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlin.test.Test
 
@@ -169,7 +171,78 @@ class ConversationScrollTest {
             onConversationScroll { seesItStillShown(QUESTION) }
         }
 
+    /**
+     * A chat turned off after a long secret part, with a few turns since: at its newest message the
+     * part's band sits on screen above them. [open] is the part read with the unlock.
+     */
+    private fun turnedOff(open: Boolean): ChatSessionUiState {
+        fun message(
+            id: String,
+            content: String,
+            secret: Boolean = false,
+        ) = ChatMessage(
+            id = id,
+            sessionId = "s-1",
+            role = if (id.last().digitToInt() % 2 == 0) MessageRole.ASSISTANT else MessageRole.USER,
+            content = if (secret && !open) "" else content,
+            isSecret = secret,
+            withheld = secret && !open,
+        )
+        val before = (1..3).map { message("before-$it", "Turn $it before the secret part, a line or two long.") }
+        val part =
+            (1..8).map {
+                message(
+                    "secret-$it",
+                    if (it ==
+                        1
+                    ) {
+                        FIRST_SECRET_WORDS
+                    } else {
+                        "Secret turn $it, long enough to fill two lines of the screen."
+                    },
+                    secret = true,
+                )
+            }
+        val after = listOf(message("after-1", "Add the plumber on Monday"), message("after-2", LATEST_ANSWER))
+        return ChatSessionUiState(
+            session = ConversationSession(id = "s-1", userId = "emma", hasSecretPart = true),
+            messages = before + part + after,
+            agentName = "Home Coordinator",
+            secretParts = listOf(SecretPart(from = 3, until = 11)),
+        )
+    }
+
+    @Test
+    fun `GIVEN a chat at its newest message with a locked secret part on screen WHEN the part opens THEN it opens where the band was and nothing jumps to the end`() =
+        runComposeUiTest(effectContext = StandardTestDispatcher()) {
+            var state by mutableStateOf(turnedOff(open = false))
+            setContent(growing { state })
+            onConversationScroll { waitsForText(LATEST_ANSWER) }
+
+            state = turnedOff(open = true)
+            waitForIdle()
+
+            onConversationScroll {
+                seesItStillShown(FIRST_SECRET_WORDS)
+                doesNotSee(LATEST_ANSWER)
+            }
+        }
+
+    @Test
+    fun `GIVEN a chat at its newest message with an open secret part above WHEN the part folds back THEN the newest message is still shown`() =
+        runComposeUiTest(effectContext = StandardTestDispatcher()) {
+            var state by mutableStateOf(turnedOff(open = true))
+            setContent(growing { state })
+            onConversationScroll { waitsForText(LATEST_ANSWER) }
+
+            state = turnedOff(open = false)
+            waitForIdle()
+
+            onConversationScroll { seesItStillShown(LATEST_ANSWER) }
+        }
+
     private companion object {
+        const val FIRST_SECRET_WORDS = "Plan the surprise for Saturday"
         val PHONE_WIDTH = 390.dp
         val PHONE_HEIGHT = 844.dp
         const val QUESTION = "What's left before Friday?"

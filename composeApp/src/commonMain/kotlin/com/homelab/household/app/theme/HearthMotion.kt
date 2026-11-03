@@ -48,6 +48,11 @@ data class HearthMotion(
     val nudge: Duration = 1200.milliseconds,
     /** How far behind the first ring the second one runs. */
     val nudgeStagger: Duration = 600.milliseconds,
+    /**
+     * Rows coming or going in a transcript: a secret part opening in place of its band, or folding
+     * back into it, and the rows below sliding to make room.
+     */
+    val reveal: Duration = 300.milliseconds,
     /** False draws every animated component's resting frame instead of starting it. */
     val animate: Boolean = true,
 )

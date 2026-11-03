@@ -49,6 +49,8 @@ val presentationModule =
                 get(),
                 get(),
                 get(),
+                asksBeforeSecretOff = get(),
+                stopAskingBeforeSecretOff = get(),
                 onMemberInput = get<SecretLockController>()::onUserInput,
                 secretLocks = get<SecretUnlockRepository>().locks,
             )

@@ -25,6 +25,7 @@ import com.homelab.household.presentation.chatsession.AgentOwner
 import com.homelab.household.presentation.chatsession.AutomaticWrite
 import com.homelab.household.presentation.chatsession.ChatSessionUiState
 import com.homelab.household.presentation.chatsession.SecretOffer
+import com.homelab.household.presentation.chatsession.SecretPart
 import com.homelab.household.presentation.chatsession.TurnState
 import com.homelab.household.presentation.memories.LocalTime
 import kotlin.time.ExperimentalTime
@@ -917,7 +918,7 @@ class ConversationUiStateProvider : PreviewParameterProvider<ChatSessionUiState>
             "An add refused in Secret Mode" to
                 agent.copy(
                     session = session.copy(isSecret = true),
-                    secretFrom = 0,
+                    secretParts = listOf(SecretPart(from = 0)),
                     messages =
                         listOf(
                             said(

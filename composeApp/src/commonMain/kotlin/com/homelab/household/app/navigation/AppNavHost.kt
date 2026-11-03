@@ -137,10 +137,15 @@ fun AppNavHost(
                         tabs = { backStack.Tabs(NavTab.Chats) },
                     )
                 }
-                // Back to the list either way; arriving there reloads it, with the titles if unlocked.
+                // Back to where it was opened either way. The list reloads on arriving, with the titles
+                // if unlocked; a chat hears the unlock and reads itself again, its secret part open.
                 entry<Destination.SecretChatsUnlock> {
+                    val results = LocalResultEventBus.current
                     screens.SecretChatsUnlock(
-                        onUnlock = { backStack.removeLastOrNull() },
+                        onUnlock = {
+                            results.sendResult(result = SecretChatsUnlocked)
+                            backStack.removeLastOrNull()
+                        },
                         onBack = { backStack.removeLastOrNull() },
                     )
                 }
@@ -158,6 +163,8 @@ fun AppNavHost(
                         onConnectCalendar = { backStack.add(Destination.CalendarPicker) },
                         // "All memories" at the foot of the chat's look-over sheet.
                         onAllMemories = { backStack.add(Destination.Memories) },
+                        // Unlock on a locked secret part: the same pad as the bar over Chats.
+                        onUnlockSecretChats = { backStack.add(Destination.SecretChatsUnlock) },
                     )
                 }
                 entry<Destination.Profile> {
