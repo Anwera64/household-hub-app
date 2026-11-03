@@ -14,4 +14,9 @@ data class ChatMessage(
     val isSecret: Boolean = false,
     /** The hub kept this message back: its content is empty and it has no parts. */
     val withheld: Boolean = false,
+    /**
+     * A question the hub judged private, or the agent offered Secret Mode over: kept out of the
+     * household and out of memory, though the chat isn't secret.
+     */
+    val isPrivate: Boolean = false,
 )

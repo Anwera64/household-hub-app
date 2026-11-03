@@ -8,6 +8,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.waitUntilExactlyOneExists
+import com.homelab.household.app.resources.Res
+import com.homelab.household.app.resources.secret_offer_accept
+import org.jetbrains.compose.resources.getString
 
 /** What the transcript shows as it fills, and the person scrolling back through it. */
 @OptIn(ExperimentalTestApi::class)
@@ -34,6 +37,13 @@ class ConversationScrollRobot(
         test.waitUntilExactlyOneExists(hasText(text), timeoutMillis = WAIT_MILLIS)
     }
 
+    /** The offer card's own button is on screen, not left below the composer. */
+    suspend fun seesTheSecretOfferButton() {
+        val accept = getString(Res.string.secret_offer_accept)
+        test.waitUntilExactlyOneExists(hasText(accept), timeoutMillis = WAIT_MILLIS)
+        test.onNodeWithText(accept).assertIsDisplayed()
+    }
+
     fun scrollsBackToTheStart() {
         test.onNodeWithTag(CONVERSATION_TRANSCRIPT_TAG).performScrollToIndex(0)
     }
@@ -44,6 +54,6 @@ class ConversationScrollRobot(
 }
 
 @OptIn(ExperimentalTestApi::class)
-fun ComposeUiTest.onConversationScroll(block: ConversationScrollRobot.() -> Unit) {
+suspend fun ComposeUiTest.onConversationScroll(block: suspend ConversationScrollRobot.() -> Unit) {
     ConversationScrollRobot(this).block()
 }

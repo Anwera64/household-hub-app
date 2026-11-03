@@ -75,6 +75,7 @@ import com.homelab.household.app.util.rememberWaitPhase
 import com.homelab.household.domain.model.AnswerPart
 import com.homelab.household.domain.model.ChatMessage
 import com.homelab.household.domain.model.EventTime
+import com.homelab.household.domain.model.HubTool
 import com.homelab.household.domain.model.MessageRole
 import com.homelab.household.domain.model.MessageStatus
 import com.homelab.household.domain.model.ProposalDetails
@@ -91,6 +92,7 @@ const val CONVERSATION_TRANSCRIPT_TAG = "ConversationTranscript"
 
 /** The Undo line's place in the transcript, which no message id can take. */
 private const val MADE_AUTOMATIC_KEY = "made-automatic"
+private const val SECRET_OFFER_KEY = "secret-offer"
 
 /** The answer being written, as the end of the transcript; its item has no key of its own. */
 private const val TURN_KEY = "turn"
@@ -129,6 +131,10 @@ fun ConversationContent(
     onLookedOver: () -> Unit = {},
     /** The header's OFF pill: make this chat secret from here on. */
     onTurnOnSecret: () -> Unit = {},
+    /** "Make it secret" on the card offering Secret Mode after a private message. */
+    onAcceptSecretOffer: () -> Unit = {},
+    /** "Not now" on that card. */
+    onDeclineSecretOffer: () -> Unit = {},
     /** The header's ON pill: turn Secret Mode off, after the sheet unless the member said not to ask. */
     onTurnOffSecret: () -> Unit = {},
     /** "Keep secret" on that sheet, or the sheet dismissed. */
@@ -407,7 +413,10 @@ fun ConversationContent(
                     content = message.content,
                     fromMe = message.role == MessageRole.USER,
                     status =
-                        if (receipted) {
+                        if (message.isPrivate && !message.isSecret) {
+                            // It says the message arrived as well as where it stays, so no receipt.
+                            { KeptPrivateLine() }
+                        } else if (receipted) {
                             { SentReceipt() }
                         } else if (undelivered) {
                             // Only this case re-sends: the question itself never landed.
@@ -500,6 +509,14 @@ fun ConversationContent(
                             }
                         }
                     }
+                }
+            }
+
+            // After the answer to the private message, until it is answered or the next message is sent.
+            val secretOffer = state.secretOffer
+            if (secretOffer != null) {
+                item(key = SECRET_OFFER_KEY) {
+                    SecretOfferCard(secretOffer, onAccept = onAcceptSecretOffer, onDecline = onDeclineSecretOffer)
                 }
             }
 
@@ -675,6 +692,11 @@ private fun List<AnswerPart>.runs(written: String): List<AnswerRun> {
                     steps = mutableListOf()
                     runs += AnswerRun.Fix(fix)
                 }
+            }
+
+            // The agent offering Secret Mode is a silent step: the offer card says it, not a step.
+            is AnswerPart.ToolDone -> {
+                if (part.tool != HubTool.OFFER_SECRET_MODE) steps += part
             }
 
             else -> {

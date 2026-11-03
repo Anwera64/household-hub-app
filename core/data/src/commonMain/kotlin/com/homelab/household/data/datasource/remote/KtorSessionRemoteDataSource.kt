@@ -89,6 +89,11 @@ class KtorSessionRemoteDataSource(
                 .body()
         }
 
+    override suspend fun declineSecretOffer(sessionId: String): Unit =
+        reachingHub {
+            client.post("$baseUrl/api/v1/sessions/$sessionId/secret-offer/decline").ensureJsonSuccess()
+        }
+
     override suspend fun deleteSession(sessionId: String): Unit =
         reachingHub {
             client.delete("$baseUrl/api/v1/sessions/$sessionId").ensureJsonSuccess()

@@ -69,6 +69,8 @@ class SessionRepositoryImpl(
     private fun SessionReadDto.holdingItsUnlock(): SessionReadDto =
         apply { unlock_token?.let { unlocks.holdChat(id, it) } }
 
+    override suspend fun declineSecretOffer(sessionId: String) = remote.declineSecretOffer(sessionId)
+
     override suspend fun deleteSession(sessionId: String) = remote.deleteSession(sessionId)
 
     /**

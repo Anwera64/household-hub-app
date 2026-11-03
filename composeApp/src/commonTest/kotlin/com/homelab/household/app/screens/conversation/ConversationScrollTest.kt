@@ -15,6 +15,7 @@ import com.homelab.household.domain.model.ChatMessage
 import com.homelab.household.domain.model.ConversationSession
 import com.homelab.household.domain.model.MessageRole
 import com.homelab.household.presentation.chatsession.ChatSessionUiState
+import com.homelab.household.presentation.chatsession.SecretOffer
 import com.homelab.household.presentation.chatsession.SecretPart
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlin.test.Test
@@ -150,6 +151,18 @@ class ConversationScrollTest {
         }
 
     @Test
+    fun `GIVEN a long conversation at its newest message WHEN an answer lands offering Secret Mode THEN the offer is scrolled into view`() =
+        runComposeUiTest(effectContext = StandardTestDispatcher()) {
+            var state by mutableStateOf(stateNamed("A conversation opened again"))
+            setContent(growing { state })
+            onConversationScroll { waitsForText(NEWEST_ANSWER) }
+
+            state = state.andThen(LONG_ANSWER).copy(secretOffer = SecretOffer.Judged)
+
+            onConversationScroll { seesTheSecretOfferButton() }
+        }
+
+    @Test
     fun `GIVEN a conversation that fits the screen WHEN it is shown THEN the question is still shown`() =
         runComposeUiTest(effectContext = StandardTestDispatcher()) {
             setContent(conversation(stateNamed("A finished exchange")))
@@ -236,5 +249,6 @@ class ConversationScrollTest {
         const val NEWEST_ANSWER = "Answer 20, at some length to fill the screen."
         const val OLDEST_QUESTION = "Question 1 of a long-running conversation"
         const val LATEST_ANSWER = "One more answer, after the fold."
+        val LONG_ANSWER = List(12) { "A long answer to a private question, line after line of it." }.joinToString(" ")
     }
 }

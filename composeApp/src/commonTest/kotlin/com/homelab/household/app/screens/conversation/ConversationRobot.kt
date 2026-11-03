@@ -32,6 +32,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
@@ -74,6 +75,7 @@ import com.homelab.household.app.resources.field_changed
 import com.homelab.household.app.resources.memories_tab_household_plain
 import com.homelab.household.app.resources.memories_tab_yours_plain
 import com.homelab.household.app.resources.profile_memories_to_check
+import com.homelab.household.app.resources.secret_kept_private
 import com.homelab.household.app.resources.secret_marker
 import com.homelab.household.app.resources.secret_marker_ended
 import com.homelab.household.app.resources.secret_marker_from_here
@@ -83,6 +85,11 @@ import com.homelab.household.app.resources.secret_off_from_here
 import com.homelab.household.app.resources.secret_off_keep
 import com.homelab.household.app.resources.secret_off_stays_locked
 import com.homelab.household.app.resources.secret_off_title
+import com.homelab.household.app.resources.secret_offer_accept
+import com.homelab.household.app.resources.secret_offer_agent
+import com.homelab.household.app.resources.secret_offer_judged
+import com.homelab.household.app.resources.secret_offer_not_now
+import com.homelab.household.app.resources.secret_offer_title
 import com.homelab.household.app.resources.secret_part_locked
 import com.homelab.household.app.resources.secret_part_title
 import com.homelab.household.app.resources.secret_part_unlock
@@ -150,12 +157,14 @@ import com.homelab.household.app.resources.tool_fix_calendar_rejected_title
 import com.homelab.household.app.resources.tool_fix_nothing_added
 import com.homelab.household.app.resources.tool_fix_reconnect_calendar
 import com.homelab.household.app.resources.tool_forget_card
+import com.homelab.household.app.resources.tool_generic_done
 import com.homelab.household.app.resources.tool_memory_lookup_done
 import com.homelab.household.app.resources.tool_permission_search
 import com.homelab.household.app.resources.tool_read_page_done
 import com.homelab.household.app.resources.tool_read_page_done_named
 import com.homelab.household.app.resources.tool_read_page_failed_named
 import com.homelab.household.app.resources.tool_reason_blocked
+import com.homelab.household.app.resources.tool_reason_secret_mode
 import com.homelab.household.app.resources.tool_remember_automatic_ask
 import com.homelab.household.app.resources.tool_remember_card
 import com.homelab.household.app.resources.tool_search_done_query
@@ -499,6 +508,17 @@ class ConversationRobot(
 
     fun pressesSendOnTheKeyboard() {
         composer().performImeAction()
+    }
+
+    /** Types [words] into the message box and sends them. */
+    suspend fun says(words: String) {
+        composer().performTextInput(words)
+        tapsSend()
+    }
+
+    /** Waits for words the hub sent, before doing anything with the screen. */
+    fun waitsFor(words: String) {
+        waitForOne(hasText(words), unmerged = false)
     }
 
     private fun composer() = test.onNode(hasSetTextAction())
@@ -1105,6 +1125,57 @@ class ConversationRobot(
         if (after != null) assertTrue(line.bottom <= test.onNodeWithText(after).getUnclippedBoundsInRoot().top)
     }
 
+    /** A chat secret from its first message: the promise sits above it, and "from here on" nowhere. */
+    suspend fun seesTheChatSecretFromItsStart(first: String) {
+        val marker = test.onNodeWithText(getString(Res.string.secret_marker)).getUnclippedBoundsInRoot()
+        assertTrue(marker.bottom <= test.onNodeWithText(first).getUnclippedBoundsInRoot().top)
+        node(getString(Res.string.secret_marker_from_here)).assertDoesNotExist()
+    }
+
+    // ---- the privacy offer (slice 6, P4) -----------------------------------
+
+    /** The line under a question the hub kept private, in place of its Sent receipt. */
+    suspend fun seesItKeptBetweenUs(question: String) {
+        val line = seesText(getString(Res.string.secret_kept_private)).getUnclippedBoundsInRoot()
+        assertTrue(test.onNodeWithText(question).getUnclippedBoundsInRoot().bottom <= line.top)
+    }
+
+    suspend fun doesNotSeeItKeptBetweenUs() {
+        node(getString(Res.string.secret_kept_private)).assertDoesNotExist()
+    }
+
+    /** The card offering to make the whole chat secret, in the words of whoever noticed. */
+    suspend fun seesTheSecretOffer(agentNoticed: Boolean) {
+        seesText(getString(Res.string.secret_offer_title))
+        seesText(getString(if (agentNoticed) Res.string.secret_offer_agent else Res.string.secret_offer_judged))
+    }
+
+    suspend fun doesNotSeeTheSecretOffer() {
+        node(getString(Res.string.secret_offer_title)).assertDoesNotExist()
+    }
+
+    suspend fun makesItSecret() {
+        seesText(getString(Res.string.secret_offer_accept)).performClick()
+    }
+
+    suspend fun saysNotNow() {
+        seesText(getString(Res.string.secret_offer_not_now)).performClick()
+    }
+
+    /** No step at all, not even "Used a tool": the agent's offer is silent. */
+    suspend fun seesNoStepForTheOffer() {
+        node(getString(Res.string.tool_generic_done)).assertDoesNotExist()
+    }
+
+    suspend fun seesItCouldNotAddBecauseSecretModeLocksIt() =
+        seesText(
+            getString(
+                Res.string.tool_step_named,
+                getString(Res.string.tool_calendar_add_failed),
+                getString(Res.string.tool_reason_secret_mode),
+            ),
+        )
+
     /** A secret chat's message box is outlined in dashes; an ordinary one in a solid line. */
     fun seesTheComposerDashed(dashed: Boolean) {
         val composer = test.onNodeWithTag(COMPOSER_DASHED_TAG, useUnmergedTree = true)
@@ -1156,6 +1227,8 @@ fun ComposeUiTest.conversationScreen(
     onUndoAutomatic: () -> Unit = {},
     onLookedOver: () -> Unit = {},
     onTurnOnSecret: () -> Unit = {},
+    onAcceptSecretOffer: () -> Unit = {},
+    onDeclineSecretOffer: () -> Unit = {},
     onTurnOffSecret: () -> Unit = {},
     onKeepSecret: () -> Unit = {},
     onConfirmSecretOff: (dontAskAgain: Boolean) -> Unit = {},
@@ -1179,6 +1252,8 @@ fun ComposeUiTest.conversationScreen(
                 onUndoAutomatic = onUndoAutomatic,
                 onLookedOver = onLookedOver,
                 onTurnOnSecret = onTurnOnSecret,
+                onAcceptSecretOffer = onAcceptSecretOffer,
+                onDeclineSecretOffer = onDeclineSecretOffer,
                 onTurnOffSecret = onTurnOffSecret,
                 onKeepSecret = onKeepSecret,
                 onConfirmSecretOff = onConfirmSecretOff,

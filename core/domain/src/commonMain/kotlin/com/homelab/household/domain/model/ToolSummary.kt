@@ -56,5 +56,8 @@ enum class ToolFailureReason {
 
     /** The member has no calendar connected for a calendar tool to use. */
     CalendarNotConnected,
+
+    /** A write refused because the turn was secret: nothing said there may leave it. */
+    SecretMode,
     Unknown,
 }

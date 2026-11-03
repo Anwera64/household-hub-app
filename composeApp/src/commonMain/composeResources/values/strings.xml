@@ -506,6 +506,13 @@
     <string name="a11y_secret_off">Secret Mode is off. Turn it on</string>
     <string name="a11y_secret_on">Secret Mode is on. Turn it off</string>
     <string name="secret_marker">Secret · nothing here reaches the household</string>
+    <!-- The privacy offer (slice 6, P4): one message kept private, and the card offering the whole chat. -->
+    <string name="secret_kept_private">Kept between you two — not shared or remembered</string>
+    <string name="secret_offer_title">Make this whole chat secret?</string>
+    <string name="secret_offer_judged">Only that message was kept private. A secret chat keeps everything from here on out of the household and out of memory, and asks for your PIN to reopen.</string>
+    <string name="secret_offer_agent">That sounded private, so I kept it out of the household and out of memory. A secret chat does that for everything from here on, and asks for your PIN to reopen.</string>
+    <string name="secret_offer_not_now">Not now</string>
+    <string name="secret_offer_accept">Make it secret</string>
     <string name="conversation_composer_secret">Message privately…</string>
     <string name="secret_locked_title">Locked while you were away</string>
     <string name="secret_locked_line">The hub won’t send these messages without your PIN. Ten minutes untouched, closing the app or locking your phone locks it again.</string>
@@ -621,6 +628,7 @@
     <string name="tool_reason_unreadable">there’s no text in it to read</string>
     <string name="tool_reason_not_found">it couldn’t be found</string>
     <string name="tool_reason_event_not_found">that event isn’t in your calendar</string>
+    <string name="tool_reason_secret_mode">locked in Secret Mode</string>
     <string name="tool_results_show">Show results</string>
     <string name="tool_results_hide">Hide results</string>
     <string name="tool_pdf_running">Reading the document…</string>

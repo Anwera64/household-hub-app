@@ -152,6 +152,17 @@ class SessionRepositoryTest {
             assertFailsWith<ServerOfflineException> { repository(remote).listSessions() }
         }
 
+    @Test
+    fun `GIVEN an offer of Secret Mode WHEN the member says not now THEN the hub is told once`() =
+        runTest {
+            val remote = mock<SessionRemoteDataSource>()
+            everySuspend { remote.declineSecretOffer("s-2") } returns Unit
+
+            repository(remote).declineSecretOffer("s-2")
+
+            verifySuspend(VerifyMode.exactly(1)) { remote.declineSecretOffer("s-2") }
+        }
+
     // ---- a chat's own unlock -----------------------------------------------
 
     @Test

@@ -29,6 +29,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import com.homelab.household.app.components.ActionCard
+import com.homelab.household.app.components.CardButtonRow
 import com.homelab.household.app.components.HearthCheckbox
 import com.homelab.household.app.components.PrimaryButton
 import com.homelab.household.app.components.SecondaryButton
@@ -37,6 +39,7 @@ import com.homelab.household.app.icons.HearthIconImage
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.a11y_secret_off
 import com.homelab.household.app.resources.a11y_secret_on
+import com.homelab.household.app.resources.secret_kept_private
 import com.homelab.household.app.resources.secret_marker
 import com.homelab.household.app.resources.secret_off_confirm
 import com.homelab.household.app.resources.secret_off_dont_ask
@@ -44,6 +47,11 @@ import com.homelab.household.app.resources.secret_off_from_here
 import com.homelab.household.app.resources.secret_off_keep
 import com.homelab.household.app.resources.secret_off_stays_locked
 import com.homelab.household.app.resources.secret_off_title
+import com.homelab.household.app.resources.secret_offer_accept
+import com.homelab.household.app.resources.secret_offer_agent
+import com.homelab.household.app.resources.secret_offer_judged
+import com.homelab.household.app.resources.secret_offer_not_now
+import com.homelab.household.app.resources.secret_offer_title
 import com.homelab.household.app.resources.secret_part_locked
 import com.homelab.household.app.resources.secret_part_title
 import com.homelab.household.app.resources.secret_part_unlock
@@ -51,6 +59,7 @@ import com.homelab.household.app.resources.secret_pill_off
 import com.homelab.household.app.resources.secret_pill_on
 import com.homelab.household.app.theme.HearthShapes
 import com.homelab.household.app.theme.HearthTheme
+import com.homelab.household.presentation.chatsession.SecretOffer
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
@@ -263,6 +272,90 @@ internal fun SecretOffSheet(
                     modifier = Modifier.weight(1f),
                 )
             }
+        }
+    }
+}
+
+/**
+ * Under a question the hub kept private, in place of its Sent receipt: the lock and that it stays
+ * between the member and the agent, in the Secret Mode grey (canvas: PrivacyPrompt). The lock is
+ * the receipt's size, the set's smallest that keeps its contrast.
+ */
+@Composable
+internal fun KeptPrivateLine(modifier: Modifier = Modifier) {
+    val colors = HearthTheme.colors
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(HearthTheme.spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        HearthIconImage(
+            icon = HearthIcon.SecretLocked,
+            contentDescription = null,
+            size = HearthTheme.size.iconSm,
+            tint = colors.secret,
+        )
+        Text(
+            stringResource(Res.string.secret_kept_private),
+            style = HearthTheme.typography.caption,
+            color = colors.secret,
+        )
+    }
+}
+
+/**
+ * After an answer to a private message: the offer to make the whole chat secret (canvas:
+ * PrivacyPrompt, PrivacyAgentOffer). Its words say who noticed: the hub's check, or the agent.
+ */
+@Composable
+internal fun SecretOfferCard(
+    offer: SecretOffer,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = HearthTheme.colors
+    val type = HearthTheme.typography
+    val detail =
+        when (offer) {
+            SecretOffer.Judged -> Res.string.secret_offer_judged
+            SecretOffer.Agent -> Res.string.secret_offer_agent
+        }
+    ActionCard(modifier = modifier) {
+        Row(horizontalArrangement = Arrangement.spacedBy(HearthTheme.spacing.sm)) {
+            // Nudged down to sit on the title's first line, as the canvas draws it.
+            HearthIconImage(
+                icon = HearthIcon.SecretLocked,
+                contentDescription = null,
+                size = HearthTheme.size.iconSm,
+                tint = colors.secret,
+                modifier = Modifier.padding(top = HearthTheme.spacing.xxs),
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.xs),
+            ) {
+                Text(
+                    text = stringResource(Res.string.secret_offer_title),
+                    style = type.bodyStrong,
+                    color = colors.textPrimary,
+                )
+                Text(text = stringResource(detail), style = type.caption, color = colors.textMuted)
+            }
+        }
+        CardButtonRow {
+            SecondaryButton(
+                text = stringResource(Res.string.secret_offer_not_now),
+                onClick = onDecline,
+                compact = true,
+            )
+            PrimaryButton(
+                text = stringResource(Res.string.secret_offer_accept),
+                onClick = onAccept,
+                modifier = Modifier.weight(1f),
+                lifted = false,
+                compact = true,
+            )
         }
     }
 }

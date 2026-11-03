@@ -177,6 +177,24 @@ class KtorSessionRemoteDataSourceTest {
         }
 
     @Test
+    fun `GIVEN an offer of Secret Mode WHEN the member says not now THEN the hub is told the offer was declined`() =
+        runTest {
+            var path: String? = null
+            var method: HttpMethod? = null
+            val engine =
+                MockEngine { request ->
+                    path = request.url.encodedPath
+                    method = request.method
+                    respond("", HttpStatusCode.NoContent)
+                }
+
+            dataSource(engine).declineSecretOffer("s-100")
+
+            assertEquals("/api/v1/sessions/s-100/secret-offer/decline", path)
+            assertEquals(HttpMethod.Post, method)
+        }
+
+    @Test
     fun `GIVEN a conversation nobody wants kept WHEN it is deleted THEN the hub is asked to delete it`() =
         runTest {
             var path: String? = null

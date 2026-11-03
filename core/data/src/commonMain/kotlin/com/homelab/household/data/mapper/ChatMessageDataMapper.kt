@@ -4,6 +4,8 @@ import com.homelab.household.data.dto.ChatMessageReadDto
 import com.homelab.household.domain.model.ChatMessage
 import com.homelab.household.domain.model.MessageRole
 import com.homelab.household.domain.model.MessageStatus
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 
 object ChatMessageDataMapper {
     fun toDomain(dto: ChatMessageReadDto): ChatMessage =
@@ -17,6 +19,7 @@ object ChatMessageDataMapper {
             parts = AnswerPartDataMapper.fromJson(dto.metadata_json?.get("parts")),
             isSecret = dto.is_secret,
             withheld = dto.withheld,
+            isPrivate = (dto.metadata_json?.get("privacy_trigger_detected") as? JsonPrimitive)?.booleanOrNull == true,
         )
 
     private fun parseRole(role: String): MessageRole =

@@ -5,16 +5,22 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
+import com.homelab.household.domain.model.AnswerPart
 import com.homelab.household.domain.model.ChatMessage
 import com.homelab.household.domain.model.ConversationSession
 import com.homelab.household.domain.model.EventMoment
 import com.homelab.household.domain.model.EventRepeat
 import com.homelab.household.domain.model.EventScope
+import com.homelab.household.domain.model.HubTool
 import com.homelab.household.domain.model.MessageRole
 import com.homelab.household.domain.model.ProposalDetails
 import com.homelab.household.domain.model.RepeatChange
 import com.homelab.household.domain.model.RepeatEvery
+import com.homelab.household.domain.model.ToolAction
+import com.homelab.household.domain.model.ToolFailureReason
+import com.homelab.household.domain.model.ToolSummary
 import com.homelab.household.presentation.chatsession.ChatSessionUiState
+import com.homelab.household.presentation.chatsession.SecretOffer
 import com.homelab.household.presentation.chatsession.SecretPart
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -1751,5 +1757,161 @@ class ConversationScreenTest {
                 seesNoLongerSecretBetween(before = "Can Pere does a set menu.", after = "Add the plumber on Monday")
                 seesTheSecretMarkerBetween(before = "Add the plumber on Monday", after = "And the cake")
             }
+        }
+
+    @Test
+    fun `GIVEN a chat secret from its first message WHEN drawn THEN the marker above it says nothing reaches the household`() =
+        runComposeUiTest {
+            conversationScreen(
+                ChatSessionUiState(
+                    session = chat.copy(isSecret = true),
+                    messages = listOf(asked.copy(isSecret = true), answered.copy(isSecret = true)),
+                    agentName = "Home Coordinator",
+                    secretParts = listOf(SecretPart(from = 0)),
+                ),
+            )
+
+            onConversation { seesTheChatSecretFromItsStart(first = "What's on Saturday?") }
+        }
+
+    // ---- the privacy offer (slice 6, P4) -------------------------------------
+
+    private val kept =
+        ChatMessage(
+            id = "m-3",
+            sessionId = "s-1",
+            role = MessageRole.USER,
+            content = "Don't tell Liam but I want to take him to the cabin",
+            isPrivate = true,
+        )
+    private val safe =
+        ChatMessage(
+            id = "m-4",
+            sessionId = "s-1",
+            role = MessageRole.ASSISTANT,
+            content = "Your secret's safe with me.",
+        )
+
+    private fun offering(offer: SecretOffer?) =
+        ChatSessionUiState(
+            session = chat,
+            messages = listOf(asked, answered, kept, safe),
+            agentName = "Home Coordinator",
+            secretOffer = offer,
+        )
+
+    @Test
+    fun `GIVEN a question the hub kept private WHEN drawn THEN the line under it says so in place of its receipt`() =
+        runComposeUiTest {
+            conversationScreen(offering(offer = null))
+
+            onConversation {
+                seesItKeptBetweenUs(question = "Don't tell Liam but I want to take him to the cabin")
+                doesNotSeeSent()
+            }
+        }
+
+    @Test
+    fun `GIVEN an ordinary question WHEN drawn THEN nothing says it was kept private`() =
+        runComposeUiTest {
+            conversationScreen(
+                ChatSessionUiState(session = chat, messages = listOf(asked, answered), agentName = "Home Coordinator"),
+            )
+
+            onConversation { doesNotSeeItKeptBetweenUs() }
+        }
+
+    @Test
+    fun `GIVEN the hub judged a question private WHEN drawn THEN the chat offers to go secret`() =
+        runComposeUiTest {
+            conversationScreen(offering(SecretOffer.Judged))
+
+            onConversation { seesTheSecretOffer(agentNoticed = false) }
+        }
+
+    @Test
+    fun `GIVEN the agent noticed something private WHEN drawn THEN the offer says it noticed`() =
+        runComposeUiTest {
+            conversationScreen(offering(SecretOffer.Agent))
+
+            onConversation { seesTheSecretOffer(agentNoticed = true) }
+        }
+
+    @Test
+    fun `GIVEN no offer WHEN drawn THEN no card offers to go secret`() =
+        runComposeUiTest {
+            conversationScreen(offering(offer = null))
+
+            onConversation { doesNotSeeTheSecretOffer() }
+        }
+
+    @Test
+    fun `GIVEN an offer to go secret WHEN the member makes it secret THEN it is asked for`() =
+        runComposeUiTest {
+            var accepted = 0
+            conversationScreen(offering(SecretOffer.Judged), onAcceptSecretOffer = { accepted++ })
+
+            onConversation { makesItSecret() }
+
+            assertEquals(1, accepted)
+        }
+
+    @Test
+    fun `GIVEN an offer to go secret WHEN the member says not now THEN it is declined`() =
+        runComposeUiTest {
+            var declined = 0
+            conversationScreen(offering(SecretOffer.Judged), onDeclineSecretOffer = { declined++ })
+
+            onConversation { saysNotNow() }
+
+            assertEquals(1, declined)
+        }
+
+    @Test
+    fun `GIVEN the agent offered Secret Mode in its answer WHEN drawn THEN the offer leaves no step behind`() =
+        runComposeUiTest {
+            val offeredAnswer =
+                safe.copy(
+                    parts =
+                        listOf(
+                            AnswerPart.ToolDone(HubTool.OFFER_SECRET_MODE),
+                            AnswerPart.Text("Your secret's safe with me."),
+                        ),
+                )
+            conversationScreen(
+                offering(SecretOffer.Agent).copy(messages = listOf(asked, answered, kept, offeredAnswer)),
+            )
+
+            onConversation {
+                seesWords("Your secret's safe with me.")
+                seesNoStepForTheOffer()
+            }
+        }
+
+    @Test
+    fun `GIVEN an add refused in Secret Mode WHEN drawn THEN the step says Secret Mode locked it`() =
+        runComposeUiTest {
+            val refused =
+                safe.copy(
+                    content = "Nothing was booked.",
+                    parts =
+                        listOf(
+                            AnswerPart.ToolFailed(
+                                HubTool.CALENDAR_WRITE,
+                                ToolSummary(action = ToolAction.Create, reason = ToolFailureReason.SecretMode),
+                            ),
+                            AnswerPart.Text("Nothing was booked."),
+                        ),
+                )
+            conversationScreen(
+                ChatSessionUiState(
+                    session = chat.copy(isSecret = true),
+                    messages = listOf(asked, refused),
+                    agentName = "Home Coordinator",
+                    secretParts = listOf(SecretPart(from = 0)),
+                ),
+            )
+
+            onConversation { seesItCouldNotAddBecauseSecretModeLocksIt() }
         }
 }

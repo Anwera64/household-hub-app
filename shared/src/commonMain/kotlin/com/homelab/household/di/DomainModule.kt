@@ -14,6 +14,7 @@ import com.homelab.household.domain.usecase.CreateAgentUseCase
 import com.homelab.household.domain.usecase.CreateInviteUseCase
 import com.homelab.household.domain.usecase.CreateSessionUseCase
 import com.homelab.household.domain.usecase.DecideToolProposalUseCase
+import com.homelab.household.domain.usecase.DeclineSecretOfferUseCase
 import com.homelab.household.domain.usecase.DeleteAgentUseCase
 import com.homelab.household.domain.usecase.DeleteSessionUseCase
 import com.homelab.household.domain.usecase.FirstRunOnboardUseCase
@@ -76,6 +77,7 @@ import com.homelab.household.domain.usecase.impl.CreateAgentUseCaseImpl
 import com.homelab.household.domain.usecase.impl.CreateInviteUseCaseImpl
 import com.homelab.household.domain.usecase.impl.CreateSessionUseCaseImpl
 import com.homelab.household.domain.usecase.impl.DecideToolProposalUseCaseImpl
+import com.homelab.household.domain.usecase.impl.DeclineSecretOfferUseCaseImpl
 import com.homelab.household.domain.usecase.impl.DeleteAgentUseCaseImpl
 import com.homelab.household.domain.usecase.impl.DeleteSessionUseCaseImpl
 import com.homelab.household.domain.usecase.impl.FirstRunOnboardUseCaseImpl
@@ -148,6 +150,7 @@ val domainModule =
         factory<GetSessionUseCase> { GetSessionUseCaseImpl(get()) }
         factory<ListSessionsUseCase> { ListSessionsUseCaseImpl(get()) }
         factory<ArchiveSessionUseCase> { ArchiveSessionUseCaseImpl(get()) }
+        factory<DeclineSecretOfferUseCase> { DeclineSecretOfferUseCaseImpl(get()) }
         factory<ToggleSecretModeUseCase> { ToggleSecretModeUseCaseImpl(get()) }
         factory<DeleteSessionUseCase> { DeleteSessionUseCaseImpl(get()) }
         factory<DecideToolProposalUseCase> { DecideToolProposalUseCaseImpl(get()) }

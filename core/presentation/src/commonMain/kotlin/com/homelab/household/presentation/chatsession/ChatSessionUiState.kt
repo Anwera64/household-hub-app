@@ -38,6 +38,15 @@ sealed interface TurnState {
     data object AwaitingApproval : TurnState
 }
 
+/**
+ * Why the chat is offering to go secret: the hub judged the question private, or the agent
+ * noticed it sounded private and offered. The card's words say which.
+ */
+enum class SecretOffer {
+    Judged,
+    Agent,
+}
+
 /** A write agents now do for the member without asking: adding events, say. */
 data class AutomaticWrite(
     val tool: String,
@@ -120,6 +129,11 @@ data class ChatSessionUiState(
     val askingToTurnOffSecret: Boolean = false,
     /** A new chat's pill was turned on before anything was said: the hub creates it secret. */
     val startsSecret: Boolean = false,
+    /**
+     * The newest answer offers to make the whole chat secret. Only for the turn that brought it:
+     * the next message, an answer to the card or leaving the chat ends it.
+     */
+    val secretOffer: SecretOffer? = null,
 ) {
     /**
      * Whether the composer will take a message.
