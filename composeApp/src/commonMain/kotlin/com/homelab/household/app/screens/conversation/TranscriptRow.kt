@@ -7,8 +7,13 @@ import com.homelab.household.presentation.chatsession.SecretPart
 internal sealed interface TranscriptRow {
     val key: Any
 
+    /** Fades in and out as it comes and goes: what a secret part opening or folding back changes. */
+    val fades: Boolean get() = true
+
+    /** [fades] for a message of a secret part that has ended, which opens and folds in place. */
     data class Message(
         val message: ChatMessage,
+        override val fades: Boolean = false,
     ) : TranscriptRow {
         override val key: Any get() = message.id
     }
@@ -16,6 +21,7 @@ internal sealed interface TranscriptRow {
     /** The quiet "Looked over" line, after the last message it read. */
     data object LookedOver : TranscriptRow {
         override val key: Any get() = "looked-over"
+        override val fades: Boolean get() = false
     }
 
     /** Where a secret part starts. [live] is the part the chat is in now, which keeps its promise. */
@@ -73,8 +79,17 @@ internal fun transcriptRows(
             }
             rows += TranscriptRow.SecretStart(at, live = part.until == null)
         }
-        if (at < messages.size) rows += TranscriptRow.Message(messages[at])
+        if (at < messages.size) rows += TranscriptRow.Message(messages[at], fades = secretParts.endedAround(at))
         at++
     }
     return rows
 }
+
+/** Whether the message at [at] is in a secret part that has ended. */
+private fun List<SecretPart>.endedAround(at: Int): Boolean =
+    any { part ->
+        part.until.let {
+            it != null &&
+                at in part.from until it
+        }
+    }
