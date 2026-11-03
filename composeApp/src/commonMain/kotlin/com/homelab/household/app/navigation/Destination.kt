@@ -67,6 +67,9 @@ sealed interface Destination : NavKey {
         val sessionId: String? = null,
     ) : Destination
 
+    /** The PIN pad the bar over Chats opens: it unlocks every secret chat, then goes back to the list. */
+    data object SecretChatsUnlock : Destination
+
     data object Profile : Destination
 
     /** Which writes agents do for you without asking: the same settings as an approval card's box. */

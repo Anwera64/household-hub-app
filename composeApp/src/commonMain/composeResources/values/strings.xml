@@ -476,6 +476,27 @@
     <string name="chats_unreachable">Can’t reach your hub.</string>
     <string name="chats_retry">Try again</string>
     <string name="chats_agent_missing">Conversation</string>
+    <!-- When a chat last moved, on its row: "now", "10m", "3h", "Yesterday", "Tue", "12 Oct", "12 Oct 2025". -->
+    <string name="chats_age_now">now</string>
+    <string name="chats_age_minutes">%1$dm</string>
+    <string name="chats_age_hours">%1$dh</string>
+    <string name="chats_age_yesterday">Yesterday</string>
+    <string name="chats_age_date">%1$d %2$s</string>
+    <string name="chats_age_date_year">%1$d %2$s %3$d</string>
+    <!-- Secret chats on the list (slice 6, P3): the bar over it, and the mark on a secret row. -->
+    <plurals name="chats_secret_locked">
+        <item quantity="one">%1$d secret chat is locked</item>
+        <item quantity="other">%1$d secret chats are locked</item>
+    </plurals>
+    <string name="chats_secret_locked_line">Unlock to see their titles</string>
+    <string name="chats_secret_unlock">Unlock</string>
+    <string name="chats_secret_unlocked">Secret chats unlocked</string>
+    <string name="chats_secret_unlocked_line">Locks again after 10 minutes untouched</string>
+    <string name="chats_secret_lock_now">Lock now</string>
+    <string name="chats_secret_chip_locked">Secret · locked</string>
+    <string name="chats_secret_chip">Secret</string>
+    <string name="secret_chats_unlock_title">Unlock secret chats</string>
+    <string name="secret_chats_unlock_line">Their titles appear and you can open any of them. Ten minutes untouched, closing the app or locking your phone locks them again.</string>
 
     <!-- Conversation -->
     <string name="conversation_back">Back to chats</string>

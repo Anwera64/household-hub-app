@@ -19,7 +19,10 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
+@OptIn(ExperimentalTime::class)
 class SessionUseCasesTest {
     private val sessionRepo = mock<SessionRepository>()
     private val createSessionUseCase = CreateSessionUseCaseImpl(sessionRepo)
@@ -36,7 +39,7 @@ class SessionUseCasesTest {
             isSecret = false,
             isArchived = false,
             createdAt = "2026-09-08T12:00:00Z",
-            updatedAt = "2026-09-08T12:00:00Z",
+            updatedAt = Instant.parse("2026-09-08T12:00:00Z"),
         )
 
     @Test

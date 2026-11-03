@@ -79,6 +79,15 @@ class DataMappersTest {
     }
 
     @Test
+    fun `GIVEN a conversation the hub last touched at a time with no zone WHEN it is mapped THEN that time is read as UTC`() {
+        val dto = SessionReadDto(id = "s-1", user_id = "u-1", updated_at = "2026-11-02T20:30:18.850065")
+
+        val session = SessionDataMapper.toDomain(dto)
+
+        assertEquals(Instant.parse("2026-11-02T20:30:18.850065Z"), session.updatedAt)
+    }
+
+    @Test
     fun `GIVEN a withheld conversation record from the hub WHEN it is mapped THEN the session reads as locked and holding a secret part`() {
         val dto =
             SessionReadDto(

@@ -54,7 +54,14 @@ val presentationModule =
                 secretLocks = get<SecretUnlockRepository>().locks,
             )
         }
-        factory { ChatsViewModel(get()) }
+        factory {
+            ChatsViewModel(
+                get(),
+                lockSecretChats = get<SecretLockController>()::lockNow,
+                secretLocks = get<SecretUnlockRepository>().locks,
+                deviceTimeZone = get(),
+            )
+        }
         factory { SecretUnlockViewModel(get()) }
         factory { DashboardViewModel(get(), get(), get(), get()) }
         factory { LaunchViewModel(get(), get()) }

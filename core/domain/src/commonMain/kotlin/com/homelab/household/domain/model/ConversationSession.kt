@@ -1,5 +1,9 @@
 package com.homelab.household.domain.model
 
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+
+@OptIn(ExperimentalTime::class)
 data class ConversationSession(
     val id: String,
     val userId: String,
@@ -12,7 +16,8 @@ data class ConversationSession(
     /** The hub withheld this chat: secret, or holding a secret part, and no unlock was sent. Its title is empty. */
     val isLocked: Boolean = false,
     val createdAt: String? = null,
-    val updatedAt: String? = null,
+    /** When the chat last moved: the time its Chats row shows. */
+    val updatedAt: Instant? = null,
     /**
      * What a Chats row draws beside the title, resolved by the hub.
      *

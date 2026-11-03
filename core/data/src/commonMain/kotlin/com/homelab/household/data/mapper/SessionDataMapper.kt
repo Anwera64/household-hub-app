@@ -3,7 +3,9 @@ package com.homelab.household.data.mapper
 import com.homelab.household.data.dto.SessionDetailReadDto
 import com.homelab.household.data.dto.SessionReadDto
 import com.homelab.household.domain.model.ConversationSession
+import kotlin.time.ExperimentalTime
 
+@OptIn(ExperimentalTime::class)
 object SessionDataMapper {
     fun toDomain(dto: SessionReadDto): ConversationSession =
         ConversationSession(
@@ -16,7 +18,7 @@ object SessionDataMapper {
             hasSecretPart = dto.has_secret_part,
             isLocked = dto.locked,
             createdAt = dto.created_at,
-            updatedAt = dto.updated_at,
+            updatedAt = dto.updated_at?.let(::hubInstant),
             lastMessagePreview = dto.last_message_preview,
             agentName = dto.agent_name,
             agentAvatar = dto.agent_avatar,
@@ -33,7 +35,7 @@ object SessionDataMapper {
             hasSecretPart = dto.has_secret_part,
             isLocked = dto.locked,
             createdAt = dto.created_at,
-            updatedAt = dto.updated_at,
+            updatedAt = dto.updated_at?.let(::hubInstant),
             turnRunning = dto.turn_running,
             awaitingApproval = dto.awaiting_approval,
             lookedOver = dto.looked_over?.let(MemoryDataMapper::toDomain),

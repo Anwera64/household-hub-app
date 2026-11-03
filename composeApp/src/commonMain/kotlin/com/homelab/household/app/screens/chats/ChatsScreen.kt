@@ -15,12 +15,13 @@ fun ChatsScreen(
     onNewChat: () -> Unit,
     tabs: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    onUnlockSecretChats: () -> Unit = {},
 ) {
     val viewModel: ChatsViewModel = koinViewModel()
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Reloaded on every arrival rather than once: a conversation you just had is the one you are
-    // most likely to be coming back to look for.
+    // most likely to be coming back to look for, and back from the PIN the titles are open.
     LaunchedEffect(Unit) { viewModel.load() }
 
     ChatsContent(
@@ -30,6 +31,8 @@ fun ChatsScreen(
         onOpen = onOpen,
         onNewChat = onNewChat,
         onRetry = viewModel::load,
+        onUnlockSecretChats = onUnlockSecretChats,
+        onLockNow = viewModel::lockNow,
         tabs = tabs,
         modifier = modifier,
     )

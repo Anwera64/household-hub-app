@@ -17,6 +17,9 @@ import io.ktor.http.headersOf
  *
  * `s-2` was secret and turned off again: it opens without the unlock, its secret part withheld.
  * Turning `s-1` off makes it the same kind of chat.
+ *
+ * The chats list holds `s-1` back the same way: locked, with an empty title, until the unlock comes
+ * with it. Its last message is ordinary, so its preview is sent either way.
  */
 class FakeSecretChatHub {
     var unlockAttempts = 0
@@ -25,10 +28,17 @@ class FakeSecretChatHub {
     /** What each `PATCH …/secret` asked for, in order. */
     val secretToggles = mutableListOf<String>()
 
+    /** False: the unlock call gets the proxy's 503, as when the hub is down. */
+    var answering = true
+
     val engine: HttpClientEngine =
         MockEngine { request ->
             val path = request.url.encodedPath
             when {
+                path == "/api/v1/auth/unlock-secret" && !answering -> {
+                    respond("", HttpStatusCode.ServiceUnavailable)
+                }
+
                 path == "/api/v1/auth/unlock-secret" && request.method == HttpMethod.Post -> {
                     unlockAttempts++
                     val body = (request.body as? TextContent)?.text.orEmpty()
@@ -54,6 +64,10 @@ class FakeSecretChatHub {
                     } else {
                         json("""{"detail":"locked","code":"secret_locked"}""", HttpStatusCode.Locked)
                     }
+                }
+
+                path == "/api/v1/sessions" && request.method == HttpMethod.Get -> {
+                    json(if (request.headers["X-Secret-Unlock"] == UNLOCK) CHATS_UNLOCKED else CHATS_LOCKED)
                 }
 
                 path == "/api/v1/agents" -> {
@@ -82,6 +96,9 @@ class FakeSecretChatHub {
         const val SECRET_ANSWER = "Can Pere does a set menu on Saturdays"
         const val ASKED_BEFORE = "What's on this weekend?"
         const val ASKED_AFTER = "Add the plumber on Monday"
+        const val ORDINARY_TITLE = "Groceries for the week"
+        const val SECRET_TITLE = "Anniversary surprise"
+        const val SECRET_PREVIEW = "Booked the table for eight"
 
         private val ME =
             """{"id":"emma","full_name":"Emma Larsson","avatar_color":"#3C6E4E","is_admin":true,
@@ -108,6 +125,16 @@ class FakeSecretChatHub {
 
         private val TURNED_OFF_CHAT_LOCKED = turnedOffChat(withheld = true)
         private val TURNED_OFF_CHAT = turnedOffChat(withheld = false)
+
+        private const val ORDINARY_ROW = """{"id":"s-0","user_id":"emma","title":"$ORDINARY_TITLE"}"""
+
+        private val CHATS_LOCKED =
+            """[$ORDINARY_ROW,{"id":"s-1","user_id":"emma","title":"","is_secret":true,"has_secret_part":true,
+            "locked":true,"last_message_preview":"$SECRET_PREVIEW"}]"""
+
+        private val CHATS_UNLOCKED =
+            """[$ORDINARY_ROW,{"id":"s-1","user_id":"emma","title":"$SECRET_TITLE","is_secret":true,
+            "has_secret_part":true,"last_message_preview":"$SECRET_PREVIEW"}]"""
 
         private val SECRET_CHAT =
             """{"id":"s-1","user_id":"emma","title":"Saturday","is_secret":true,"has_secret_part":true,
