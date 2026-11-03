@@ -1,5 +1,9 @@
 package com.homelab.household.app.screens.chats
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
@@ -19,10 +23,21 @@ import com.homelab.household.app.resources.chats_no_matches_title
 import com.homelab.household.app.resources.chats_retry
 import com.homelab.household.app.resources.chats_search_cancel
 import com.homelab.household.app.resources.chats_search_placeholder
+import com.homelab.household.app.resources.chats_secret_chip
+import com.homelab.household.app.resources.chats_secret_chip_locked
+import com.homelab.household.app.resources.chats_secret_lock_now
+import com.homelab.household.app.resources.chats_secret_locked
+import com.homelab.household.app.resources.chats_secret_unlock
+import com.homelab.household.app.resources.chats_secret_unlocked
 import com.homelab.household.app.resources.chats_title
 import com.homelab.household.app.resources.chats_unreachable
+import com.homelab.household.app.screens.secretunlock.SecretUnlockScreen
+import com.homelab.household.app.testing.FakeSecretChatHub
 import com.homelab.household.app.testing.StillTheme
+import com.homelab.household.app.testing.TestApp
+import com.homelab.household.data.datasource.local.InMemorySessionStorage
 import com.homelab.household.presentation.chats.ChatsUiState
+import org.jetbrains.compose.resources.getPluralString
 import org.jetbrains.compose.resources.getString
 
 /** Everything the Chats list says and does, named as the resources it reads. */
@@ -81,6 +96,31 @@ class ChatsRobot(
         test.onNodeWithText(getString(Res.string.chats_retry)).performClick()
     }
 
+    /** The bar over the list, while [count] secret chats are locked. */
+    suspend fun seesSecretChatsLocked(count: Int) =
+        seesText(getPluralString(Res.plurals.chats_secret_locked, count, count))
+
+    suspend fun tapsUnlock() = tapsWhenShown(getString(Res.string.chats_secret_unlock))
+
+    suspend fun seesSecretChatsUnlocked() = seesText(getString(Res.string.chats_secret_unlocked))
+
+    suspend fun tapsLockNow() = tapsWhenShown(getString(Res.string.chats_secret_lock_now))
+
+    /** How many rows wear the locked chip, and how many the open one. */
+    suspend fun seesSecretRows(
+        locked: Int,
+        open: Int,
+    ) {
+        test.onAllNodesWithText(getString(Res.string.chats_secret_chip_locked)).assertCountEquals(locked)
+        test.onAllNodesWithText(getString(Res.string.chats_secret_chip)).assertCountEquals(open)
+    }
+
+    /** Waits for the list to arrive from the hub first: the bar is only drawn over a loaded list. */
+    private fun tapsWhenShown(text: String) {
+        test.waitUntilExactlyOneExists(hasText(text), timeoutMillis = WAIT_MILLIS)
+        test.onNodeWithText(text).performClick()
+    }
+
     private fun seesText(text: String) {
         test.waitUntilExactlyOneExists(hasText(text), timeoutMillis = WAIT_MILLIS)
         test.onNodeWithText(text).assertIsDisplayed()
@@ -105,6 +145,8 @@ fun ComposeUiTest.chatsScreen(
     onOpen: (String) -> Unit = {},
     onNewChat: () -> Unit = {},
     onRetry: () -> Unit = {},
+    onUnlockSecretChats: () -> Unit = {},
+    onLockNow: () -> Unit = {},
 ) {
     setContent {
         StillTheme {
@@ -115,8 +157,28 @@ fun ComposeUiTest.chatsScreen(
                 onOpen = onOpen,
                 onNewChat = onNewChat,
                 onRetry = onRetry,
+                onUnlockSecretChats = onUnlockSecretChats,
+                onLockNow = onLockNow,
                 tabs = {},
             )
+        }
+    }
+}
+
+/**
+ * The real Chats list and everything behind it, against [hub], with the bar's Unlock opening the
+ * real PIN pad in its place and the pad going back to the list as navigation does.
+ */
+@OptIn(ExperimentalTestApi::class)
+fun ComposeUiTest.secretChatsListScreen(hub: FakeSecretChatHub) {
+    setContent {
+        TestApp(hub.engine, sessionStorage = InMemorySessionStorage().apply { saveTokens("signed-in-token") }) {
+            var unlocking by remember { mutableStateOf(false) }
+            if (unlocking) {
+                SecretUnlockScreen(allChats = true, onUnlock = { unlocking = false }, onBack = { unlocking = false })
+            } else {
+                ChatsScreen(onOpen = {}, onNewChat = {}, tabs = {}, onUnlockSecretChats = { unlocking = true })
+            }
         }
     }
 }

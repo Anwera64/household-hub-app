@@ -112,13 +112,7 @@ object MemoryDataMapper {
         return EventTime(startsAt = instantOf(start), allDay = allDay)
     }
 
-    /** The hub's SQLite hands times back without a zone; every one it writes is UTC. */
-    private fun instantOf(iso: String): Instant {
-        val zoned = ZONE.containsMatchIn(iso)
-        return Instant.parse(if (zoned) iso else "${iso}Z")
-    }
-
-    private val ZONE = Regex("""(Z|[+-]\d{2}:?\d{2})$""")
+    private fun instantOf(iso: String): Instant = hubInstant(iso)
 
     private val EVENT_TIME_KINDS = mapOf("timed" to false, "all_day" to true)
 

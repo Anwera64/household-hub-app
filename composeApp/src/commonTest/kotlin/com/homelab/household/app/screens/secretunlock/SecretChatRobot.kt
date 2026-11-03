@@ -12,7 +12,9 @@ import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEventBus
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.conversation_greeting
+import com.homelab.household.app.resources.pin_unreachable
 import com.homelab.household.app.resources.pin_wrong
+import com.homelab.household.app.resources.secret_chats_unlock_title
 import com.homelab.household.app.resources.secret_locked_title
 import com.homelab.household.app.screens.conversation.ConversationScreen
 import com.homelab.household.app.testing.FakeSecretChatHub
@@ -39,6 +41,11 @@ class SecretChatRobot(
     }
 
     suspend fun seesTheWrongPin() = seesText(getString(Res.string.pin_wrong))
+
+    /** The same pad opened from the bar over Chats, worded for every secret chat. */
+    suspend fun seesUnlockSecretChats() = seesText(getString(Res.string.secret_chats_unlock_title))
+
+    suspend fun seesTheHubDidNotAnswer() = seesText(getString(Res.string.pin_unreachable))
 
     fun seesTheSecretWords() = seesText(FakeSecretChatHub.SECRET_WORDS)
 

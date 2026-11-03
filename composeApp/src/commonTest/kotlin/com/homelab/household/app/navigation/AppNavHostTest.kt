@@ -642,4 +642,21 @@ class AppNavHostTest {
                 assertEquals(listOf(Destination.Chats), backStack.toList())
             }
         }
+
+    @Test
+    fun `GIVEN the chats list WHEN the bar's Unlock is tapped and the PIN opens them THEN the chats list is back on its own`() =
+        runComposeUiTest {
+            onAppNavHost {
+                backStack[0] = Destination.Chats
+                appNavHost(StubScreens(), backStack, session)
+
+                tapsUnlockSecretChats()
+                seesTheSecretChatsPin()
+
+                tapsUnlocked()
+
+                seesChats()
+                assertEquals(listOf(Destination.Chats), backStack.toList())
+            }
+        }
 }

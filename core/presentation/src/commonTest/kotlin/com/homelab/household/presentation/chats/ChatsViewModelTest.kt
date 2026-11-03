@@ -9,6 +9,7 @@ import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -20,6 +21,10 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 
 /**
  * The Chats list, and the search that runs over it.
@@ -28,17 +33,31 @@ import kotlin.test.assertTrue
  * already returns in full, matching titles and agent names. That means it works offline over
  * whatever is loaded, and costs the hub nothing.
  */
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
 class ChatsViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private val listSessions = mock<ListSessionsUseCase>()
+    private val secretLocks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private var lockedNow = 0
+    private val now = Instant.parse("2026-11-03T16:00:00Z")
+    private val clock =
+        object : Clock {
+            override fun now() = now
+        }
 
     private lateinit var viewModel: ChatsViewModel
 
     @BeforeTest
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = ChatsViewModel(listSessions)
+        viewModel =
+            ChatsViewModel(
+                listSessions,
+                lockSecretChats = { lockedNow++ },
+                secretLocks = secretLocks,
+                deviceTimeZone = { 0 },
+                clock = clock,
+            )
     }
 
     @AfterTest
@@ -49,11 +68,13 @@ class ChatsViewModelTest {
         title: String,
         agentName: String? = "Home & Life Coordinator",
         isSecret: Boolean = false,
+        hasSecretPart: Boolean = isSecret,
     ) = ConversationSession(
         id = id,
         userId = "u-1",
         title = title,
         isSecret = isSecret,
+        hasSecretPart = hasSecretPart,
         agentName = agentName,
         agentAvatar = "🏡",
         lastMessagePreview = "Something was said",
@@ -151,6 +172,27 @@ class ChatsViewModelTest {
         }
 
     @Test
+    fun `GIVEN a chat whose secret part has ended WHEN searching for its title THEN it is not in the results`() =
+        runTest(testDispatcher) {
+            everySuspend { listSessions() } returns
+                listOf(
+                    session("s-1", "Saturday dinner"),
+                    session("s-2", "Dinner plans", hasSecretPart = true),
+                )
+            viewModel.load()
+            advanceUntilIdle()
+
+            viewModel.search("dinner")
+
+            assertEquals(
+                listOf("Saturday dinner"),
+                viewModel.uiState.value.visible
+                    .map { it.title },
+                "a chat that held a secret stretch is left out too: its title may come from it",
+            )
+        }
+
+    @Test
     fun `GIVEN a chat WHEN searching for something that matches nothing THEN it reports no matches rather than an empty household`() =
         runTest(testDispatcher) {
             everySuspend { listSessions() } returns listOf(session("s-1", "Saturday dinner"))
@@ -221,5 +263,64 @@ class ChatsViewModelTest {
 
             assertEquals(1, viewModel.uiState.value.visible.size)
             assertNull(viewModel.uiState.value.errorMessage)
+        }
+
+    @Test
+    fun `GIVEN secret chats open WHEN Lock now is tapped THEN every unlock is thrown away`() =
+        runTest(testDispatcher) {
+            viewModel.lockNow()
+
+            assertEquals(1, lockedNow)
+        }
+
+    @Test
+    fun `GIVEN an open secret chat on the list WHEN the chats lock again THEN the list reloads with its title held back`() =
+        runTest(testDispatcher) {
+            val open = session("s-1", "Anniversary surprise", isSecret = true)
+            everySuspend { listSessions() } returns listOf(open)
+            viewModel.load()
+            advanceUntilIdle()
+            everySuspend { listSessions() } returns listOf(open.copy(title = "", isLocked = true))
+
+            secretLocks.emit(Unit)
+            advanceUntilIdle()
+
+            assertEquals(SecretBar.Locked(count = 1), viewModel.uiState.value.secretBar)
+        }
+
+    @Test
+    fun `GIVEN an open secret chat on the list WHEN the chats lock with the hub unreachable THEN its title and preview are dropped anyway`() =
+        runTest(testDispatcher) {
+            everySuspend { listSessions() } returns
+                listOf(session("s-1", "Saturday dinner"), session("s-2", "Anniversary surprise", isSecret = true))
+            viewModel.load()
+            advanceUntilIdle()
+            everySuspend { listSessions() } throws ServerOfflineException("Can't reach your hub")
+
+            secretLocks.emit(Unit)
+            advanceUntilIdle()
+
+            val secret = viewModel.uiState.value.visible.single { it.id == "s-2" }
+            assertEquals("", secret.title)
+            assertNull(secret.lastMessagePreview)
+            assertTrue(secret.isLocked)
+            assertEquals(
+                "Saturday dinner",
+                viewModel.uiState.value.visible
+                    .first()
+                    .title,
+            )
+        }
+
+    @Test
+    fun `GIVEN a chat that moved ten minutes ago WHEN loading THEN its row says ten minutes`() =
+        runTest(testDispatcher) {
+            everySuspend { listSessions() } returns
+                listOf(session("s-1", "Saturday dinner").copy(updatedAt = now - 10.minutes))
+
+            viewModel.load()
+            advanceUntilIdle()
+
+            assertEquals(ChatAge.Minutes(10), viewModel.uiState.value.ages["s-1"])
         }
 }

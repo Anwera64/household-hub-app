@@ -16,9 +16,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.style.TextOverflow
 import com.homelab.household.app.icons.HearthIcon
 import com.homelab.household.app.icons.HearthIconImage
+import com.homelab.household.app.theme.HearthShapes
 import com.homelab.household.app.theme.HearthTheme
 
 /**
@@ -29,6 +35,9 @@ import com.homelab.household.app.theme.HearthTheme
  * link. Chrome never uses emoji (design notes §3), so the fallback is a Hearth icon rather than an
  * invented emoji, and the row keeps its shape instead of collapsing. Slice 7 gives that case its
  * proper treatment; this only has to not look broken.
+ *
+ * [secretMark] is the chip a secret chat wears under its title ("Secret · locked", or "Secret" once
+ * [secretOpen]), and the row gets the Secret Mode ghost outline with it (canvas Chats and ChatsUnlocked).
  */
 @Composable
 fun ChatRow(
@@ -38,13 +47,17 @@ fun ChatRow(
     agentAvatar: String?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    secretMark: String? = null,
+    secretOpen: Boolean = false,
 ) {
     val colors = HearthTheme.colors
     val type = HearthTheme.typography
+    val secret = secretMark != null
 
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .then(if (secret) Modifier.secretOutline() else Modifier)
             .clickable(onClick = onClick)
             .heightIn(min = HearthTheme.size.touchTarget)
             .padding(vertical = HearthTheme.spacing.md),
@@ -97,6 +110,40 @@ fun ChatRow(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+            if (secretMark != null) {
+                HearthChip(
+                    label = secretMark,
+                    variant = ChipVariant.Secret,
+                    icon = if (secretOpen) HearthIcon.SecretOpen else HearthIcon.SecretLocked,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * The Secret Mode ghost's edge, without its tint: the sign that a row or bar is about secret chats.
+ *
+ * Drawn [HearthTheme.spacing.md] outside the row on either side, into the list's own margin, so a
+ * secret row's face and words stay in line with every other row and lose no width to the outline.
+ */
+@Composable
+internal fun Modifier.secretOutline(): Modifier {
+    val colors = HearthTheme.colors
+    val edge = colors.secret.copy(alpha = colors.ghostEdge)
+    val bleed = HearthTheme.spacing.md
+    val hairline = HearthTheme.size.hairline
+    return drawBehind {
+        val stroke = hairline.toPx()
+        val outside = bleed.toPx()
+        translate(left = stroke / 2 - outside, top = stroke / 2) {
+            val outline =
+                HearthShapes.item.createOutline(
+                    Size(size.width + 2 * outside - stroke, size.height - stroke),
+                    layoutDirection,
+                    this,
+                )
+            drawOutline(outline, edge, style = Stroke(stroke))
         }
     }
 }

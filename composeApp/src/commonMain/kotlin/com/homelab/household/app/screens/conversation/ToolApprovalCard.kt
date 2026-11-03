@@ -1070,7 +1070,8 @@ private fun whenText(moment: CardWhen): String {
         ?: stringResource(Res.string.tool_card_when_all_day, day, moment.day, month)
 }
 
-private val WEEKDAYS =
+/** Short weekday names, Monday first; the Chats rows read them too. */
+internal val WEEKDAYS =
     listOf(
         Res.string.tool_card_day_mon,
         Res.string.tool_card_day_tue,
@@ -1081,7 +1082,8 @@ private val WEEKDAYS =
         Res.string.tool_card_day_sun,
     )
 
-private val MONTHS =
+/** Short month names, January first; the Chats rows read them too. */
+internal val MONTHS =
     listOf(
         Res.string.tool_card_month_jan,
         Res.string.tool_card_month_feb,

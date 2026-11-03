@@ -44,6 +44,8 @@ class AppNavHostRobot(
 
     fun seesChats() = seesText(StubScreens.CHATS)
 
+    fun seesTheSecretChatsPin() = seesText(StubScreens.SECRET_CHATS_PIN)
+
     fun seesANewConversation() = seesText(StubScreens.NEW_CONVERSATION)
 
     fun seesTheCalendarPicker() = seesText(StubScreens.CALENDAR_PICKER)
@@ -93,6 +95,10 @@ class AppNavHostRobot(
     fun tapsPickEmma() = tapsText(StubScreens.PICK_EMMA)
 
     fun tapsBack() = tapsText(StubScreens.BACK)
+
+    fun tapsUnlockSecretChats() = tapsText(StubScreens.UNLOCK_SECRET_CHATS)
+
+    fun tapsUnlocked() = tapsText(StubScreens.UNLOCKED)
 
     fun tapsSignedIn() = tapsText(StubScreens.SIGNED_IN)
 

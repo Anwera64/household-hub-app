@@ -133,7 +133,15 @@ fun AppNavHost(
                         onProfile = { backStack.add(Destination.Profile) },
                         onOpen = { sessionId -> backStack.add(Destination.Conversation(sessionId)) },
                         onNewChat = { backStack.add(Destination.Conversation()) },
+                        onUnlockSecretChats = { backStack.add(Destination.SecretChatsUnlock) },
                         tabs = { backStack.Tabs(NavTab.Chats) },
+                    )
+                }
+                // Back to the list either way; arriving there reloads it, with the titles if unlocked.
+                entry<Destination.SecretChatsUnlock> {
+                    screens.SecretChatsUnlock(
+                        onUnlock = { backStack.removeLastOrNull() },
+                        onBack = { backStack.removeLastOrNull() },
                     )
                 }
                 entry<Destination.MySpace> {

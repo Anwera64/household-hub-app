@@ -35,6 +35,26 @@ class ChatsScreenTest {
         }
 
     @Test
+    fun `GIVEN chats that moved at different times WHEN the list is shown THEN each row says when in a few letters`() =
+        runComposeUiTest {
+            chatsScreen(stateNamed("The list"))
+
+            onChats {
+                seesChat("10m")
+                seesChat("Tue")
+                seesChat("12 Oct")
+            }
+        }
+
+    @Test
+    fun `GIVEN a chat last touched in another year WHEN the list is shown THEN its date carries the year`() =
+        runComposeUiTest {
+            chatsScreen(stateNamed("An agent that is gone"))
+
+            onChats { seesChat("26 Oct 2025") }
+        }
+
+    @Test
     fun `GIVEN the chats list WHEN a row is tapped THEN that conversation opens`() =
         runComposeUiTest {
             val opened = mutableListOf<String>()
@@ -144,5 +164,52 @@ class ChatsScreenTest {
             chatsScreen(stateNamed("A locked secret chat"))
 
             onChats { seesChat("Private conversation") }
+        }
+
+    @Test
+    fun `GIVEN two locked secret chats WHEN the list is shown THEN the bar counts them and both rows are marked locked`() =
+        runComposeUiTest {
+            chatsScreen(stateNamed("Secret chats locked"))
+
+            onChats {
+                seesSecretChatsLocked(count = 2)
+                seesSecretRows(locked = 2, open = 0)
+                seesChat("Saturday dinner")
+            }
+        }
+
+    @Test
+    fun `GIVEN locked secret chats WHEN Unlock is tapped on the bar THEN the PIN is asked for`() =
+        runComposeUiTest {
+            var unlocking = false
+            chatsScreen(stateNamed("Secret chats locked"), onUnlockSecretChats = { unlocking = true })
+
+            onChats { tapsUnlock() }
+
+            assertEquals(true, unlocking)
+        }
+
+    @Test
+    fun `GIVEN secret chats unlocked WHEN the list is shown THEN their titles show with the secret mark`() =
+        runComposeUiTest {
+            chatsScreen(stateNamed("Secret chats unlocked"))
+
+            onChats {
+                seesSecretChatsUnlocked()
+                seesChat("Anniversary surprise")
+                seesChat("Thinking about the Lisbon offer")
+                seesSecretRows(locked = 0, open = 2)
+            }
+        }
+
+    @Test
+    fun `GIVEN secret chats unlocked WHEN Lock now is tapped THEN they are locked`() =
+        runComposeUiTest {
+            var locked = false
+            chatsScreen(stateNamed("Secret chats unlocked"), onLockNow = { locked = true })
+
+            onChats { tapsLockNow() }
+
+            assertEquals(true, locked)
         }
 }
