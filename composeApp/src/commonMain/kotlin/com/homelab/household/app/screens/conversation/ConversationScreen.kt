@@ -10,6 +10,9 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.ResultEffect
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationEventHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.homelab.household.app.navigation.CalendarConnected
 import com.homelab.household.app.screens.secretunlock.SecretUnlockScreen
 import com.homelab.household.presentation.chatsession.ChatSessionViewModel
@@ -48,6 +51,14 @@ fun ConversationScreen(
         viewModel.onForeground()
         onPauseOrDispose {}
     }
+
+    // The phone's back gesture on a locked part's PIN pad returns to the chat, as the bar's arrow
+    // does. Called unconditionally and switched by isBackEnabled, as navigationevent asks.
+    NavigationEventHandler(
+        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
+        isBackEnabled = state.unlockingSecretPart && !state.isLocked,
+        onBackCompleted = viewModel::keepSecretPartLocked,
+    )
 
     // Locked is its own screen, never the new-chat one: nothing to type into until the PIN opens it.
     // A locked part of a chat no longer secret asks on the same pad, and Back returns to the chat.

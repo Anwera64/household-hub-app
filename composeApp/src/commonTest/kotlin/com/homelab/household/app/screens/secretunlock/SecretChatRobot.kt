@@ -11,6 +11,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.waitUntilExactlyOneExists
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEventBus
+import androidx.navigationevent.DirectNavigationEventInput
+import androidx.navigationevent.NavigationEventDispatcher
+import androidx.navigationevent.NavigationEventDispatcherOwner
+import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.a11y_secret_on
 import com.homelab.household.app.resources.conversation_back
@@ -29,10 +33,27 @@ import com.homelab.household.app.testing.TestApp
 import com.homelab.household.data.datasource.local.InMemorySessionStorage
 import org.jetbrains.compose.resources.getString
 
+/**
+ * The phone's back gesture. With no screen handling it, it falls through to the back stack, which
+ * leaves the chat: [leftTheChat] counts those.
+ */
+class SystemBack : NavigationEventDispatcherOwner {
+    var leftTheChat = 0
+        private set
+
+    private val input = DirectNavigationEventInput()
+
+    override val navigationEventDispatcher =
+        NavigationEventDispatcher(onBackCompletedFallback = { leftTheChat++ }).apply { addInput(input) }
+
+    fun swipe() = input.backCompleted()
+}
+
 /** A secret chat opened while locked: the PIN pad it shows, and what the right PIN opens. */
 @OptIn(ExperimentalTestApi::class)
 class SecretChatRobot(
     private val test: ComposeUiTest,
+    private val systemBack: SystemBack,
 ) {
     suspend fun seesItLocked() = seesText(getString(Res.string.secret_locked_title))
 
@@ -74,6 +95,12 @@ class SecretChatRobot(
         test.waitForIdle()
     }
 
+    /** The phone's own back gesture, not the bar's arrow. */
+    fun swipesBack() {
+        test.runOnUiThread { systemBack.swipe() }
+        test.waitForIdle()
+    }
+
     /** Back on the PIN pad's own bar. */
     suspend fun goesBack() {
         test.onNode(hasContentDescription(getString(Res.string.conversation_back))).performClick()
@@ -108,8 +135,11 @@ class SecretChatRobot(
 }
 
 @OptIn(ExperimentalTestApi::class)
-suspend fun ComposeUiTest.onSecretChat(block: suspend SecretChatRobot.() -> Unit) {
-    SecretChatRobot(this).block()
+suspend fun ComposeUiTest.onSecretChat(
+    systemBack: SystemBack = SystemBack(),
+    block: suspend SecretChatRobot.() -> Unit,
+) {
+    SecretChatRobot(this, systemBack).block()
 }
 
 /** The real conversation screen and everything behind it, against [hub], opened on [sessionId]. */
@@ -117,11 +147,15 @@ suspend fun ComposeUiTest.onSecretChat(block: suspend SecretChatRobot.() -> Unit
 fun ComposeUiTest.secretChatScreen(
     hub: FakeSecretChatHub,
     sessionId: String = "s-1",
+    systemBack: SystemBack = SystemBack(),
 ) {
     setContent {
         TestApp(hub.engine, sessionStorage = InMemorySessionStorage().apply { saveTokens("signed-in-token") }) {
             // Navigation provides the bus a conversation hears "calendar connected" on.
-            CompositionLocalProvider(LocalResultEventBus provides ResultEventBus()) {
+            CompositionLocalProvider(
+                LocalResultEventBus provides ResultEventBus(),
+                LocalNavigationEventDispatcherOwner provides systemBack,
+            ) {
                 ConversationScreen(sessionId = sessionId, onBack = {})
             }
         }
