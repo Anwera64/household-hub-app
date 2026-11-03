@@ -82,48 +82,29 @@ class SecretChatTest {
         }
 
     @Test
-    fun `GIVEN a locked secret part WHEN Unlock is tapped and the right PIN typed THEN the part opens in place`() =
+    fun `GIVEN a locked secret part WHEN Unlock is tapped THEN the secret chats PIN pad is asked for over the chat`() =
+        runScreenTest {
+            val navigation = ChatNavigation()
+            secretChatScreen(FakeSecretChatHub(), sessionId = "s-2", navigation = navigation)
+
+            onSecretChat(navigation) {
+                seesTheLockedPart()
+                unlocksThePart()
+                seesTheOrdinaryPartsOfTheChat()
+            }
+            assertEquals(1, navigation.pinPadsAsked)
+        }
+
+    @Test
+    fun `GIVEN a locked secret part WHEN the PIN opens secret chats on the pad THEN the part opens in place`() =
         runScreenTest(effectContext = StandardTestDispatcher()) {
-            secretChatScreen(FakeSecretChatHub(), sessionId = "s-2")
+            val navigation = ChatNavigation()
+            secretChatScreen(FakeSecretChatHub(), sessionId = "s-2", navigation = navigation)
 
-            onSecretChat {
+            onSecretChat(navigation) {
                 seesTheLockedPart()
-                unlocksThePart()
-                seesItLocked()
-                typesThePin(FakeSecretChatHub.RIGHT_PIN)
+                opensSecretChatsOnThePad()
                 seesThePartOpenInPlace()
-            }
-        }
-
-    @Test
-    fun `GIVEN the PIN pad for a secret part WHEN the phone's back gesture is used THEN the chat shows again with the part locked`() =
-        runScreenTest {
-            val systemBack = SystemBack()
-            secretChatScreen(FakeSecretChatHub(), sessionId = "s-2", systemBack = systemBack)
-
-            onSecretChat(systemBack) {
-                seesTheLockedPart()
-                unlocksThePart()
-                seesItLocked()
-                swipesBack()
-                seesTheOrdinaryPartsOfTheChat()
-                seesTheLockedPart()
-            }
-            assertEquals(0, systemBack.leftTheChat)
-        }
-
-    @Test
-    fun `GIVEN the PIN pad for a secret part WHEN Back is tapped THEN the chat shows again with the part locked`() =
-        runScreenTest {
-            secretChatScreen(FakeSecretChatHub(), sessionId = "s-2")
-
-            onSecretChat {
-                seesTheLockedPart()
-                unlocksThePart()
-                seesItLocked()
-                goesBack()
-                seesTheOrdinaryPartsOfTheChat()
-                seesTheLockedPart()
             }
         }
 }

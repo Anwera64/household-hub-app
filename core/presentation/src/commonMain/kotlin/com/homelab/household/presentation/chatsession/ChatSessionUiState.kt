@@ -118,8 +118,6 @@ data class ChatSessionUiState(
     val secretParts: List<SecretPart> = emptyList(),
     /** The ON pill was tapped and the sheet asks before Secret Mode turns off. */
     val askingToTurnOffSecret: Boolean = false,
-    /** Unlock was tapped on a locked secret part: the PIN pad shows until the PIN opens it, or Back. */
-    val unlockingSecretPart: Boolean = false,
     /** A new chat's pill was turned on before anything was said: the hub creates it secret. */
     val startsSecret: Boolean = false,
 ) {

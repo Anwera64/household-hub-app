@@ -869,33 +869,9 @@ class ChatSessionViewModelTest {
     }
 
     @Test
-    fun `GIVEN a locked secret part WHEN Unlock is tapped THEN the PIN pad is asked for`() =
+    fun `GIVEN a locked secret part WHEN the PIN opens secret chats THEN the chat is read again with the part in place`() =
         runTest(testDispatcher) {
             openTurnedOffLocked()
-
-            viewModel.unlockSecretPart()
-
-            assertTrue(viewModel.uiState.value.unlockingSecretPart)
-        }
-
-    @Test
-    fun `GIVEN the PIN pad for a secret part WHEN Back is tapped THEN the chat shows again with the part still locked`() =
-        runTest(testDispatcher) {
-            openTurnedOffLocked()
-            viewModel.unlockSecretPart()
-
-            viewModel.keepSecretPartLocked()
-
-            val state = viewModel.uiState.value
-            assertFalse(state.unlockingSecretPart)
-            assertEquals(listOf(true), state.messages.filter { it.isSecret }.map { it.withheld })
-        }
-
-    @Test
-    fun `GIVEN the PIN pad for a secret part WHEN the PIN opens it THEN the chat is read again with the part in place`() =
-        runTest(testDispatcher) {
-            openTurnedOffLocked()
-            viewModel.unlockSecretPart()
             everySuspend { getSessionUseCase("s-1") } returns
                 Pair(secretChat.copy(isSecret = false), listOf(question, secretQuestion, ordinaryAfter))
 
@@ -903,7 +879,6 @@ class ChatSessionViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertFalse(state.unlockingSecretPart)
             assertEquals(
                 listOf("Dinner Saturday?", "Plan the surprise", "Add the plumber"),
                 state.messages.map {

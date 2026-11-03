@@ -42,7 +42,6 @@ kotlin {
             implementation(libs.jetbrains.lifecycle.viewmodel.compose)
             implementation(libs.jetbrains.lifecycle.runtime.compose)
             implementation(libs.navigation3.ui)
-            implementation(libs.navigationevent.compose)
             implementation(libs.jetbrains.lifecycle.viewmodel.navigation3)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.jetbrains.markdown)

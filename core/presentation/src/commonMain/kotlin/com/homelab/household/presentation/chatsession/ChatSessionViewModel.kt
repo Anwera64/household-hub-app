@@ -146,9 +146,8 @@ class ChatSessionViewModel(
         }
     }
 
-    /** The PIN opened secret chats: read this one again. */
+    /** The PIN opened secret chats: read this one again, a secret part open in place. */
     fun unlocked() {
-        _uiState.update { it.copy(unlockingSecretPart = false) }
         val sessionId = _uiState.value.session?.id ?: openedSessionId ?: return
         loadSession(sessionId)
     }
@@ -847,16 +846,6 @@ class ChatSessionViewModel(
     private companion object {
         /** The seeded Home & Life Coordinator, which every new chat starts with. */
         const val BUILT_IN_AGENT_SLUG = "assistant"
-    }
-
-    /** Unlock on a locked secret part: the PIN pad, after which the part opens where it is. */
-    fun unlockSecretPart() {
-        _uiState.update { it.copy(unlockingSecretPart = true) }
-    }
-
-    /** Back from that PIN pad: the chat as it was, the part still locked. */
-    fun keepSecretPartLocked() {
-        _uiState.update { it.copy(unlockingSecretPart = false) }
     }
 
     /** The ON pill: Secret Mode turns off after the sheet, or at once for a member who said not to ask. */

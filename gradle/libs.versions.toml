@@ -7,7 +7,6 @@ agp = "9.5.0"
 compose-multiplatform = "1.12.2"
 compose-material3 = "1.9.0"
 navigation3 = "1.2.0"
-navigationevent = "1.1.0"
 activity-compose = "1.13.0"
 androidx-browser = "1.10.0"
 core-splashscreen = "1.2.0"
@@ -72,8 +71,6 @@ compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose-multiplatform" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-material3" }
 navigation3-ui = { module = "org.jetbrains.androidx.navigation3:navigation3-ui", version.ref = "navigation3" }
-# The system back gesture, for a screen that handles it before the back stack does (Nav3 brings it too)
-navigationevent-compose = { module = "org.jetbrains.androidx.navigationevent:navigationevent-compose", version.ref = "navigationevent" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
 androidx-browser = { module = "androidx.browser:browser", version.ref = "androidx-browser" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "core-splashscreen" }

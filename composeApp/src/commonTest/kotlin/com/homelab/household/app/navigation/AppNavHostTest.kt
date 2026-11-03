@@ -659,4 +659,58 @@ class AppNavHostTest {
                 assertEquals(listOf(Destination.Chats), backStack.toList())
             }
         }
+
+    @Test
+    fun `GIVEN an open chat WHEN Unlock is tapped on its locked secret part THEN the secret chats PIN pad opens over it`() =
+        runComposeUiTest {
+            onAppNavHost {
+                backStack[0] = Destination.Chats
+                appNavHost(StubScreens(), backStack, session)
+                tapsOpenAChat()
+
+                tapsUnlockTheSecretPart()
+
+                seesTheSecretChatsPin()
+                assertEquals(
+                    listOf(Destination.Chats, Destination.Conversation("s-1"), Destination.SecretChatsUnlock),
+                    backStack.toList(),
+                )
+            }
+        }
+
+    @Test
+    fun `GIVEN the PIN pad opened from a chat WHEN the PIN opens secret chats THEN the chat is back and hears it`() =
+        runComposeUiTest {
+            onAppNavHost {
+                val screens = StubScreens()
+                backStack[0] = Destination.Chats
+                appNavHost(screens, backStack, session)
+                tapsOpenAChat()
+                tapsUnlockTheSecretPart()
+
+                tapsUnlocked()
+
+                seesTheConversation("s-1")
+                assertEquals(listOf(Destination.Chats, Destination.Conversation("s-1")), backStack.toList())
+                assertEquals(1, screens.secretChatsUnlocked)
+            }
+        }
+
+    @Test
+    fun `GIVEN the PIN pad opened from a chat WHEN back is tapped THEN the chat is back with nothing unlocked`() =
+        runComposeUiTest {
+            onAppNavHost {
+                val screens = StubScreens()
+                backStack[0] = Destination.Chats
+                appNavHost(screens, backStack, session)
+                tapsOpenAChat()
+                tapsUnlockTheSecretPart()
+
+                tapsBackFromThePin()
+
+                seesTheConversation("s-1")
+                assertEquals(listOf(Destination.Chats, Destination.Conversation("s-1")), backStack.toList())
+                assertEquals(0, screens.secretChatsUnlocked)
+            }
+        }
 }

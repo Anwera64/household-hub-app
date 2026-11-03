@@ -11,13 +11,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.waitUntilExactlyOneExists
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEventBus
-import androidx.navigationevent.DirectNavigationEventInput
-import androidx.navigationevent.NavigationEventDispatcher
-import androidx.navigationevent.NavigationEventDispatcherOwner
-import androidx.navigationevent.compose.LocalNavigationEventDispatcherOwner
+import com.homelab.household.app.navigation.SecretChatsUnlocked
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.a11y_secret_on
-import com.homelab.household.app.resources.conversation_back
 import com.homelab.household.app.resources.conversation_greeting
 import com.homelab.household.app.resources.pin_unreachable
 import com.homelab.household.app.resources.pin_wrong
@@ -31,29 +27,25 @@ import com.homelab.household.app.screens.conversation.ConversationScreen
 import com.homelab.household.app.testing.FakeSecretChatHub
 import com.homelab.household.app.testing.TestApp
 import com.homelab.household.data.datasource.local.InMemorySessionStorage
+import com.homelab.household.domain.usecase.UnlockSecretChatsUseCase
 import org.jetbrains.compose.resources.getString
+import org.koin.mp.KoinPlatform
 
 /**
- * The phone's back gesture. With no screen handling it, it falls through to the back stack, which
- * leaves the chat: [leftTheChat] counts those.
+ * What the back stack gives a chat: the bus it hears results on, and how often it asked for the
+ * secret chats PIN pad, which is a destination of its own (AppNavHostTest covers the pad itself).
  */
-class SystemBack : NavigationEventDispatcherOwner {
-    var leftTheChat = 0
-        private set
+class ChatNavigation {
+    val results = ResultEventBus()
 
-    private val input = DirectNavigationEventInput()
-
-    override val navigationEventDispatcher =
-        NavigationEventDispatcher(onBackCompletedFallback = { leftTheChat++ }).apply { addInput(input) }
-
-    fun swipe() = input.backCompleted()
+    var pinPadsAsked = 0
 }
 
 /** A secret chat opened while locked: the PIN pad it shows, and what the right PIN opens. */
 @OptIn(ExperimentalTestApi::class)
 class SecretChatRobot(
     private val test: ComposeUiTest,
-    private val systemBack: SystemBack,
+    private val navigation: ChatNavigation,
 ) {
     suspend fun seesItLocked() = seesText(getString(Res.string.secret_locked_title))
 
@@ -95,15 +87,10 @@ class SecretChatRobot(
         test.waitForIdle()
     }
 
-    /** The phone's own back gesture, not the bar's arrow. */
-    fun swipesBack() {
-        test.runOnUiThread { systemBack.swipe() }
-        test.waitForIdle()
-    }
-
-    /** Back on the PIN pad's own bar. */
-    suspend fun goesBack() {
-        test.onNode(hasContentDescription(getString(Res.string.conversation_back))).performClick()
+    /** The PIN typed on the secret chats pad, which then tells the chat it opened them. */
+    suspend fun opensSecretChatsOnThePad() {
+        KoinPlatform.getKoin().get<UnlockSecretChatsUseCase>()(FakeSecretChatHub.RIGHT_PIN)
+        test.runOnUiThread { navigation.results.sendResult(result = SecretChatsUnlocked) }
         test.waitForIdle()
     }
 
@@ -136,10 +123,10 @@ class SecretChatRobot(
 
 @OptIn(ExperimentalTestApi::class)
 suspend fun ComposeUiTest.onSecretChat(
-    systemBack: SystemBack = SystemBack(),
+    navigation: ChatNavigation = ChatNavigation(),
     block: suspend SecretChatRobot.() -> Unit,
 ) {
-    SecretChatRobot(this, systemBack).block()
+    SecretChatRobot(this, navigation).block()
 }
 
 /** The real conversation screen and everything behind it, against [hub], opened on [sessionId]. */
@@ -147,16 +134,17 @@ suspend fun ComposeUiTest.onSecretChat(
 fun ComposeUiTest.secretChatScreen(
     hub: FakeSecretChatHub,
     sessionId: String = "s-1",
-    systemBack: SystemBack = SystemBack(),
+    navigation: ChatNavigation = ChatNavigation(),
 ) {
     setContent {
         TestApp(hub.engine, sessionStorage = InMemorySessionStorage().apply { saveTokens("signed-in-token") }) {
-            // Navigation provides the bus a conversation hears "calendar connected" on.
-            CompositionLocalProvider(
-                LocalResultEventBus provides ResultEventBus(),
-                LocalNavigationEventDispatcherOwner provides systemBack,
-            ) {
-                ConversationScreen(sessionId = sessionId, onBack = {})
+            // Navigation provides the bus a conversation hears "calendar connected" and the unlock on.
+            CompositionLocalProvider(LocalResultEventBus provides navigation.results) {
+                ConversationScreen(
+                    sessionId = sessionId,
+                    onBack = {},
+                    onUnlockSecretChats = { navigation.pinPadsAsked++ },
+                )
             }
         }
     }

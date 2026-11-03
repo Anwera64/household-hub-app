@@ -10,10 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.ResultEffect
-import androidx.navigationevent.NavigationEventInfo
-import androidx.navigationevent.compose.NavigationEventHandler
-import androidx.navigationevent.compose.rememberNavigationEventState
 import com.homelab.household.app.navigation.CalendarConnected
+import com.homelab.household.app.navigation.SecretChatsUnlocked
 import com.homelab.household.app.screens.secretunlock.SecretUnlockScreen
 import com.homelab.household.presentation.chatsession.ChatSessionViewModel
 import com.homelab.household.presentation.profile.ProfileViewModel
@@ -36,6 +34,7 @@ fun ConversationScreen(
     modifier: Modifier = Modifier,
     onConnectCalendar: () -> Unit = {},
     onAllMemories: () -> Unit = {},
+    onUnlockSecretChats: () -> Unit = {},
 ) {
     val viewModel: ChatSessionViewModel = koinViewModel()
     val profileViewModel: ProfileViewModel = koinViewModel()
@@ -47,27 +46,16 @@ fun ConversationScreen(
     LaunchedEffect(viewModel) { viewModel.onShown() }
     // Back from connecting a calendar from a fix card: the hub has marked those steps fixed.
     ResultEffect<CalendarConnected> { viewModel.refresh() }
+    // Back from the secret chats PIN pad, opened from a locked secret part: it opens in place.
+    ResultEffect<SecretChatsUnlocked> { viewModel.unlocked() }
     LifecycleResumeEffect(viewModel) {
         viewModel.onForeground()
         onPauseOrDispose {}
     }
 
-    // The phone's back gesture on a locked part's PIN pad returns to the chat, as the bar's arrow
-    // does. Called unconditionally and switched by isBackEnabled, as navigationevent asks.
-    NavigationEventHandler(
-        state = rememberNavigationEventState(currentInfo = NavigationEventInfo.None),
-        isBackEnabled = state.unlockingSecretPart && !state.isLocked,
-        onBackCompleted = viewModel::keepSecretPartLocked,
-    )
-
     // Locked is its own screen, never the new-chat one: nothing to type into until the PIN opens it.
-    // A locked part of a chat no longer secret asks on the same pad, and Back returns to the chat.
-    if (state.isLocked || state.unlockingSecretPart) {
-        SecretUnlockScreen(
-            onUnlock = viewModel::unlocked,
-            onBack = if (state.isLocked) onBack else viewModel::keepSecretPartLocked,
-            modifier = modifier,
-        )
+    if (state.isLocked) {
+        SecretUnlockScreen(onUnlock = viewModel::unlocked, onBack = onBack, modifier = modifier)
         return
     }
 
@@ -107,7 +95,7 @@ fun ConversationScreen(
         onTurnOffSecret = viewModel::secretPillTapped,
         onKeepSecret = viewModel::keepSecret,
         onConfirmSecretOff = viewModel::turnOffSecret,
-        onUnlockSecretPart = viewModel::unlockSecretPart,
+        onUnlockSecretPart = onUnlockSecretChats,
         memoryAge = viewModel::memoryAge,
         eventTime = viewModel::eventTime,
         modifier = modifier,
