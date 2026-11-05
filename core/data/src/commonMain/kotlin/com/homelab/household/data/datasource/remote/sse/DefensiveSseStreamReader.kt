@@ -5,6 +5,7 @@ import com.homelab.household.data.mapper.ProposalDetailsDataMapper
 import com.homelab.household.data.mapper.ToolSummaryDataMapper
 import com.homelab.household.domain.model.AnswerPart
 import com.homelab.household.domain.model.ChatStreamEvent
+import com.homelab.household.domain.model.TurnFailureReason
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.readUTF8Line
 import kotlinx.coroutines.flow.Flow
@@ -170,7 +171,9 @@ class DefensiveSseStreamReader(
             // The two ways the hub says a turn went wrong. Dropping these as unknown types is
             // what left a failed turn looking exactly like one that had not started yet.
             "turn_failed" -> {
-                ChatStreamEvent.TurnFailed
+                ChatStreamEvent.TurnFailed(
+                    turnFailureReasonFromCode((element["reason"] as? JsonPrimitive)?.contentOrNull),
+                )
             }
 
             "error" -> {
@@ -200,6 +203,13 @@ class DefensiveSseStreamReader(
             }
         }
     }
+
+    /** An older hub sends no reason, and a newer one may send one this phone does not know yet. */
+    private fun turnFailureReasonFromCode(code: String?): TurnFailureReason =
+        when (code) {
+            "agent_unavailable" -> TurnFailureReason.AgentUnavailable
+            else -> TurnFailureReason.Unknown
+        }
 
     private fun sanitizedParts(element: JsonElement?): List<AnswerPart> =
         AnswerPartDataMapper.fromJson(element).map { part ->

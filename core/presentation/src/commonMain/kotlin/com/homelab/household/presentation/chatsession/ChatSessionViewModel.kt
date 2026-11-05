@@ -727,6 +727,7 @@ class ChatSessionViewModel(
                                 _uiState.update {
                                     it.copy(
                                         turnState = TurnState.Failed,
+                                        failureReason = event.reason,
                                         isThinking = false,
                                         activeTool = null,
                                         activeToolAction = null,
@@ -1026,6 +1027,7 @@ private fun ChatSessionUiState.startingTurn() =
     copy(
         streamingMessage = "",
         turnState = TurnState.Streaming,
+        failureReason = null,
         errorMessage = null,
         secretOffer = null,
         isThinking = false,

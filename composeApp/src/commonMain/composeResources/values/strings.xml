@@ -835,6 +835,8 @@
     <string name="conversation_failed_title">Couldn’t finish an answer</string>
     <string name="conversation_failed_line">The model took too long on this one. Your question arrived — trying again just asks for a fresh answer.</string>
     <string name="conversation_try_again">Try again</string>
+    <string name="conversation_unreachable_title">Couldn’t reach the agent</string>
+    <string name="conversation_unreachable_line">It may be switched off right now. Your question arrived — trying again asks for the answer once it’s back.</string>
     <!-- Memory page (slice 5, canvas "Memory (slice 5)") -->
     <string name="profile_memory_section">What the agents know</string>
     <string name="profile_memories">Memories</string>
