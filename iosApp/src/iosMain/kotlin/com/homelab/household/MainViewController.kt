@@ -4,6 +4,7 @@ import androidx.compose.ui.window.ComposeUIViewController
 import com.homelab.household.app.App
 import com.homelab.household.data.network.HubConfig
 import com.homelab.household.data.telemetry.TelemetryConfig
+import com.homelab.household.domain.secret.AppSwitcherPrivacy
 import com.homelab.household.sdk.HouseholdHubSdk
 import platform.Foundation.NSBundle
 import platform.UIKit.UIViewController
@@ -58,6 +59,13 @@ private fun infoString(key: String): String =
 fun startHouseholdHub() {
     koin
 }
+
+/**
+ * Whether the app switcher must not see the app: secret chats are unlocked, or were when the app
+ * left. `ContentView.swift` reads it as `MainViewControllerKt.hidesFromAppSwitcher()` on each scene
+ * phase change and covers the window while it is true.
+ */
+fun hidesFromAppSwitcher(): Boolean = koin.koin.get<AppSwitcherPrivacy>().hides.value
 
 /**
  * The Compose UI, wrapped in the `UIViewController` that SwiftUI hosts.
