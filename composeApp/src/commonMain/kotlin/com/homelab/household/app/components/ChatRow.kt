@@ -33,7 +33,7 @@ import com.homelab.household.app.theme.HearthTheme
  *
  * [agentAvatar] is null when the conversation has outlived its agent — purging one clears the
  * link. Chrome never uses emoji (design notes §3), so the fallback is a Hearth icon rather than an
- * invented emoji, and the row keeps its shape instead of collapsing. Slice 7 gives that case its
+ * invented emoji, and the row keeps its shape instead of collapsing. The Agents slice gives that case its
  * proper treatment; this only has to not look broken.
  *
  * [secretMark] is the chip a secret chat wears under its title ("Secret · locked", or "Secret" once

@@ -11,11 +11,12 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
- * The dashboards slice 3 does not build: Household, Schedule and My Space.
+ * The dashboards the Chatting slice left unbuilt: Household, Schedule and My Space.
  *
- * Everything drawn on them — the morning briefing, both calendars, Notes — belongs to slices 8, 9
- * and 11, and none of it has an endpoint yet. They are reachable so the daily loop can be walked
- * end to end, and they carry the tab bar and the avatar, which do work.
+ * Everything drawn on them — the morning briefing, both calendars, Notes — belongs to the Calendar,
+ * PDFs and notes, and Morning briefing slices, and none of it has an endpoint yet. They are
+ * reachable so the daily loop can be walked end to end, and they carry the tab bar and the avatar,
+ * which do work.
  */
 @Composable
 fun HomePlaceholderScreen(

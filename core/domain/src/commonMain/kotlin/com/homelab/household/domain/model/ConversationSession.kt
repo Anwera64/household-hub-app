@@ -22,7 +22,7 @@ data class ConversationSession(
      * What a Chats row draws beside the title, resolved by the hub.
      *
      * [agentName] and [agentAvatar] are nullable because a conversation can outlive its agent:
-     * purging one clears the link. Slice 7 decides what that row looks like; until then a row
+     * purging one clears the link. The Agents slice decides what that row looks like; until then a row
      * without them draws plainly rather than crashing.
      */
     val lastMessagePreview: String? = null,

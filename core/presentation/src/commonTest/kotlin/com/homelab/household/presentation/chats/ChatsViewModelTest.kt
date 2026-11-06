@@ -224,7 +224,7 @@ class ChatsViewModelTest {
     @Test
     fun `GIVEN a chat whose agent is gone WHEN searching by its title THEN the chat still shows`() =
         runTest(testDispatcher) {
-            // Purging an agent clears the link (slice 7 draws the row properly; this must not crash).
+            // Purging an agent clears the link (the Agents slice draws the row properly; this must not crash).
             everySuspend { listSessions() } returns listOf(session("s-1", "Is the 5080 worth it?", agentName = null))
             viewModel.load()
             advanceUntilIdle()
