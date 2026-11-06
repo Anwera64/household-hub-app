@@ -26,6 +26,11 @@ data class HearthMotion(
     val minimumVisible: Duration = 400.milliseconds,
     /** Longer than usual. The pattern stays and a quiet line joins it; nothing has failed. */
     val slow: Duration = 8.seconds,
+    /**
+     * [slow] for an agent waking up: its model loading, which the screen already says. Loads took
+     * 10 to 55 s when measured (homelab#275), so the line joins only once one runs past that.
+     */
+    val wakingSlow: Duration = 60.seconds,
     /** One pass of a progress bar along its track. */
     val barCycle: Duration = 1150.milliseconds,
     /** One breath of a skeleton block, dim to full and back. */

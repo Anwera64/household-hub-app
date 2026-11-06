@@ -1689,6 +1689,101 @@ class ChatSessionViewModelTest {
             assertFalse(state.isSilent, "a model visibly thinking is not a silent hub")
         }
 
+    // ---- the agent waking up: its model loading before the turn can start (homelab#275) ----
+
+    private fun wakingThen(vararg after: ChatStreamEvent) =
+        flow {
+            emit(ChatStreamEvent.Accepted)
+            emit(ChatStreamEvent.ModelLoading)
+            after.forEach { emit(it) }
+            awaitCancellation()
+        }
+
+    private fun TestScope.sendWhileWaking(vararg after: ChatStreamEvent): ChatSessionUiState {
+        loadedSession()
+        every { streamChatTurnUseCase("s-1", any(), any()) } returns wakingThen(*after)
+        viewModel.sendMessage("What is on this week?")
+        advanceUntilIdle()
+        return viewModel.uiState.value
+    }
+
+    @Test
+    fun `GIVEN the agent's model is not in memory WHEN a message is sent THEN the agent is shown waking up and the hub is not called slow`() =
+        runTest(testDispatcher) {
+            val state = sendWhileWaking()
+
+            assertTrue(state.isWakingUp)
+            assertFalse(state.isSilent, "a model loading is explained, not a silent hub")
+        }
+
+    @Test
+    fun `GIVEN the agent waking up WHEN it starts to reason THEN it is no longer waking up`() =
+        runTest(testDispatcher) {
+            assertFalse(sendWhileWaking(ChatStreamEvent.Reasoning("Okay")).isWakingUp)
+        }
+
+    @Test
+    fun `GIVEN the agent waking up WHEN its first words arrive THEN it is no longer waking up`() =
+        runTest(testDispatcher) {
+            assertFalse(sendWhileWaking(ChatStreamEvent.Delta("Here")).isWakingUp)
+        }
+
+    @Test
+    fun `GIVEN the agent waking up WHEN it picks a tool THEN it is no longer waking up`() =
+        runTest(testDispatcher) {
+            assertFalse(sendWhileWaking(ChatStreamEvent.ToolExecuting("calendar_read")).isWakingUp)
+        }
+
+    @Test
+    fun `GIVEN the agent waking up WHEN the turn fails THEN it is no longer waking up`() =
+        runTest(testDispatcher) {
+            assertFalse(sendWhileWaking(ChatStreamEvent.TurnFailed()).isWakingUp)
+        }
+
+    @Test
+    fun `GIVEN the agent waking up WHEN the answer is done THEN it is no longer waking up`() =
+        runTest(testDispatcher) {
+            val done = ChatStreamEvent.Done(messageId = "m-2", assistantContent = "Nothing.")
+
+            assertFalse(sendWhileWaking(done).isWakingUp)
+        }
+
+    @Test
+    fun `GIVEN the agent waking up WHEN the stream breaks THEN it is no longer waking up`() =
+        runTest(testDispatcher) {
+            loadedSession()
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
+                flow {
+                    emit(ChatStreamEvent.ModelLoading)
+                    throw RuntimeException("Connection reset")
+                }
+
+            viewModel.sendMessage("What is on this week?")
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isWakingUp)
+        }
+
+    @Test
+    fun `GIVEN the model went cold while a card waited WHEN the card is approved and the write is done THEN the agent is shown waking up`() =
+        runTest(testDispatcher) {
+            openPaused(dinner)
+            val added = ToolSummary(action = ToolAction.Create, title = "Dinner together")
+            every { decideToolProposalUseCase("s-1", "c1", true, null) } returns
+                flow {
+                    emit(ChatStreamEvent.Accepted)
+                    emit(ChatStreamEvent.ToolExecuting("calendar_write"))
+                    emit(ChatStreamEvent.ToolResult("calendar_write", success = true, summary = added))
+                    emit(ChatStreamEvent.ModelLoading)
+                    awaitCancellation()
+                }
+
+            viewModel.decide("c1", approved = true)
+            advanceUntilIdle()
+
+            assertTrue(viewModel.uiState.value.isWakingUp)
+        }
+
     @Test
     fun `GIVEN a tool that is running WHEN a message is sent THEN the tool is shown while it runs`() =
         runTest(testDispatcher) {

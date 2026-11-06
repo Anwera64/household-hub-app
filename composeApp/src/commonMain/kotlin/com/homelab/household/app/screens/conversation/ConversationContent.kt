@@ -61,10 +61,12 @@ import com.homelab.household.app.resources.conversation_reconnecting
 import com.homelab.household.app.resources.conversation_reconnecting_detail
 import com.homelab.household.app.resources.conversation_still_working
 import com.homelab.household.app.resources.conversation_still_working_detail
+import com.homelab.household.app.resources.conversation_thinking
 import com.homelab.household.app.resources.conversation_thought
 import com.homelab.household.app.resources.conversation_try_again
 import com.homelab.household.app.resources.conversation_unreachable_line
 import com.homelab.household.app.resources.conversation_unreachable_title
+import com.homelab.household.app.resources.conversation_waking_up
 import com.homelab.household.app.resources.secret_marker_ended
 import com.homelab.household.app.resources.secret_marker_from_here
 import com.homelab.household.app.resources.tool_card_hold
@@ -173,8 +175,12 @@ fun ConversationContent(
     val thinkingPhase = rememberWaitPhase(thinking)
 
     // "Slow" is timed on silence alone. A model visibly thinking or using a tool is busy, not
-    // slow, and a cold load is the one wait where nothing at all comes back.
-    val slowPhase = rememberWaitPhase(state.isSilent)
+    // slow, and a cold load is the one wait where nothing at all comes back. When the hub has
+    // said the agent is waking up, the screen says so instead, and the line holds back until a
+    // load runs past the slowest measured (homelab#275).
+    val silentPhase = rememberWaitPhase(state.isSilent)
+    val wakingPhase = rememberWaitPhase(state.isWakingUp, slow = HearthTheme.motion.wakingSlow)
+    val slowPhase = if (wakingPhase == WaitPhase.Slow) WaitPhase.Slow else silentPhase
 
     val latestQuestionId = state.messages.lastOrNull { it.role == MessageRole.USER }?.id
 
@@ -504,7 +510,12 @@ fun ConversationContent(
                             }
 
                             thinking -> {
-                                Thinking(thinkingPhase, slowPhase)
+                                Thinking(
+                                    thinkingPhase,
+                                    slowPhase,
+                                    wakingUp = state.isWakingUp,
+                                    agentName = state.agentName,
+                                )
                             }
 
                             else -> {
@@ -537,14 +548,25 @@ fun ConversationContent(
 /**
  * A model working before its first word: "Thinking…", and the slow line only if it has said
  * nothing at all for eight seconds. Never its thoughts — they stream faster than anyone reads.
+ *
+ * While the agent is [wakingUp] — its model loading before the turn can start — the dots say
+ * "Waking up {agent}…" instead (homelab#275). With no name to say, they stay on "Thinking…".
  */
 @Composable
 private fun Thinking(
     phase: WaitPhase,
     slowPhase: WaitPhase,
+    wakingUp: Boolean,
+    agentName: String,
 ) {
+    val label =
+        if (wakingUp && agentName.isNotBlank()) {
+            stringResource(Res.string.conversation_waking_up, agentName)
+        } else {
+            stringResource(Res.string.conversation_thinking)
+        }
     Column(verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.sm)) {
-        if (phase != WaitPhase.Hidden) ThinkingDots()
+        if (phase != WaitPhase.Hidden) ThinkingDots(label = label)
         SlowLine(slowPhase)
     }
 }

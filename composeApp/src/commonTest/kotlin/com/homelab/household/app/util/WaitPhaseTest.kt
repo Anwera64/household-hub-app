@@ -1,5 +1,6 @@
 package com.homelab.household.app.util
 
+import com.homelab.household.app.theme.DefaultMotion
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Duration.Companion.milliseconds
@@ -39,6 +40,22 @@ class WaitPhaseTest {
     fun `GIVEN a slow threshold of eight seconds WHEN the threshold has been reached THEN the phase is slow`() {
         assertEquals(WaitPhase.Slow, waitPhase(elapsed = 8.seconds, hold = hold, slow = slow))
         assertEquals(WaitPhase.Slow, waitPhase(elapsed = 30.seconds, hold = hold, slow = slow))
+    }
+
+    /**
+     * A cold model loads in 10 to 55 s (homelab#275, measured), and the screen already says the
+     * agent is waking up, so the slow line holds back until a load runs past the slowest seen.
+     */
+    @Test
+    fun `GIVEN the agent waking up WHEN less than a minute has passed THEN the phase is still showing`() {
+        val wakingSlow = DefaultMotion.wakingSlow
+        assertEquals(WaitPhase.Showing, waitPhase(elapsed = 55.seconds, hold = hold, slow = wakingSlow))
+        assertEquals(WaitPhase.Showing, waitPhase(elapsed = 59999.milliseconds, hold = hold, slow = wakingSlow))
+    }
+
+    @Test
+    fun `GIVEN the agent waking up WHEN a minute has passed THEN the phase is slow`() {
+        assertEquals(WaitPhase.Slow, waitPhase(elapsed = 60.seconds, hold = hold, slow = DefaultMotion.wakingSlow))
     }
 
     @Test

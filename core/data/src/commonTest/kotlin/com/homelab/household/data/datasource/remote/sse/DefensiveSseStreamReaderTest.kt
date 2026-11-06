@@ -281,6 +281,25 @@ class DefensiveSseStreamReaderTest {
             assertEquals(listOf(ChatStreamEvent.Accepted), events)
         }
 
+    /** The agent's model is not in memory, so the turn first waits for it to load (homelab#275). */
+    @Test
+    fun `GIVEN a stream saying the model is loading WHEN it is read THEN the turn is reported as waking up`() =
+        runTest {
+            val ssePayload =
+                """
+                data: {"type": "accepted"}
+
+                data: {"type": "model_loading"}
+
+                data: [DONE]
+
+                """.trimIndent()
+
+            val events = reader.readEvents(ByteReadChannel(ssePayload.encodeToByteArray())).toList()
+
+            assertEquals(listOf(ChatStreamEvent.Accepted, ChatStreamEvent.ModelLoading), events)
+        }
+
     @Test
     fun `GIVEN a stream of two reasoning pieces WHEN it is read THEN both come out in order`() =
         runTest {

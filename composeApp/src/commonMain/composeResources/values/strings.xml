@@ -828,6 +828,7 @@
     <string name="tool_card_field_memory">What to remember</string>
     <string name="tool_card_field_whose">Whose it is</string>
     <string name="conversation_thinking">Thinking…</string>
+    <string name="conversation_waking_up">Waking up %1$s…</string>
     <string name="conversation_reconnecting">Reconnecting…</string>
     <string name="conversation_reconnecting_detail">the rest is still being written on the hub</string>
     <string name="conversation_still_working">Still working on this.</string>

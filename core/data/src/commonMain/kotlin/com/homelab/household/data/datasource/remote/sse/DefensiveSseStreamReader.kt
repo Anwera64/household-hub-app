@@ -111,6 +111,10 @@ class DefensiveSseStreamReader(
                 ChatStreamEvent.Accepted
             }
 
+            "model_loading" -> {
+                ChatStreamEvent.ModelLoading
+            }
+
             "reasoning" -> {
                 ChatStreamEvent.Reasoning(element["content"]?.jsonPrimitive?.content ?: "")
             }

@@ -318,6 +318,37 @@ class ConversationScreenTest {
             }
         }
 
+    /** A cold model loads for 10 to 55 s before the turn can start, and the screen says why (homelab#275). */
+    @Test
+    fun `GIVEN the agent's model loading WHEN the conversation is shown THEN the dots say the agent is waking up`() =
+        runComposeUiTest {
+            conversationScreen(stateNamed("Waking up, before the model is loaded"))
+
+            onConversation {
+                seesThinkingDots()
+                seesWakingUp("Home Coordinator")
+            }
+        }
+
+    @Test
+    fun `GIVEN the agent's model loading and no agent name WHEN the conversation is shown THEN the dots say thinking`() =
+        runComposeUiTest {
+            conversationScreen(stateNamed("Waking up, before the model is loaded").copy(agentName = ""))
+
+            onConversation {
+                seesThinkingDots()
+                seesThinking()
+            }
+        }
+
+    @Test
+    fun `GIVEN a model already in memory WHEN the conversation is shown before the first word THEN nothing says it is waking up`() =
+        runComposeUiTest {
+            conversationScreen(stateNamed("Thinking, before the first word"))
+
+            onConversation { doesNotSeeWakingUp("Home Coordinator") }
+        }
+
     @Test
     fun `GIVEN an answer that has started WHEN the conversation is shown THEN the words show and the thinking dots do not`() =
         runComposeUiTest {

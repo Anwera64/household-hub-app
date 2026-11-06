@@ -73,6 +73,7 @@ import com.homelab.household.app.resources.conversation_thought
 import com.homelab.household.app.resources.conversation_try_again
 import com.homelab.household.app.resources.conversation_unreachable_line
 import com.homelab.household.app.resources.conversation_unreachable_title
+import com.homelab.household.app.resources.conversation_waking_up
 import com.homelab.household.app.resources.field_changed
 import com.homelab.household.app.resources.memories_tab_household_plain
 import com.homelab.household.app.resources.memories_tab_yours_plain
@@ -279,6 +280,12 @@ class ConversationRobot(
     // ---- the status of a turn being answered ---------------------------------------------------
 
     suspend fun seesThinking() = seesText(getString(Res.string.conversation_thinking))
+
+    suspend fun seesWakingUp(agent: String) = seesText(getString(Res.string.conversation_waking_up, agent))
+
+    suspend fun doesNotSeeWakingUp(agent: String) {
+        test.onNodeWithText(getString(Res.string.conversation_waking_up, agent)).assertDoesNotExist()
+    }
 
     fun seesThinkingDots() {
         waitForOne(hasTestTag(THINKING_DOTS_TAG))
