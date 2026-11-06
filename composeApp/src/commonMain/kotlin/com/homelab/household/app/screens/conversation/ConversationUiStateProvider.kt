@@ -226,6 +226,15 @@ class ConversationUiStateProvider : PreviewParameterProvider<ChatSessionUiState>
                     streamingMessage = "",
                     turnState = TurnState.Streaming,
                 ),
+            // Sent, and the hub said the agent's model is not in memory: it loads before the turn
+            // can start, 10 to 55 s with nothing else coming back (homelab#275).
+            "Waking up, before the model is loaded" to
+                agent.copy(
+                    messages = listOf(question),
+                    streamingMessage = "",
+                    turnState = TurnState.Streaming,
+                    isWakingUp = true,
+                ),
             // The rest of a turn you can watch, frame by frame as the Chat Turn States canvas draws it.
             "Thinking out loud" to
                 agent.copy(

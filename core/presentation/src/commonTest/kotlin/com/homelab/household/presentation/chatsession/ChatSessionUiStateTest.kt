@@ -76,6 +76,14 @@ class ChatSessionUiStateTest {
     }
 
     @Test
+    fun `GIVEN the agent waking up WHEN nothing else has come THEN it is waiting for words but not silent`() {
+        val state = streaming.copy(isWakingUp = true)
+
+        assertTrue(state.isWaitingForWords)
+        assertFalse(state.isSilent)
+    }
+
+    @Test
     fun `GIVEN a turn that is not streaming WHEN drawn THEN it is not waiting for words`() {
         val lastStep = listOf(AnswerPart.Text("Let me check."), AnswerPart.ToolDone("web_search"))
         listOf(TurnState.Idle, TurnState.Failed, TurnState.Reconnecting, TurnState.StillWorking).forEach { turn ->

@@ -559,6 +559,7 @@ class ChatSessionViewModel(
 
                 turn
                     .catch { e ->
+                        _uiState.update { it.copy(isWakingUp = false) }
                         if (delivered) {
                             // The question arrived; only the wait broke. Keep what was being read.
                             _uiState.update { it.copy(turnState = TurnState.Failed) }
@@ -595,6 +596,9 @@ class ChatSessionViewModel(
                             )
                         }
                     }.collect { event ->
+                        // The agent wakes up from the hub saying its model is loading until the hub
+                        // says anything else: a thought, a word, a tool or the turn's end.
+                        _uiState.update { it.copy(isWakingUp = event is ChatStreamEvent.ModelLoading) }
                         when (event) {
                             // The hub has the question. The receipt says so now rather than when the
                             // answer lands, which on a cold model can be a minute away.
@@ -1031,6 +1035,7 @@ private fun ChatSessionUiState.startingTurn() =
         errorMessage = null,
         secretOffer = null,
         isThinking = false,
+        isWakingUp = false,
         activeTool = null,
         activeToolAction = null,
         parts = emptyList(),

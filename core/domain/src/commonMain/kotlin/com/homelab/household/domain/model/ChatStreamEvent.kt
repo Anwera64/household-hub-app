@@ -11,6 +11,13 @@ sealed interface ChatStreamEvent {
     data object Accepted : ChatStreamEvent
 
     /**
+     * The agent's model is not in memory, so the turn first waits for it to load: 10 to 55 s with
+     * nothing else coming back (homelab#275). Any event after it means the wait is over. An older
+     * hub never sends it.
+     */
+    data object ModelLoading : ChatStreamEvent
+
+    /**
      * What a thinking model is saying to itself before it answers.
      *
      * Worth watching while it happens and worth nothing afterwards: it is never part of the answer

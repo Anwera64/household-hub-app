@@ -49,7 +49,10 @@ const val THINKING_DOTS_TAG = "ThinkingDots"
  * keeps one idiom for dots that carry a wait.
  */
 @Composable
-fun ThinkingDots(modifier: Modifier = Modifier) {
+fun ThinkingDots(
+    modifier: Modifier = Modifier,
+    label: String = stringResource(Res.string.conversation_thinking),
+) {
     Column(
         modifier = modifier
             .testTag(THINKING_DOTS_TAG)
@@ -73,7 +76,7 @@ fun ThinkingDots(modifier: Modifier = Modifier) {
         }
         // Said in words as well as drawn, under the dots: dots alone were easy to read as a glitch.
         Text(
-            text = stringResource(Res.string.conversation_thinking),
+            text = label,
             style = HearthTheme.typography.caption,
             color = HearthTheme.colors.textMuted,
         )

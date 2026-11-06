@@ -91,6 +91,11 @@ data class ChatSessionUiState(
      * thoughts stream faster than anyone can read, so the phone never keeps a word of them.
      */
     val isThinking: Boolean = false,
+    /**
+     * The agent's model is loading into memory before the turn can start (homelab#275): 10 to 55 s
+     * with nothing else coming back. The hub says so up front; whatever it sends next ends it.
+     */
+    val isWakingUp: Boolean = false,
     /** The tool running right now, by its backend name. */
     val activeTool: String? = null,
     /** What the running tool is doing, when it is a write: a removal is never shown as an add. */
@@ -179,14 +184,16 @@ data class ChatSessionUiState(
     /**
      * Waiting on a turn that has said nothing at all yet: no word, no thought, no tool.
      *
-     * The only wait worth calling slow. A model loading into memory is silent; a model visibly
-     * thinking or using a tool is not slow, it is busy, and saying otherwise would be untrue.
+     * The only wait worth calling slow. A model visibly thinking or using a tool is not slow, it is
+     * busy, and saying otherwise would be untrue. Nor is an agent waking up: the hub said why it
+     * waits, and the screen says so instead (homelab#275).
      */
     val isSilent: Boolean
         get() =
             turnState == TurnState.Streaming &&
                 streamingMessage.isNullOrEmpty() &&
                 !isThinking &&
+                !isWakingUp &&
                 activeTool == null &&
                 parts.isEmpty()
 

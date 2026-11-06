@@ -45,7 +45,8 @@ fun waitPhase(
     }
 
 /**
- * [waitPhase] driven by a real clock, for a screen that is [busy].
+ * [waitPhase] driven by a real clock, for a screen that is [busy]. [slow] is the theme's own
+ * unless a wait the screen already explains earns a later one.
  *
  * Two rules the pure function cannot carry on its own:
  * - the phase restarts every time a wait does, so a second call gets its own hold;
@@ -59,24 +60,27 @@ fun waitPhase(
  * only the first frame, so a wait decided in an effect would never appear in one.
  */
 @Composable
-fun rememberWaitPhase(busy: Boolean): WaitPhase {
+fun rememberWaitPhase(
+    busy: Boolean,
+    slow: Duration = HearthTheme.motion.slow,
+): WaitPhase {
     val motion = HearthTheme.motion
     var phase by remember { mutableStateOf(WaitPhase.Hidden) }
     var shownAt by remember { mutableStateOf<TimeMark?>(null) }
 
-    LaunchedEffect(busy, motion) {
+    LaunchedEffect(busy, motion, slow) {
         if (!motion.animate) return@LaunchedEffect
 
         if (busy) {
             val started = TimeSource.Monotonic.markNow()
             while (true) {
-                val next = waitPhase(started.elapsedNow(), motion.hold, motion.slow)
+                val next = waitPhase(started.elapsedNow(), motion.hold, slow)
                 if (next != WaitPhase.Hidden && shownAt == null) shownAt = TimeSource.Monotonic.markNow()
                 phase = next
                 if (next == WaitPhase.Slow) break
                 // Sleep to the next threshold rather than polling towards it: the rule is a
                 // function of elapsed time, so there is nothing to look at in between.
-                val threshold = if (next == WaitPhase.Hidden) motion.hold else motion.slow
+                val threshold = if (next == WaitPhase.Hidden) motion.hold else slow
                 delay(threshold - started.elapsedNow())
             }
         } else {
