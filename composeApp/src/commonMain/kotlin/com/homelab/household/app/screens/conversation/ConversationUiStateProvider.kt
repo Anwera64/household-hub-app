@@ -20,6 +20,7 @@ import com.homelab.household.domain.model.ToolAction
 import com.homelab.household.domain.model.ToolFailureReason
 import com.homelab.household.domain.model.ToolSource
 import com.homelab.household.domain.model.ToolSummary
+import com.homelab.household.domain.model.TurnFailureReason
 import com.homelab.household.presentation.chatsession.AgentChoice
 import com.homelab.household.presentation.chatsession.AgentOwner
 import com.homelab.household.presentation.chatsession.AutomaticWrite
@@ -414,6 +415,14 @@ class ConversationUiStateProvider : PreviewParameterProvider<ChatSessionUiState>
                     messages = listOf(said("m-1", "Plan meals for the week around Friday", MessageRole.USER)),
                     streamingMessage = "",
                     turnState = TurnState.Failed,
+                ),
+            // The model's host is off: the same Try again, but no blaming the model for being slow.
+            "The agent couldn't be reached" to
+                agent.copy(
+                    messages = listOf(said("m-1", "Plan meals for the week around Friday", MessageRole.USER)),
+                    streamingMessage = "",
+                    turnState = TurnState.Failed,
+                    failureReason = TurnFailureReason.AgentUnavailable,
                 ),
             // The only one of the four that re-sends: the question itself never landed.
             "Never reached the hub" to

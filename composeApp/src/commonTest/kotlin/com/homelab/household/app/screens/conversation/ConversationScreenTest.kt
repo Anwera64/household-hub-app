@@ -154,6 +154,21 @@ class ConversationScreenTest {
         }
 
     @Test
+    fun `GIVEN an agent that could not be reached WHEN try again is tapped THEN it says the agent may be switched off and asks again`() =
+        runComposeUiTest {
+            var triedAgain = false
+            conversationScreen(stateNamed("The agent couldn't be reached"), onTryAgain = { triedAgain = true })
+
+            onConversation {
+                seesAgentUnreachable()
+                seesItMayBeSwitchedOff()
+                tapsTryAgain()
+            }
+
+            assertEquals(true, triedAgain)
+        }
+
+    @Test
     fun `GIVEN an answer being written and text in the composer WHEN send is tapped THEN nothing is sent`() =
         runComposeUiTest {
             val sent = mutableListOf<String>()

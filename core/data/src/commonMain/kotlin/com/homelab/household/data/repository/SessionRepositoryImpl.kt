@@ -347,8 +347,9 @@ class SessionRepositoryImpl(
                 null
             }
 
+            // Only the live stream says why a turn failed; a reconnect learns no more than that it did.
             !detail.turn_running -> {
-                ChatStreamEvent.TurnFailed
+                ChatStreamEvent.TurnFailed()
             }
 
             else -> {

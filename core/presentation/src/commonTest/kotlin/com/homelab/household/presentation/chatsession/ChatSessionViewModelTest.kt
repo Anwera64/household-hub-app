@@ -23,6 +23,7 @@ import com.homelab.household.domain.model.ToolApproval
 import com.homelab.household.domain.model.ToolFailureReason
 import com.homelab.household.domain.model.ToolSource
 import com.homelab.household.domain.model.ToolSummary
+import com.homelab.household.domain.model.TurnFailureReason
 import com.homelab.household.domain.model.User
 import com.homelab.household.domain.usecase.AsksBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.CreateSessionUseCase
@@ -1470,7 +1471,7 @@ class ChatSessionViewModelTest {
                 flowOf(
                     ChatStreamEvent.Delta("Plan"),
                     ChatStreamEvent.Reconnecting,
-                    ChatStreamEvent.TurnFailed,
+                    ChatStreamEvent.TurnFailed(),
                 )
 
             viewModel.sendMessage("Plan meals for the week")
@@ -2018,7 +2019,7 @@ class ChatSessionViewModelTest {
                     ChatStreamEvent.Reasoning("Hmm."),
                     ChatStreamEvent.ToolExecuting("calendar_read"),
                     ChatStreamEvent.ToolResult("calendar_read", success = false),
-                    ChatStreamEvent.TurnFailed,
+                    ChatStreamEvent.TurnFailed(),
                 )
             every { streamChatTurnUseCase("s-1", "Second", any()) } returns flowOf(ChatStreamEvent.Accepted)
             viewModel.sendMessage("First")
@@ -2044,7 +2045,7 @@ class ChatSessionViewModelTest {
     fun `GIVEN a turn that ends without a word WHEN a message is sent THEN the turn is failed and the composer is free`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf(ChatStreamEvent.TurnFailed)
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf(ChatStreamEvent.TurnFailed())
 
             viewModel.sendMessage("What's left before Friday?")
             advanceUntilIdle()
@@ -2055,10 +2056,41 @@ class ChatSessionViewModelTest {
         }
 
     @Test
+    fun `GIVEN an agent that cannot be reached WHEN a message is sent THEN the turn is failed for that reason`() =
+        runTest(testDispatcher) {
+            loadedSession()
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
+                flowOf(ChatStreamEvent.TurnFailed(TurnFailureReason.AgentUnavailable))
+
+            viewModel.sendMessage("What's left before Friday?")
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(TurnState.Failed, state.turnState)
+            assertEquals(TurnFailureReason.AgentUnavailable, state.failureReason)
+        }
+
+    @Test
+    fun `GIVEN a turn that failed because the agent could not be reached WHEN trying again THEN the reason is gone`() =
+        runTest(testDispatcher) {
+            loadedSession()
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns
+                flowOf(ChatStreamEvent.TurnFailed(TurnFailureReason.AgentUnavailable))
+            viewModel.sendMessage("What's left before Friday?")
+            advanceUntilIdle()
+            every { regenerateAnswerUseCase("s-1", any()) } returns flowOf(ChatStreamEvent.Delta("Two things"))
+
+            viewModel.regenerate()
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.failureReason)
+        }
+
+    @Test
     fun `GIVEN a failed turn that has ended WHEN a second message is sent THEN both questions are in the chat`() =
         runTest(testDispatcher) {
             loadedSession()
-            every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf(ChatStreamEvent.TurnFailed)
+            every { streamChatTurnUseCase("s-1", any(), any()) } returns flowOf(ChatStreamEvent.TurnFailed())
             viewModel.sendMessage("The first one")
             advanceUntilIdle()
 
@@ -2101,7 +2133,7 @@ class ChatSessionViewModelTest {
         runTest(testDispatcher) {
             loadedSession()
             every { streamChatTurnUseCase("s-1", any(), any()) } returns
-                flowOf(ChatStreamEvent.Delta("Plan"), ChatStreamEvent.TurnFailed)
+                flowOf(ChatStreamEvent.Delta("Plan"), ChatStreamEvent.TurnFailed())
             viewModel.sendMessage("Plan meals for the week")
             advanceUntilIdle()
 

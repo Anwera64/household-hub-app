@@ -8,6 +8,7 @@ import com.homelab.household.domain.model.ProposalStatus
 import com.homelab.household.domain.model.ToolAction
 import com.homelab.household.domain.model.ToolSource
 import com.homelab.household.domain.model.ToolSummary
+import com.homelab.household.domain.model.TurnFailureReason
 import io.ktor.utils.io.ByteReadChannel
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -194,7 +195,55 @@ class DefensiveSseStreamReaderTest {
             val channel = ByteReadChannel(ssePayload.encodeToByteArray())
             val events = reader.readEvents(channel).toList()
 
-            assertEquals(listOf(ChatStreamEvent.TurnFailed), events)
+            assertEquals(listOf(ChatStreamEvent.TurnFailed()), events)
+        }
+
+    @Test
+    fun `GIVEN a turn that failed because the agent could not be reached WHEN it is read THEN the failure says so`() =
+        runTest {
+            val ssePayload =
+                """
+                data: {"type": "turn_failed", "error": "model host unreachable", "reason": "agent_unavailable"}
+
+                data: [DONE]
+
+                """.trimIndent()
+
+            val events = reader.readEvents(ByteReadChannel(ssePayload.encodeToByteArray())).toList()
+
+            assertEquals(listOf(ChatStreamEvent.TurnFailed(TurnFailureReason.AgentUnavailable)), events)
+        }
+
+    @Test
+    fun `GIVEN an older hub that gives no reason for a failed turn WHEN it is read THEN the reason is unknown`() =
+        runTest {
+            val ssePayload =
+                """
+                data: {"type": "turn_failed", "error": "model timed out"}
+
+                data: [DONE]
+
+                """.trimIndent()
+
+            val events = reader.readEvents(ByteReadChannel(ssePayload.encodeToByteArray())).toList()
+
+            assertEquals(listOf(ChatStreamEvent.TurnFailed(TurnFailureReason.Unknown)), events)
+        }
+
+    @Test
+    fun `GIVEN a failed turn with a reason this phone does not know WHEN it is read THEN the reason is unknown`() =
+        runTest {
+            val ssePayload =
+                """
+                data: {"type": "turn_failed", "error": "disk full", "reason": "disk_full"}
+
+                data: [DONE]
+
+                """.trimIndent()
+
+            val events = reader.readEvents(ByteReadChannel(ssePayload.encodeToByteArray())).toList()
+
+            assertEquals(listOf(ChatStreamEvent.TurnFailed(TurnFailureReason.Unknown)), events)
         }
 
     @Test

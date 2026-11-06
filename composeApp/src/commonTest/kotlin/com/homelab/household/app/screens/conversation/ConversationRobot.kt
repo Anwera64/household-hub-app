@@ -71,6 +71,8 @@ import com.homelab.household.app.resources.conversation_still_working_detail
 import com.homelab.household.app.resources.conversation_thinking
 import com.homelab.household.app.resources.conversation_thought
 import com.homelab.household.app.resources.conversation_try_again
+import com.homelab.household.app.resources.conversation_unreachable_line
+import com.homelab.household.app.resources.conversation_unreachable_title
 import com.homelab.household.app.resources.field_changed
 import com.homelab.household.app.resources.memories_tab_household_plain
 import com.homelab.household.app.resources.memories_tab_yours_plain
@@ -304,6 +306,10 @@ class ConversationRobot(
     suspend fun seesAnswerFailed() = seesText(getString(Res.string.conversation_failed_title))
 
     suspend fun seesTheQuestionArrived() = seesText(getString(Res.string.conversation_failed_line))
+
+    suspend fun seesAgentUnreachable() = seesText(getString(Res.string.conversation_unreachable_title))
+
+    suspend fun seesItMayBeSwitchedOff() = seesText(getString(Res.string.conversation_unreachable_line))
 
     suspend fun tapsTryAgain() {
         node(getString(Res.string.conversation_try_again)).performClick()

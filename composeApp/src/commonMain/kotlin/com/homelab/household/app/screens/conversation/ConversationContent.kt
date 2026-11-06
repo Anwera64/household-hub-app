@@ -63,6 +63,8 @@ import com.homelab.household.app.resources.conversation_still_working
 import com.homelab.household.app.resources.conversation_still_working_detail
 import com.homelab.household.app.resources.conversation_thought
 import com.homelab.household.app.resources.conversation_try_again
+import com.homelab.household.app.resources.conversation_unreachable_line
+import com.homelab.household.app.resources.conversation_unreachable_title
 import com.homelab.household.app.resources.secret_marker_ended
 import com.homelab.household.app.resources.secret_marker_from_here
 import com.homelab.household.app.resources.tool_card_hold
@@ -79,6 +81,7 @@ import com.homelab.household.domain.model.HubTool
 import com.homelab.household.domain.model.MessageRole
 import com.homelab.household.domain.model.MessageStatus
 import com.homelab.household.domain.model.ProposalDetails
+import com.homelab.household.domain.model.TurnFailureReason
 import com.homelab.household.presentation.chatsession.ChatSessionUiState
 import com.homelab.household.presentation.chatsession.TurnState
 import com.homelab.household.presentation.memories.LocalEventTime
@@ -765,14 +768,21 @@ private fun TurnStatus(
         }
 
         TurnState.Failed -> {
+            // A model host that is switched off is not a model that took too long.
+            val (title, line) =
+                if (state.failureReason == TurnFailureReason.AgentUnavailable) {
+                    Res.string.conversation_unreachable_title to Res.string.conversation_unreachable_line
+                } else {
+                    Res.string.conversation_failed_title to Res.string.conversation_failed_line
+                }
             Column(verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.sm)) {
                 Text(
-                    text = stringResource(Res.string.conversation_failed_title),
+                    text = stringResource(title),
                     style = type.bodyStrong,
                     color = colors.error,
                 )
                 Text(
-                    text = stringResource(Res.string.conversation_failed_line),
+                    text = stringResource(line),
                     style = type.caption,
                     color = colors.textMuted,
                 )

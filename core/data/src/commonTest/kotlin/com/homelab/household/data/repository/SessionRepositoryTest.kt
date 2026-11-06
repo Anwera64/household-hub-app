@@ -586,7 +586,7 @@ class SessionRepositoryTest {
 
             val events = repository(remote, pollDelayMs = 10).streamChatTurn("s-1", "Plan meals").toList()
 
-            assertEquals(ChatStreamEvent.TurnFailed, events.last())
+            assertEquals(ChatStreamEvent.TurnFailed(), events.last())
         }
 
     @Test
@@ -662,7 +662,7 @@ class SessionRepositoryTest {
             val events = repository(remote, pollDelayMs = 10).streamChatTurn("s-1", "Hello").toList()
 
             assertEquals(ChatStreamEvent.Delta("Three thi"), events.first())
-            assertEquals(ChatStreamEvent.TurnFailed, events.last())
+            assertEquals(ChatStreamEvent.TurnFailed(), events.last())
         }
 
     @Test

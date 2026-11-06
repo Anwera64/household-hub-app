@@ -6,6 +6,7 @@ import com.homelab.household.domain.model.ConversationSession
 import com.homelab.household.domain.model.MessageRole
 import com.homelab.household.domain.model.ProposalStatus
 import com.homelab.household.domain.model.ToolAction
+import com.homelab.household.domain.model.TurnFailureReason
 import com.homelab.household.presentation.memories.LocalTime
 
 /**
@@ -79,6 +80,12 @@ data class ChatSessionUiState(
      */
     val composerText: String = "",
     val turnState: TurnState = TurnState.Idle,
+    /**
+     * Why the hub says the turn failed, while it is [TurnState.Failed]: an agent that cannot be
+     * reached is a different sentence on screen. Null when no hub said why — a wait that broke, or
+     * a turn found dead on opening the chat.
+     */
+    val failureReason: TurnFailureReason? = null,
     /**
      * Whether the model is thinking before it writes or picks a tool. Only the fact of it: its
      * thoughts stream faster than anyone can read, so the phone never keeps a word of them.

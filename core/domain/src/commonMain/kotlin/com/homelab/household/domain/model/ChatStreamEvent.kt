@@ -130,6 +130,18 @@ sealed interface ChatStreamEvent {
      * Distinct from [StillWorking] because only this one is worth offering to do again, and
      * distinct from a thrown failure because the question itself was delivered: what failed is the
      * answer, which is a different sentence on screen and a different button under it.
+     *
+     * [reason] tells a model host that could not be reached apart from any other failure; an
+     * older hub says nothing, which is [TurnFailureReason.Unknown].
      */
-    data object TurnFailed : ChatStreamEvent
+    data class TurnFailed(
+        val reason: TurnFailureReason = TurnFailureReason.Unknown,
+    ) : ChatStreamEvent
+}
+
+/** Why a turn failed, as the hub names it. A reason this phone does not know yet is [Unknown]. */
+enum class TurnFailureReason {
+    /** The model's host could not be reached: most likely it is switched off. */
+    AgentUnavailable,
+    Unknown,
 }
