@@ -2,9 +2,11 @@
 <resources>
 
     <!-- Compose draws everything, so the window only needs no action bar and the Hearth canvas
-         behind the first frame. -->
+         behind the first frame. colorBackground is the task's background in recent apps: the
+         card shows only that colour while secret chats are unlocked (#30). -->
     <style name="Theme.HyggeHub" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/hearth_canvas</item>
+        <item name="android:colorBackground">@color/hearth_canvas</item>
     </style>
 
     <!-- The system splash: the launch tile on the canvas, until the first frame, then the app's
