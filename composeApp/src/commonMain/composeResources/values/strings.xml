@@ -87,7 +87,7 @@
 
     <!-- Destinations a later slice still has to build -->
     <string name="home_title">You're signed in</string>
-    <string name="home_detail">The household arrives in slice 3.</string>
+    <string name="home_detail">This part of the app is on its way.</string>
 
     <!-- Chat -->
     <string name="send_message">Send</string>
