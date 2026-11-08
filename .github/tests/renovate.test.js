@@ -47,6 +47,11 @@ test('Renovate configuration', async (t) => {
     assert.ok(!config.lockFileMaintenance || config.lockFileMaintenance.enabled === false, 'lockFileMaintenance must be off');
   });
 
+  // Issues are off in this repository, and the dashboard is an issue.
+  await t.test('keeps no Dependency Dashboard', () => {
+    assert.equal(config.dependencyDashboard, false, 'dependencyDashboard must be false');
+  });
+
   await t.test('groups minor and patch bumps into one automerged pull request', () => {
     const rule = rules.find((r) => r.groupName === 'app dependencies');
     assert.ok(rule, 'a rule must group "app dependencies"');
