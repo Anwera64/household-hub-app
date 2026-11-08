@@ -14,11 +14,16 @@ enum AppSwitcherCover {
     }
 }
 
-/// The cover itself: the system's thickest material blur, over the whole window.
+/// The cover itself: a blur over the whole window.
 struct AppSwitcherBlur: UIViewRepresentable {
 
+    /// The thinnest material, so the screen's layout and colours still show through. The blur
+    /// itself is what makes text unreadable; a thicker material only adds tint, which turned the
+    /// picture into a flat sheet.
+    static let style: UIBlurEffect.Style = .systemUltraThinMaterial
+
     func makeUIView(context: Context) -> UIVisualEffectView {
-        UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
+        UIVisualEffectView(effect: UIBlurEffect(style: Self.style))
     }
 
     func updateUIView(_ uiView: UIVisualEffectView, context: Context) {}
