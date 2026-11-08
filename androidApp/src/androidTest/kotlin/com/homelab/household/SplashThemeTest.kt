@@ -41,4 +41,33 @@ class SplashThemeTest {
             }
         }
     }
+
+    // While secret chats are unlocked, recent apps shows no picture of the app, only this colour.
+    @Test
+    fun GIVEN_a_resumed_main_screen_WHEN_its_recents_background_is_resolved_THEN_it_is_the_app_theme_canvas() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.moveToState(Lifecycle.State.RESUMED)
+            scenario.onActivity { activity ->
+                val background = TypedValue()
+                activity.theme.resolveAttribute(android.R.attr.colorBackground, background, true)
+
+                assertEquals(R.color.hearth_canvas, background.resourceId)
+            }
+        }
+    }
+
+    // Recent apps paints this colour as a strip across the top of that card. Transparent doesn't
+    // help: Android swaps in a system colour. The canvas makes the strip part of the card.
+    @Test
+    fun GIVEN_a_resumed_main_screen_WHEN_its_status_bar_colour_is_resolved_THEN_it_is_the_app_theme_canvas() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.moveToState(Lifecycle.State.RESUMED)
+            scenario.onActivity { activity ->
+                val statusBar = TypedValue()
+                activity.theme.resolveAttribute(android.R.attr.statusBarColor, statusBar, true)
+
+                assertEquals(R.color.hearth_canvas, statusBar.resourceId)
+            }
+        }
+    }
 }

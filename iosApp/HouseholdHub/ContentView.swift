@@ -14,8 +14,20 @@ struct ComposeView: UIViewControllerRepresentable {
 
 struct ContentView: View {
 
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some View {
         ComposeView()
+            // Read again on every phase change, so the cover goes up as the app leaves and comes
+            // down once it is back in use.
+            .overlay {
+                if AppSwitcherCover.isShown(
+                    phase: scenePhase,
+                    hides: MainViewControllerKt.hidesFromAppSwitcher()
+                ) {
+                    AppSwitcherBlur().ignoresSafeArea()
+                }
+            }
             // The Compose UI is edge to edge and pads every safe area itself — the status bar,
             // the home indicator and the keyboard, all through `WindowInsets.safeDrawing` (the
             // keyboard part is what `android:windowSoftInputMode="adjustResize"` buys on the other

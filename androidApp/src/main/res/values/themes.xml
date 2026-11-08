@@ -2,9 +2,14 @@
 <resources>
 
     <!-- Compose draws everything, so the window only needs no action bar and the Hearth canvas
-         behind the first frame. -->
+         behind the first frame. While secret chats are unlocked, recent apps shows no picture of
+         the app (#30): the card is colorBackground, with statusBarColor painted as a strip across
+         its top. The canvas makes that strip part of the card: transparent doesn't work, Android
+         swaps in a system colour. The window's own status bar is edge to edge anyway. -->
     <style name="Theme.HyggeHub" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/hearth_canvas</item>
+        <item name="android:colorBackground">@color/hearth_canvas</item>
+        <item name="android:statusBarColor">@color/hearth_canvas</item>
     </style>
 
     <!-- The system splash: the launch tile on the canvas, until the first frame, then the app's

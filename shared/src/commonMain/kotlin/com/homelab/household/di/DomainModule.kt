@@ -1,6 +1,8 @@
 package com.homelab.household.di
 
 import com.homelab.household.domain.repository.AuthRepository
+import com.homelab.household.domain.repository.SecretUnlockRepository
+import com.homelab.household.domain.secret.AppSwitcherPrivacy
 import com.homelab.household.domain.secret.SecretLockController
 import com.homelab.household.domain.usecase.AnswerChangeUseCase
 import com.homelab.household.domain.usecase.ApprovePinResetUseCase
@@ -141,6 +143,15 @@ val domainModule =
             SecretLockController(
                 unlocks = get(),
                 signedOut = get<AuthRepository>().observeSignedOut(),
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            )
+        }
+
+        // Whether the app hides from the app switcher: while secret chats are unlocked, and until the
+        // member is back after leaving. Read by both platform apps.
+        single {
+            AppSwitcherPrivacy(
+                unlocked = get<SecretUnlockRepository>().holding,
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
             )
         }
