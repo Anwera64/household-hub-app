@@ -1,14 +1,15 @@
 package com.homelab.household.architecture
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * The docs live in the repo's GitHub wiki; the README stays short and points there. The repo and its
- * wiki are public, so the README names no home network address, and no source points at a docs
- * file the repo doesn't have.
+ * The docs live in a private wiki; the README stays short and doesn't mention it, and nothing links
+ * the GitHub wiki, which is off. The repo is public, so the README names no home network address,
+ * and no source points at a docs file the repo doesn't have.
  */
 class DocsTest {
     private val clientRootDir =
@@ -27,10 +28,20 @@ class DocsTest {
     }
 
     @Test
-    fun `GIVEN the README WHEN it is read THEN it stays under 60 lines and links the wiki`() {
+    fun `GIVEN the README WHEN it is read THEN it stays under 60 lines and leaves the wiki out`() {
         val lines = readme.lines().size
         assertTrue(lines <= 60, "the README has $lines lines; the detail belongs in the wiki")
-        assertTrue(readme.contains(WIKI), "the README must link the wiki")
+        assertFalse(readme.contains("wiki", ignoreCase = true), "the wiki is private; the README must not mention it")
+    }
+
+    @Test
+    fun `GIVEN the repo's sources WHEN they are scanned THEN none links the GitHub wiki`() {
+        val linking =
+            sources
+                .filterNot { it.name == "DocsTest.kt" }
+                .filter { it.readText().contains(GITHUB_WIKI) }
+                .map { it.relativeTo(clientRootDir).path }
+        assertEquals(emptyList<String>(), linking)
     }
 
     @Test
@@ -81,6 +92,6 @@ class DocsTest {
     private companion object {
         val SKILLS = listOf("patch-release", "test-pr")
 
-        const val WIKI = "https://github.com/Anwera64/household-hub-app/wiki"
+        const val GITHUB_WIKI = "github.com/Anwera64/household-hub-app/wiki"
     }
 }

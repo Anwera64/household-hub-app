@@ -3,7 +3,7 @@
 This is the Household Hub app (Kotlin Multiplatform client for Android and iOS).
 
 ## Where things live
-- The hub backend and the homelab configuration are in other (private) repositories. Slice issues live in the homelab repository, and the design docs in the backend's private wiki. This repo's docs are in its public GitHub wiki: keep home-setup details out of it. The hub's API contract is read from the private repository `household-hub-contract`.
+- The hub backend and the homelab configuration are in other (private) repositories. This app's issues and docs (its wiki) are in the private GitLab project `home/household-hub-app`; GitHub's Issues and wiki are off. Keep home-setup details out of this public repo. The design docs are in the backend's private wiki, and the hub's API contract is read from the private repository `household-hub-contract`.
 
 ## Plan first
 - Investigate read-only, then present a plan through plan mode (problem, architecture, file-by-file changes, open questions, verification) and wait for explicit approval before writing, deleting, or running anything that modifies state.
