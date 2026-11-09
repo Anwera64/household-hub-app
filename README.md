@@ -17,15 +17,3 @@ git config core.hooksPath .githooks   # once per clone: ktlint and the architect
 
 Modules keep three layers, `presentation -> domain <- data`, and tests guard the boundaries. Merging
 a bump of `app.version` in `gradle.properties` releases it, tagged `v<version>`.
-
-## In the wiki
-
-- [Setup](https://github.com/Anwera64/household-hub-app/wiki/Setup) ·
-  [Architecture](https://github.com/Anwera64/household-hub-app/wiki/Architecture) ·
-  [How a screen is built](https://github.com/Anwera64/household-hub-app/wiki/How-a-screen-is-built) ·
-  [Toolchain](https://github.com/Anwera64/household-hub-app/wiki/Toolchain)
-- [Tests](https://github.com/Anwera64/household-hub-app/wiki/Tests) ·
-  [Running the app](https://github.com/Anwera64/household-hub-app/wiki/Running-the-app) ·
-  [Releasing](https://github.com/Anwera64/household-hub-app/wiki/Releasing) ·
-  [Brand assets](https://github.com/Anwera64/household-hub-app/wiki/Brand-assets) ·
-  [Network](https://github.com/Anwera64/household-hub-app/wiki/Network)
