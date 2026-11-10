@@ -199,6 +199,16 @@ test('Merging an app version bump releases it', async (t) => {
   });
 });
 
+test("Only the owner's review counts", async (t) => {
+  const codeowners = read(path.join(ROOT_DIR, '.github/CODEOWNERS'));
+
+  await t.test('owns every file, with no later rule handing a path to anyone else', () => {
+    assert.ok(codeowners, '.github/CODEOWNERS must exist');
+    const rules = codeowners.split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+    assert.deepEqual(rules, ['* @Anwera64']);
+  });
+});
+
 test('Release notes are grouped by label', async (t) => {
   const config = read(path.join(ROOT_DIR, '.github/release.yml'));
 
