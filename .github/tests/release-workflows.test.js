@@ -144,7 +144,7 @@ test('Merging an app version bump releases it', async (t) => {
     assert.ok(!workflow.includes('apps/household-hub'), 'the app is at the repository root');
   });
 
-  await t.test('tags app.version once, and leaves a tagged one alone', () => {
+  await t.test('tags app.version once, and never moves a tag', () => {
     const tag = jobBlock(workflow, 'tag');
     assert.ok(tag, 'a tag job');
     assert.match(tag, /permissions:\n      contents: write\n/);
@@ -155,6 +155,27 @@ test('Merging an app version bump releases it', async (t) => {
     assert.match(tag, /git push origin "refs\/tags\/\$tag"/);
     assert.match(tag, /echo "app=\$tag" >> "\$GITHUB_OUTPUT"/, 'only a new tag is handed on');
     assert.match(tag, /outputs:\n      app: \$\{\{ steps\.app\.outputs\.app \}\}/);
+  });
+
+  await t.test('counts a version as released only when its release exists, and stops loudly on a tag without one', () => {
+    const tag = jobBlock(workflow, 'tag');
+    assert.match(tag, /^        env:\n          GH_TOKEN: \$\{\{ github\.token \}\}\n/m, 'gh signs in with the job token');
+    const released = tag.match(/^ +if gh release view "\$tag"[^\n]*; then\n((?: +[^\n]*\n)*?) +fi\n/m);
+    assert.ok(released, 'gh release view, not the tag, says whether the version is released');
+    assert.match(released[1], /exit 0/, 'a released version does nothing');
+    // A tag pushed by hand, or left by a release run that broke: releasing nothing quietly would hide it.
+    const tagged = tag.match(/^ +if git ls-remote --exit-code --tags origin "refs\/tags\/\$tag"[^\n]*; then\n((?: +[^\n]*\n)*?) +fi\n/m);
+    assert.ok(tagged, 'an unreleased version still looks for its tag');
+    const error = tagged[1].match(/echo "::error::([^\n]*)"\n/);
+    assert.ok(error, 'a tag without a release is an error on the run');
+    for (const hint of [/no release/, /pushed by hand/, /release run failed/, /commit/, /delete the tag/, /re-run/]) {
+      assert.match(error[1], hint, 'the error says what happened and what to do');
+    }
+    assert.match(tagged[1], /exit 1/);
+    assert.doesNotMatch(tagged[1], /exit 0/, 'a tag without a release is never skipped');
+    assert.equal(tag.match(/exit 0/g)?.length, 1, 'only an existing release skips');
+    const order = ['gh release view', 'git ls-remote', 'git tag "$tag"'].map((step) => tag.indexOf(step));
+    assert.deepEqual([...order].sort((a, b) => a - b), order, 'the release is asked for, then the tag, then the version is tagged');
   });
 
   await t.test('calls the release with the keys of the release environment, latest only from master', () => {
