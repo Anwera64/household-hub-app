@@ -2,15 +2,13 @@ name: Release
 
 # One app release: the JVM tests, then the household's app to the phones. Android goes to Firebase
 # App Distribution as a signed APK, iOS to TestFlight; neither build is kept anywhere else, and the
-# release notes are written once both have it. release-tags.yml calls this when a merge bumps
-# app.version; pushing a v* tag by hand runs it too.
+# release notes are written once both have it. Only release-tags.yml runs this, when a merge bumps
+# app.version: a pushed tag starts nothing, so nothing but a reviewed merge reaches the stores.
 #
-# The keys live in the "release" environment, which only master, release/* and v* tags may use, so
-# no pull request run can reach them.
+# The keys live in the "release" environment, which only master and release/* may use, so no pull
+# request run and no tag can reach them.
 
 on:
-  push:
-    tags: ['v*']
   workflow_call:
     inputs:
       tag:
@@ -26,11 +24,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ inputs.tag || github.ref_name }}
+  group: release-${{ inputs.tag }}
   cancel-in-progress: false
 
 env:
-  TAG: ${{ inputs.tag || github.ref_name }}
+  TAG: ${{ inputs.tag }}
 
 jobs:
   check:

@@ -28,10 +28,12 @@ test('App release workflow', async (t) => {
   const workflow = read(RELEASE_PATH);
   const job = (name) => jobBlock(workflow, name);
 
-  await t.test('runs on a pushed v* tag, or when the tagging workflow calls it', () => {
+  await t.test('runs only when the tagging workflow calls it, never on a pushed tag', () => {
     assert.ok(fs.existsSync(RELEASE_PATH), '.github/workflows/release.yml must exist');
     const on = topLevelBlock(workflow, 'on');
-    assert.match(on, /^  push:\n    tags: \['v\*'\]\n/m);
+    // A tag anyone can push would release whatever commit it points at; a merge has been reviewed.
+    const triggers = [...on.matchAll(/^  (\w+):/gm)].map((m) => m[1]);
+    assert.deepEqual(triggers, ['workflow_call'], 'release-tags.yml is the only way in');
     assert.match(on, /^  workflow_call:\n    inputs:\n      tag:\n/m);
     assert.match(on, /^      tag:\n(?:        [^\n]*\n)*?        required: true\n(?:        [^\n]*\n)*?        type: string\n/m, 'tag is a required string');
     assert.match(on, /^      latest:\n(?:        [^\n]*\n)*?        type: string\n/m, 'latest is a string input');
