@@ -28,10 +28,12 @@ test('App release workflow', async (t) => {
   const workflow = read(RELEASE_PATH);
   const job = (name) => jobBlock(workflow, name);
 
-  await t.test('runs on a pushed v* tag, or when the tagging workflow calls it', () => {
+  await t.test('runs only when the tagging workflow calls it, never on a pushed tag', () => {
     assert.ok(fs.existsSync(RELEASE_PATH), '.github/workflows/release.yml must exist');
     const on = topLevelBlock(workflow, 'on');
-    assert.match(on, /^  push:\n    tags: \['v\*'\]\n/m);
+    // A tag anyone can push would release whatever commit it points at; a merge has been reviewed.
+    const triggers = [...on.matchAll(/^  (\w+):/gm)].map((m) => m[1]);
+    assert.deepEqual(triggers, ['workflow_call'], 'release-tags.yml is the only way in');
     assert.match(on, /^  workflow_call:\n    inputs:\n      tag:\n/m);
     assert.match(on, /^      tag:\n(?:        [^\n]*\n)*?        required: true\n(?:        [^\n]*\n)*?        type: string\n/m, 'tag is a required string');
     assert.match(on, /^      latest:\n(?:        [^\n]*\n)*?        type: string\n/m, 'latest is a string input');
@@ -142,7 +144,7 @@ test('Merging an app version bump releases it', async (t) => {
     assert.ok(!workflow.includes('apps/household-hub'), 'the app is at the repository root');
   });
 
-  await t.test('tags app.version once, and leaves a tagged one alone', () => {
+  await t.test('tags app.version once, and never moves a tag', () => {
     const tag = jobBlock(workflow, 'tag');
     assert.ok(tag, 'a tag job');
     assert.match(tag, /permissions:\n      contents: write\n/);
@@ -153,6 +155,27 @@ test('Merging an app version bump releases it', async (t) => {
     assert.match(tag, /git push origin "refs\/tags\/\$tag"/);
     assert.match(tag, /echo "app=\$tag" >> "\$GITHUB_OUTPUT"/, 'only a new tag is handed on');
     assert.match(tag, /outputs:\n      app: \$\{\{ steps\.app\.outputs\.app \}\}/);
+  });
+
+  await t.test('counts a version as released only when its release exists, and stops loudly on a tag without one', () => {
+    const tag = jobBlock(workflow, 'tag');
+    assert.match(tag, /^        env:\n          GH_TOKEN: \$\{\{ github\.token \}\}\n/m, 'gh signs in with the job token');
+    const released = tag.match(/^ +if gh release view "\$tag"[^\n]*; then\n((?: +[^\n]*\n)*?) +fi\n/m);
+    assert.ok(released, 'gh release view, not the tag, says whether the version is released');
+    assert.match(released[1], /exit 0/, 'a released version does nothing');
+    // A tag pushed by hand, or left by a release run that broke: releasing nothing quietly would hide it.
+    const tagged = tag.match(/^ +if git ls-remote --exit-code --tags origin "refs\/tags\/\$tag"[^\n]*; then\n((?: +[^\n]*\n)*?) +fi\n/m);
+    assert.ok(tagged, 'an unreleased version still looks for its tag');
+    const error = tagged[1].match(/echo "::error::([^\n]*)"\n/);
+    assert.ok(error, 'a tag without a release is an error on the run');
+    for (const hint of [/no release/, /pushed by hand/, /release run failed/, /commit/, /delete the tag/, /re-run/]) {
+      assert.match(error[1], hint, 'the error says what happened and what to do');
+    }
+    assert.match(tagged[1], /exit 1/);
+    assert.doesNotMatch(tagged[1], /exit 0/, 'a tag without a release is never skipped');
+    assert.equal(tag.match(/exit 0/g)?.length, 1, 'only an existing release skips');
+    const order = ['gh release view', 'git ls-remote', 'git tag "$tag"'].map((step) => tag.indexOf(step));
+    assert.deepEqual([...order].sort((a, b) => a - b), order, 'the release is asked for, then the tag, then the version is tagged');
   });
 
   await t.test('calls the release with the keys of the release environment, latest only from master', () => {
@@ -173,6 +196,16 @@ test('Merging an app version bump releases it', async (t) => {
     for (const ref of refs) {
       assert.match(ref, /@[0-9a-f]{40}$/, `"${ref}" must be pinned to a 40-character commit SHA`);
     }
+  });
+});
+
+test("Only the owner's review counts", async (t) => {
+  const codeowners = read(path.join(ROOT_DIR, '.github/CODEOWNERS'));
+
+  await t.test('owns every file, with no later rule handing a path to anyone else', () => {
+    assert.ok(codeowners, '.github/CODEOWNERS must exist');
+    const rules = codeowners.split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+    assert.deepEqual(rules, ['* @Anwera64']);
   });
 });
 

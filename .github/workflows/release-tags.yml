@@ -1,8 +1,8 @@
 name: Release tags
 
-# Merging a version bump is the release: when app.version has no v* tag yet, this tags the merge
-# and runs release.yml. A tag pushed with GITHUB_TOKEN starts no workflow of its own, so the
-# release is called from here. A version that is already tagged does nothing.
+# Merging a version bump is the release: when app.version has no release yet, this tags the merge
+# and runs release.yml, which nothing else starts. A version that is already released does
+# nothing; one that is tagged but has no release stops the run with an error, never skipped.
 #
 # master releases are the latest; a patch merged into a release/x.y branch is not.
 
@@ -32,14 +32,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Released means GitHub has the release, which release.yml writes last. A tag alone proves
+      # nothing: it may have been pushed by hand, or its release run broke. Neither is skipped, and
+      # an existing tag is never moved.
       - name: Tag the app version
         id: app
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           version="$(sed -n 's/^app\.version=//p' gradle.properties)"
           tag="v$version"
-          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+          if gh release view "$tag" >/dev/null; then
             echo "$tag is already released"
             exit 0
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            echo "::error::$tag is tagged but has no release, so nothing was released. Either the tag was pushed by hand or its release run failed. Check which commit $tag points at (this merge is $GITHUB_SHA; if it is another commit, find out who pushed it), then delete the tag and re-run this job: it tags this merge and releases it."
+            exit 1
           fi
           git tag "$tag" "$GITHUB_SHA"
           git push origin "refs/tags/$tag"

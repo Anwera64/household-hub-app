@@ -1,0 +1,3 @@
+# The owner reviews every change. Where a branch rule asks for a code owner's approval, no other
+# account's approval lets a pull request merge.
+* @Anwera64
