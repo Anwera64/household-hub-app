@@ -929,4 +929,39 @@
     <string name="looked_over_to_check">To check · %1$d</string>
     <string name="looked_over_remembered">Remembered · %1$d</string>
     <string name="looked_over_all_memories">All memories</string>
+
+    <!-- Local network access (#5): the first-time explanation, the "access is off" cover over any
+         screen, launch's offline reason and the Profile row. %1$s is app_name. -->
+    <string name="local_network_first_title">Your hub lives on your home Wi-Fi</string>
+    <string name="local_network_first_body">Your phone keeps apps off your home network until you allow it. %1$s only talks to your hub.</string>
+    <string name="local_network_first_hint">Your phone will ask you. You can change it later in Settings.</string>
+    <string name="local_network_continue">Continue</string>
+    <string name="local_network_home">At home, on Wi-Fi</string>
+    <string name="local_network_home_first">Straight to your hub.</string>
+    <string name="local_network_home_off">Straight to your hub, once it's on.</string>
+    <string name="local_network_away">Away, through Tailscale</string>
+    <string name="local_network_away_first">Works without it.</string>
+    <string name="local_network_away_off">Still works.</string>
+    <string name="local_network_chip_needs_ok">Needs your OK</string>
+    <string name="local_network_chip_works">Works</string>
+    <string name="local_network_chip_off">Off</string>
+    <string name="local_network_chip_checking">Checking</string>
+    <string name="local_network_chip_still_off">Still off</string>
+    <string name="local_network_off_title">Local network access is off</string>
+    <string name="local_network_off_body">Turn it on in Settings so %1$s can reach your hub at home.</string>
+    <string name="local_network_turn_on_body">Turn it on so %1$s can reach your hub at home.</string>
+    <string name="local_network_still_off_body">It's still off. Follow the step below, then come back to %1$s.</string>
+    <string name="local_network_where">Where to find it</string>
+    <string name="local_network_where_ios">Settings opens on %1$s. Turn on Local Network.</string>
+    <string name="local_network_where_android">Settings opens on %1$s. Tap Permissions › Nearby devices › Allow.</string>
+    <string name="local_network_where_android_spoken">Settings opens on %1$s. Tap Permissions, then Nearby devices, then Allow.</string>
+    <string name="local_network_open_settings">Open settings</string>
+    <string name="local_network_turn_on">Turn it on</string>
+    <string name="local_network_checking">Checking…</string>
+    <string name="local_network_back_on_wifi">You're back on home Wi-Fi.</string>
+    <string name="local_network_turn_on_later">You can turn it on later in Profile.</string>
+    <string name="launch_local_network_detail">%1$s can't reach your hub on home Wi-Fi until you turn it on. Away from home, open Tailscale.</string>
+    <string name="launch_local_network_chip">Access off</string>
+    <string name="profile_local_network">Local network access</string>
+    <string name="profile_local_network_caption">Can't reach your hub on home Wi-Fi</string>
 </resources>

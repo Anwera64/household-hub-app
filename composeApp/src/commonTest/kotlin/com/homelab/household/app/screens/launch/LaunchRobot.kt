@@ -11,9 +11,12 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.waitUntilExactlyOneExists
 import com.homelab.household.app.components.HEARTH_PROGRESS_BAR_TAG
 import com.homelab.household.app.platform.ExternalApps
+import com.homelab.household.app.platform.LocalNetworkSettings
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.app_name
 import com.homelab.household.app.resources.launch_checking
+import com.homelab.household.app.resources.launch_local_network_chip
+import com.homelab.household.app.resources.launch_local_network_detail
 import com.homelab.household.app.resources.launch_no_route_chip
 import com.homelab.household.app.resources.launch_no_route_detail
 import com.homelab.household.app.resources.launch_no_route_title
@@ -33,11 +36,20 @@ import com.homelab.household.app.resources.launch_upstream_title
 import com.homelab.household.app.resources.launch_web_page_chip
 import com.homelab.household.app.resources.launch_web_page_detail
 import com.homelab.household.app.resources.launch_web_page_title
+import com.homelab.household.app.resources.local_network_off_title
+import com.homelab.household.app.resources.local_network_open_settings
+import com.homelab.household.app.resources.local_network_where_android
+import com.homelab.household.app.resources.secret_offer_not_now
 import com.homelab.household.app.testing.FakeExternalApps
+import com.homelab.household.app.testing.FakeLocalNetworkAccess
+import com.homelab.household.app.testing.FakeLocalNetworkSettings
 import com.homelab.household.app.testing.TestApp
 import com.homelab.household.data.datasource.local.InMemorySessionStorage
 import com.homelab.household.data.datasource.local.StoredSessionLocalDataSource
+import com.homelab.household.domain.localnetwork.LocalNetworkStatus
 import com.homelab.household.presentation.launch.HubFailure
+import com.russhwolf.settings.MapSettings
+import com.russhwolf.settings.Settings
 import org.jetbrains.compose.resources.getString
 
 /**
@@ -68,10 +80,26 @@ class LaunchRobot(
         seesText(words.detail)
         seesText(words.chip)
         seesText(getString(Res.string.launch_retrying_in))
-        seesText(getString(Res.string.launch_retry))
+        if (reason == HubFailure.LocalNetworkOff) {
+            // The fix in place of Try again, and where the switch is (the fake phone is Android).
+            seesText(getString(Res.string.local_network_open_settings))
+            seesText(getString(Res.string.local_network_where_android, getString(Res.string.app_name)))
+        } else {
+            seesText(getString(Res.string.launch_retry))
+        }
         seesText(getString(Res.string.launch_open_tailscale))
         seesText(getString(Res.string.launch_offline_hint))
         seesNothingLoading()
+    }
+
+    /** The "access is off" cover never draws over launch, which says so itself. */
+    suspend fun seesNothingCoveringIt() {
+        test.waitForIdle()
+        test.onNodeWithText(getString(Res.string.secret_offer_not_now)).assertDoesNotExist()
+    }
+
+    suspend fun tapsOpenSettings() {
+        test.onNodeWithText(getString(Res.string.local_network_open_settings)).performScrollTo().performClick()
     }
 
     /** A hub that already gave its answer isn't still being waited on. */
@@ -133,6 +161,14 @@ class LaunchRobot(
                 )
             }
 
+            HubFailure.LocalNetworkOff -> {
+                Words(
+                    getString(Res.string.local_network_off_title),
+                    getString(Res.string.launch_local_network_detail, getString(Res.string.app_name)),
+                    getString(Res.string.launch_local_network_chip),
+                )
+            }
+
             HubFailure.AddressNotFound -> {
                 Words(
                     getString(Res.string.launch_not_found_title),
@@ -174,10 +210,21 @@ fun ComposeUiTest.launchScreen(
     onFirstRun: () -> Unit = {},
     sessionStorage: StoredSessionLocalDataSource = InMemorySessionStorage(),
     externalApps: ExternalApps = FakeExternalApps(),
+    localNetwork: LocalNetworkStatus = LocalNetworkStatus.Allowed,
+    localNetworkSettings: LocalNetworkSettings = FakeLocalNetworkSettings(),
+    choices: Settings = MapSettings(),
+    around: @androidx.compose.runtime.Composable (@androidx.compose.runtime.Composable () -> Unit) -> Unit = { it() },
 ) {
     setContent {
-        TestApp(hub.engine, sessionStorage = sessionStorage, externalApps = externalApps) {
-            LaunchScreen(onSignIn = onSignIn, onFirstRun = onFirstRun)
+        TestApp(
+            hub.engine,
+            sessionStorage = sessionStorage,
+            choices = choices,
+            externalApps = externalApps,
+            localNetworkAccess = FakeLocalNetworkAccess(localNetwork),
+            localNetworkSettings = localNetworkSettings,
+        ) {
+            around { LaunchScreen(onSignIn = onSignIn, onFirstRun = onFirstRun) }
         }
     }
 }

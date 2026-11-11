@@ -40,6 +40,7 @@ import com.homelab.household.app.components.SkeletonGroup
 import com.homelab.household.app.icons.HearthIcon
 import com.homelab.household.app.icons.HearthIconImage
 import com.homelab.household.app.resources.Res
+import com.homelab.household.app.resources.local_network_chip_off
 import com.homelab.household.app.resources.members_failed
 import com.homelab.household.app.resources.members_unreachable
 import com.homelab.household.app.resources.profile_admin
@@ -60,6 +61,8 @@ import com.homelab.household.app.resources.profile_calendar_sign_in_needed_detai
 import com.homelab.household.app.resources.profile_change_pin
 import com.homelab.household.app.resources.profile_delete_account
 import com.homelab.household.app.resources.profile_delete_blocked
+import com.homelab.household.app.resources.profile_local_network
+import com.homelab.household.app.resources.profile_local_network_caption
 import com.homelab.household.app.resources.profile_members
 import com.homelab.household.app.resources.profile_memories
 import com.homelab.household.app.resources.profile_memories_counts
@@ -105,6 +108,7 @@ fun ProfileContent(
     onCalendarSignInAgain: () -> Unit = {},
     onWhenAgentsAct: () -> Unit = {},
     onMemories: () -> Unit = {},
+    onLocalNetwork: () -> Unit = {},
 ) {
     val colors = HearthTheme.colors
     val type = HearthTheme.typography
@@ -184,6 +188,11 @@ fun ProfileContent(
             AgentsSection(automaticWrites = state.automaticWrites, onWhenAgentsAct = onWhenAgentsAct)
 
             BentoCard(modifier = Modifier.fillMaxWidth()) {
+                // Only while this phone blocks the hub at home: the fix after "Don't ask again" (#5).
+                if (state.localNetworkOff) {
+                    LocalNetworkRow(onClick = onLocalNetwork)
+                    HorizontalDivider(color = colors.outlineSoft)
+                }
                 SettingsRow(
                     label = stringResource(Res.string.profile_members),
                     icon = HearthIcon.Shared,
@@ -352,6 +361,30 @@ private fun MemorySection(
             )
         }
     }
+}
+
+/** Local network access is off: the Attention chip and the chevron, like Memories' "to check". */
+@Composable
+private fun LocalNetworkRow(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    SettingsRow(
+        label = stringResource(Res.string.profile_local_network),
+        icon = HearthIcon.HubOffline,
+        caption = stringResource(Res.string.profile_local_network_caption),
+        onClick = onClick,
+        modifier = modifier,
+        trailing = {
+            HearthChip(label = stringResource(Res.string.local_network_chip_off), variant = ChipVariant.Attention)
+            HearthIconImage(
+                icon = HearthIcon.ChevronRight,
+                contentDescription = null,
+                size = HearthTheme.size.iconMd,
+                tint = HearthTheme.colors.textMuted,
+            )
+        },
+    )
 }
 
 /**

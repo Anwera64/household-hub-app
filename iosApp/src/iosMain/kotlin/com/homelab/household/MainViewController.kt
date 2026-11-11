@@ -5,7 +5,10 @@ import com.homelab.household.app.App
 import com.homelab.household.data.network.HubConfig
 import com.homelab.household.data.telemetry.TelemetryConfig
 import com.homelab.household.domain.secret.AppSwitcherPrivacy
+import com.homelab.household.localnetwork.HubProbe
+import com.homelab.household.localnetwork.ProbeOutcome
 import com.homelab.household.sdk.HouseholdHubSdk
+import org.koin.dsl.module
 import platform.Foundation.NSBundle
 import platform.UIKit.UIViewController
 import kotlin.experimental.ExperimentalNativeApi
@@ -41,7 +44,29 @@ private val koin by lazy {
                     NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String
                         ?: "unknown",
             ),
-    )
+    ).also { app ->
+        // The Network framework probe Swift handed in, over the platform module's stand-in (#5).
+        app.koin.loadModules(
+            listOf(module { single<HubProbe> { HubProbe { host, port -> hubProbe().probe(host, port) } } }),
+            allowOverride = true,
+        )
+    }
+}
+
+/** Set by Swift before the first frame; read only when a probe runs. */
+private var connectionProbe: HubConnectionProbe? = null
+
+private fun hubProbe(): HubProbe =
+    connectionProbe?.let(::SwiftHubProbe)
+        ?: HubProbe { _, _ -> ProbeOutcome.Failed }
+
+/**
+ * The test connection the app reads iOS's local network permission with (#5). Exposed to Swift as
+ * `MainViewControllerKt.provideHubProbe(probe:)`; `HouseholdHubApp.init` calls it with
+ * `NetworkHubProbe()` before starting the graph.
+ */
+fun provideHubProbe(probe: HubConnectionProbe) {
+    connectionProbe = probe
 }
 
 /** An Info.plist value; a missing key is a broken build, so it fails at start rather than later. */
@@ -77,6 +102,10 @@ fun hidesFromAppSwitcher(): Boolean = koin.koin.get<AppSwitcherPrivacy>().hides.
 fun MainViewController(): UIViewController {
     startHouseholdHub()
     return ComposeUIViewController {
-        App(externalApps = IosExternalApps(), dragHidesKeyboard = true)
+        App(
+            externalApps = IosExternalApps(),
+            localNetworkSettings = IosLocalNetworkSettings(),
+            dragHidesKeyboard = true,
+        )
     }
 }

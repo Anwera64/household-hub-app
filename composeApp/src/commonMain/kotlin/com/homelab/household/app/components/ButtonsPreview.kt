@@ -32,6 +32,17 @@ private fun DestructiveButtonPreview() {
     }
 }
 
+/** The quiet text button under the two others, the way the local network screen stacks them. */
+@PreviewDayNight
+@Composable
+private fun QuietTextButtonPreview() {
+    ComponentPreview {
+        PrimaryButton(text = "Open settings", onClick = {}, icon = HearthIcon.Settings)
+        SecondaryButton(text = "Not now", onClick = {})
+        QuietTextButton(text = "Don't ask again on this phone", onClick = {})
+    }
+}
+
 /**
  * The working state of each kind, beside its resting one. Previews keep `DefaultMotion`, so the
  * bar along each bottom edge is running here — this is the one place the motion is looked at.

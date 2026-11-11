@@ -13,6 +13,8 @@ data class ProfileUiState(
     val automaticWrites: Int? = null,
     /** "27 yours · 14 household" on the Memories row. Null makes no claim. */
     val memoryCounts: MemoryCounts? = null,
+    /** The "Local network access" row, shown only while this phone blocks the hub at home (#5). */
+    val localNetworkOff: Boolean = false,
 )
 
 data class MemoryCounts(
