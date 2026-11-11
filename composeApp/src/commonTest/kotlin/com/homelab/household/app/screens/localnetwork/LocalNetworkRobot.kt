@@ -19,10 +19,12 @@ import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.app_name
 import com.homelab.household.app.resources.local_network_back_on_wifi
 import com.homelab.household.app.resources.local_network_checking
+import com.homelab.household.app.resources.local_network_chip_off
 import com.homelab.household.app.resources.local_network_chip_still_off
 import com.homelab.household.app.resources.local_network_continue
 import com.homelab.household.app.resources.local_network_first_body
 import com.homelab.household.app.resources.local_network_first_title
+import com.homelab.household.app.resources.local_network_off_body
 import com.homelab.household.app.resources.local_network_off_title
 import com.homelab.household.app.resources.local_network_open_settings
 import com.homelab.household.app.resources.local_network_still_off_body
@@ -86,6 +88,18 @@ class LocalNetworkRobot(
     suspend fun seesItStillOff() {
         seesText(named(Res.string.local_network_still_off_body))
         seesText(getString(Res.string.local_network_chip_still_off))
+    }
+
+    /** The plain "access is off" cover: its own body and the "Off" chip, not Still off. */
+    suspend fun seesItPlainOff() {
+        seesText(named(Res.string.local_network_off_body))
+        seesText(getString(Res.string.local_network_chip_off))
+    }
+
+    suspend fun doesNotSeeStillOff() {
+        test.onNodeWithText(named(Res.string.local_network_still_off_body)).assertDoesNotExist()
+        test.onNodeWithText(getString(Res.string.local_network_chip_still_off)).assertDoesNotExist()
+        test.onNodeWithText(getString(Res.string.local_network_checking)).assertDoesNotExist()
     }
 
     suspend fun tapsNotNow() = taps(getString(Res.string.secret_offer_not_now))

@@ -38,7 +38,8 @@ import org.koin.compose.koinInject
  *   local connection is what brings up iOS's own question.
  * - The "access is off" cover draws **over** [content], which stays composed where it was. While it
  *   covers, the screen underneath is hidden from TalkBack and VoiceOver. Back means Not now.
- * - Coming back to the app re-reads access while the cover is up: that is the return from Settings.
+ * - Coming back to the app re-reads access while the cover is up. Only the return after the cover's
+ *   Open settings shows Checking, then Still off; any other return hides the cover only if access is on.
  */
 @Composable
 fun LocalNetworkGateHost(
@@ -121,7 +122,11 @@ fun LocalNetworkGateHost(
                         LocalNetworkContent(
                             cover = LocalNetworkCover(step, settings.platform, canAskAgain),
                             onContinue = {},
-                            onOpenSettings = settings::openSettings,
+                            onOpenSettings = {
+                                // Only the return from here shows Checking, then Still off.
+                                gate.onOpenSettings()
+                                settings.openSettings()
+                            },
                             onTurnOn = { scope.launch { gate.onSystemPromptAnswered(settings.ask()) } },
                             onNotNow = gate::onNotNow,
                             onDontAskAgain = gate::onDontAskAgain,

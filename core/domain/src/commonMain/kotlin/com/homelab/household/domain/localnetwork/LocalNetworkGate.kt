@@ -26,8 +26,11 @@ import kotlin.concurrent.Volatile
  * - **Not now** (or a "no" to the phone's own question) keeps it quiet for this process. **Don't ask
  *   again** keeps it quiet on this phone.
  *
- * One for the app, like `SecretLockController`. The app reports start, resume and the member's
- * answers; hub failures come in through [hubUnreachable]. At most one read of access runs at a time.
+ * - **Checking**, then **Still off**, only on the first return to the app after the cover's Open
+ *   settings. Any other return while a cover is up quietly re-reads access and only ever hides it.
+ *
+ * One for the app, like `SecretLockController`. The app reports start, resume, Open settings and the
+ * member's answers; hub failures come in through [hubUnreachable]. At most one read of access runs at a time.
  */
 class LocalNetworkGate(
     private val access: LocalNetworkAccess,
@@ -48,6 +51,9 @@ class LocalNetworkGate(
     @Volatile private var quietUntilRestart = false
 
     @Volatile private var coversAllowed = true
+
+    // Set by the cover's Open settings; the next return to the app consumes it.
+    @Volatile private var openedSettings = false
 
     private var check: Job? = null
 
@@ -90,9 +96,7 @@ class LocalNetworkGate(
             onNotNow()
             return
         }
-        val covering = _screen.value.isCover()
-        _screen.value = LocalNetworkScreen.Hidden
-        if (covering) _events.trySend(LocalNetworkEvent.BackOnWifi)
+        if (_screen.value.isCover()) backOnWifi() else _screen.value = LocalNetworkScreen.Hidden
     }
 
     /** Quiet until the app really restarts: a new process, not a return from the background. */
@@ -108,35 +112,47 @@ class LocalNetworkGate(
     }
 
     /**
-     * Back in the app, from Settings or anywhere else. Reads access again only while a cover is up,
-     * or, on Android, while the explanation is: access turned on meanwhile needs no explaining.
+     * The cover's Open settings, just before Settings opens. The next return to the app is the
+     * return from Settings, and only that one shows Checking.
+     */
+    fun onOpenSettings() {
+        openedSettings = true
+    }
+
+    /**
+     * Back in the app. Reads access again only while a cover is up, or, on Android, while the
+     * explanation is: access turned on meanwhile needs no explaining.
+     *
+     * - After Open settings: Checking, then Still off or gone.
+     * - Any other return (unlocking the phone, the app switcher, the phone's own dialog): a quiet
+     *   read. If access is on the cover goes; otherwise nothing changes.
+     *
+     * A read's result applies only while the cover it was read for is still up.
      */
     fun onResumed() {
+        val afterSettings = openedSettings
+        openedSettings = false
         val before = _screen.value
         if (before == LocalNetworkScreen.FirstTime && access.readsWithoutAsking) {
             read { status ->
-                if (status == LocalNetworkStatus.Allowed || status == LocalNetworkStatus.NotNeeded) {
-                    if (_screen.value == LocalNetworkScreen.FirstTime) _screen.value = LocalNetworkScreen.Hidden
+                if (status.isOn() && _screen.value == LocalNetworkScreen.FirstTime) {
+                    _screen.value = LocalNetworkScreen.Hidden
                 }
             }
             return
         }
         if (!before.isCover() || check?.isActive == true) return
+        if (!afterSettings) {
+            read { status -> if (status.isOn() && _screen.value.isCover()) backOnWifi() }
+            return
+        }
         _screen.value = LocalNetworkScreen.Checking
         read { status ->
+            if (_screen.value != LocalNetworkScreen.Checking) return@read
             when (status) {
-                LocalNetworkStatus.Allowed, LocalNetworkStatus.NotNeeded -> {
-                    _screen.value = LocalNetworkScreen.Hidden
-                    _events.trySend(LocalNetworkEvent.BackOnWifi)
-                }
-
-                LocalNetworkStatus.Off -> {
-                    _screen.value = LocalNetworkScreen.StillOff
-                }
-
-                LocalNetworkStatus.Unknown -> {
-                    _screen.value = before
-                }
+                LocalNetworkStatus.Allowed, LocalNetworkStatus.NotNeeded -> backOnWifi()
+                LocalNetworkStatus.Off -> _screen.value = LocalNetworkScreen.StillOff
+                LocalNetworkStatus.Unknown -> _screen.value = before
             }
         }
     }
@@ -167,10 +183,18 @@ class LocalNetworkGate(
             }
     }
 
+    private fun backOnWifi() {
+        _screen.value = LocalNetworkScreen.Hidden
+        _events.trySend(LocalNetworkEvent.BackOnWifi)
+    }
+
     private fun hideCover() {
+        openedSettings = false
         check?.cancel()
         if (_screen.value.isCover()) _screen.value = LocalNetworkScreen.Hidden
     }
+
+    private fun LocalNetworkStatus.isOn() = this == LocalNetworkStatus.Allowed || this == LocalNetworkStatus.NotNeeded
 
     private fun LocalNetworkScreen.isCover() =
         this == LocalNetworkScreen.Off || this == LocalNetworkScreen.Checking || this == LocalNetworkScreen.StillOff

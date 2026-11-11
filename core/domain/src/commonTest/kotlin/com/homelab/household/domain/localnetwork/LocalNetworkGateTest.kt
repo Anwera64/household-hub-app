@@ -380,12 +380,13 @@ class LocalNetworkGateTest {
     // Back from Settings
 
     @Test
-    fun `GIVEN access is off on screen WHEN the member comes back to the app THEN it checks`() =
+    fun `GIVEN access is off on screen WHEN the member comes back from Settings THEN it checks`() =
         runTest {
             val access = android(LocalNetworkStatus.Off)
             val gate = started(access)
             hubFindsNoRoute()
             access.holdBack = CompletableDeferred()
+            gate.onOpenSettings()
 
             gate.onResumed()
             runCurrent()
@@ -394,10 +395,11 @@ class LocalNetworkGateTest {
         }
 
     @Test
-    fun `GIVEN access is off on screen WHEN the member comes back with it still off THEN it says still off`() =
+    fun `GIVEN access is off on screen WHEN the member comes back from Settings with it still off THEN it says still off`() =
         runTest {
             val gate = started(android(LocalNetworkStatus.Off))
             hubFindsNoRoute()
+            gate.onOpenSettings()
 
             gate.onResumed()
             runCurrent()
@@ -406,7 +408,58 @@ class LocalNetworkGateTest {
         }
 
     @Test
-    fun `GIVEN access is off on screen WHEN the member comes back with it turned on THEN it goes and says they are back on home Wi-Fi`() =
+    fun `GIVEN access is off on screen WHEN the member comes back from Settings with it turned on THEN it goes and says they are back on home Wi-Fi`() =
+        runTest {
+            val access = android(LocalNetworkStatus.Off)
+            val gate = started(access)
+            val events = eventsOf(gate)
+            hubFindsNoRoute()
+            access.answer = LocalNetworkStatus.Allowed
+            gate.onOpenSettings()
+
+            gate.onResumed()
+            runCurrent()
+
+            assertEquals(LocalNetworkScreen.Hidden, gate.screen.value)
+            assertEquals(listOf(LocalNetworkEvent.BackOnWifi), events)
+        }
+
+    @Test
+    fun `GIVEN access is off on screen WHEN the member comes back without opening Settings THEN it stays off without checking`() =
+        runTest {
+            val gate = started(android(LocalNetworkStatus.Off))
+            hubFindsNoRoute()
+            val seen = mutableListOf<LocalNetworkScreen>()
+            backgroundScope.launch { gate.screen.collect { seen += it } }
+            runCurrent()
+
+            gate.onResumed()
+            runCurrent()
+
+            assertEquals(LocalNetworkScreen.Off, gate.screen.value)
+            assertEquals(listOf(LocalNetworkScreen.Off), seen)
+        }
+
+    @Test
+    fun `GIVEN it says still off WHEN the member comes back again without opening Settings THEN it stays still off without checking`() =
+        runTest {
+            val gate = started(android(LocalNetworkStatus.Off))
+            hubFindsNoRoute()
+            gate.onOpenSettings()
+            gate.onResumed()
+            runCurrent()
+            val seen = mutableListOf<LocalNetworkScreen>()
+            backgroundScope.launch { gate.screen.collect { seen += it } }
+            runCurrent()
+
+            gate.onResumed()
+            runCurrent()
+
+            assertEquals(listOf(LocalNetworkScreen.StillOff), seen)
+        }
+
+    @Test
+    fun `GIVEN access is off on screen WHEN the member comes back without opening Settings with it turned on THEN it goes and says they are back on home Wi-Fi`() =
         runTest {
             val access = android(LocalNetworkStatus.Off)
             val gate = started(access)
@@ -418,6 +471,26 @@ class LocalNetworkGateTest {
             runCurrent()
 
             assertEquals(LocalNetworkScreen.Hidden, gate.screen.value)
+            assertEquals(listOf(LocalNetworkEvent.BackOnWifi), events)
+        }
+
+    @Test
+    fun `GIVEN a return read still running WHEN the member says yes to the phone's question THEN they hear they are back on home Wi-Fi once`() =
+        runTest {
+            val access = android(LocalNetworkStatus.Off)
+            val gate = started(access)
+            val events = eventsOf(gate)
+            hubFindsNoRoute()
+            val held = CompletableDeferred<Unit>()
+            access.holdBack = held
+            access.answer = LocalNetworkStatus.Allowed
+            gate.onResumed()
+            runCurrent()
+
+            gate.onSystemPromptAnswered(granted = true)
+            held.complete(Unit)
+            runCurrent()
+
             assertEquals(listOf(LocalNetworkEvent.BackOnWifi), events)
         }
 

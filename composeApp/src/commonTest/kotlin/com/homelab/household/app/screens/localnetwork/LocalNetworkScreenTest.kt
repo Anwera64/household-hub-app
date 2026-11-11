@@ -220,6 +220,21 @@ class LocalNetworkScreenTest {
         }
     }
 
+    @Test
+    fun `GIVEN access is off on screen WHEN the member leaves and comes back without opening Settings THEN the cover stays plainly off`() {
+        runScreenTest {
+            signedInAtHome(accessOff(), FakeLocalNetworkSettings())
+            onLocalNetwork { seesAccessIsOff() }
+
+            lifecycle.leavesAndComesBack()
+
+            onLocalNetwork {
+                seesItPlainOff()
+                doesNotSeeStillOff()
+            }
+        }
+    }
+
     // 4 · Don't ask again, and Not now
 
     @Test
