@@ -33,7 +33,7 @@ Dependencies point inward: `presentation -> domain <- data`.
 - Build and test client (Kotlin) code before committing; if the environment can't build it, say so clearly in the commit and PR.
 
 ## Branches and releases
-- Trunk-based: `master` is the trunk. New work branches from `master` as `feat/...`, `fix/...` or `chore/...`, and reaches it through a pull request.
+- Trunk-based: `master` is the trunk. New work branches from `master`, one branch per ticket, named `{type}/{issue number}` after its issue: `feat/281`, `fix/5`, `chore/12`. The type is `feat`, `fix` or `chore`. Renovate's `renovate/…` and the `release/x.y` branches keep their names. A branch reaches `master` through a pull request.
 - Every PR carries exactly one of the labels `feature`, `fix`, `dependencies` or `chore` (`labels.yml` checks it, and the release notes are grouped by it).
 - Merging a bump of `app.version` in `gradle.properties` releases it, tagged `v<version>`.
 - Patches for the latest minor: fix on `master` first, then cherry-pick into `release/x.y`. When work on a new minor starts, cut `release/x.y` for the current one off `master` first, so it can still be patched. No new release branches for older minors. The `patch-release` skill walks through it.
