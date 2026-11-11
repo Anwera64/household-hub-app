@@ -6,6 +6,7 @@ import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.ContentType
@@ -59,6 +60,14 @@ class FakeLaunchHub {
         answer = { respond("", status) }
     }
 
+    /**
+     * Nothing answers and the connection times out: what a phone at home sees when its local
+     * network access is off (#5). Unlike [isOffline], this is a network failure, not a 503.
+     */
+    fun findsNoRoute() {
+        answer = { throw ConnectTimeoutException("connect timed out") }
+    }
+
     /** Leaves the screen waiting, which is what `Checking` looks like. */
     fun neverAnswers() {
         answer = { awaitCancellation() }
@@ -74,6 +83,7 @@ class FakeLaunchHub {
             is HubStatus.Unavailable -> {
                 when (val reason = status.reason) {
                     HubFailure.NoRoute -> isOffline()
+                    HubFailure.LocalNetworkOff -> findsNoRoute()
                     HubFailure.AddressNotFound -> fails(HttpStatusCode.NotFound)
                     is HubFailure.Upstream -> fails(HttpStatusCode.fromValue(reason.statusCode))
                     is HubFailure.NotJson -> answersWithHtml()

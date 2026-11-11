@@ -10,6 +10,12 @@ sealed interface HubFailure {
     /** Nothing answered — the hub is off, or the phone is away from home without Tailscale. */
     data object NoRoute : HubFailure
 
+    /**
+     * Nothing answered, and the phone's local network access is off: at home, the phone itself
+     * blocks the hub (#5). Away from home, Tailscale still works.
+     */
+    data object LocalNetworkOff : HubFailure
+
     /** Nothing is at that address — the hub host is probably wrong. */
     data object AddressNotFound : HubFailure
 

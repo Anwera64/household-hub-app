@@ -10,6 +10,8 @@ import HouseholdHubKit
 struct HouseholdHubApp: App {
 
     init() {
+        // How the app reads iOS's local network permission, which has no API of its own (#5).
+        MainViewControllerKt.provideHubProbe(probe: NetworkHubProbe())
         MainViewControllerKt.startHouseholdHub()
     }
 

@@ -15,6 +15,7 @@ class LaunchUiStateProvider : PreviewParameterProvider<LaunchUiState> {
         sequenceOf(
             HubStatus.Checking,
             HubStatus.Unavailable(HubFailure.NoRoute),
+            HubStatus.Unavailable(HubFailure.LocalNetworkOff),
             HubStatus.Unavailable(HubFailure.Upstream(statusCode = 500)),
             HubStatus.Unavailable(HubFailure.NotJson(contentType = "text/html")),
             HubStatus.Unavailable(HubFailure.AddressNotFound),

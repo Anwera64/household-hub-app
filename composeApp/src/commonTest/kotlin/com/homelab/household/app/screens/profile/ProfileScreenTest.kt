@@ -2,9 +2,11 @@ package com.homelab.household.app.screens.profile
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
+import com.homelab.household.app.testing.FakeLocalNetworkSettings
 import com.homelab.household.app.testing.FakeMembersHub
 import com.homelab.household.app.testing.runScreenTest
 import com.homelab.household.data.datasource.local.InMemorySessionStorage
+import com.homelab.household.domain.localnetwork.LocalNetworkStatus
 import com.homelab.household.presentation.profile.ProfileStatus
 import com.homelab.household.presentation.profile.ProfileUiState
 import kotlin.test.Test
@@ -48,6 +50,48 @@ class ProfileScreenTest {
     }
 
     @Test
+    fun `GIVEN local network access off on this phone WHEN the profile is shown THEN it offers the local network row`() {
+        runScreenTest {
+            profileScreen(FakeMembersHub(), localNetwork = LocalNetworkStatus.Off)
+
+            onProfile { seesLocalNetworkAccessIsOff() }
+        }
+    }
+
+    @Test
+    fun `GIVEN local network access on WHEN the profile is shown THEN there is no local network row`() {
+        runScreenTest {
+            profileScreen(FakeMembersHub(), localNetwork = LocalNetworkStatus.Allowed)
+
+            onProfile { doesNotSeeLocalNetworkAccess() }
+        }
+    }
+
+    @Test
+    fun `GIVEN the local network row WHEN it is tapped THEN Settings opens once`() {
+        val settings = FakeLocalNetworkSettings()
+
+        runScreenTest {
+            profileScreen(FakeMembersHub(), localNetwork = LocalNetworkStatus.Off, localNetworkSettings = settings)
+
+            onProfile { tapsLocalNetworkAccess() }
+            waitUntil(timeoutMillis = wait) { settings.settingsOpened == 1 }
+        }
+    }
+
+    @Test
+    fun `GIVEN Android can still ask WHEN the local network row is tapped THEN the phone asks once`() {
+        val settings = FakeLocalNetworkSettings(canAsk = true)
+
+        runScreenTest {
+            profileScreen(FakeMembersHub(), localNetwork = LocalNetworkStatus.Off, localNetworkSettings = settings)
+
+            onProfile { tapsLocalNetworkAccess() }
+            waitUntil(timeoutMillis = wait) { settings.asked == 1 }
+        }
+    }
+
+    @Test
     fun `GIVEN the profile WHEN members is tapped THEN the screen opens members`() {
         val hub = FakeMembersHub()
         var members = 0
@@ -79,7 +123,7 @@ class ProfileScreenTest {
     @Test
     fun `GIVEN every previewed state WHEN it is drawn THEN sign out is there`() {
         val states = ProfileUiStateProvider().values.toList()
-        assertEquals(6, states.size)
+        assertEquals(7, states.size)
 
         states.forEach { state ->
             runComposeUiTest {

@@ -72,6 +72,8 @@ class HearthIconsTest {
             "calendarChoose",
             "calendarSwap",
             "calendarDisconnect",
+            // Away from home through Tailscale: the Local network access page's status rows (#5)
+            "globe",
         )
 
     private val solidShapeCounts =

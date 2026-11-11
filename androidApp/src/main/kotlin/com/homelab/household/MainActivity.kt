@@ -15,6 +15,7 @@ import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
     private lateinit var externalApps: AndroidExternalApps
+    private lateinit var localNetworkSettings: AndroidLocalNetworkSettings
     private val appSwitcher: AppSwitcherPrivacy by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,8 +25,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         externalApps = AndroidExternalApps(this)
+        // Registers its permission launcher, which has to happen before the activity starts.
+        localNetworkSettings = AndroidLocalNetworkSettings(this)
         setContent {
-            App(externalApps = externalApps)
+            App(externalApps = externalApps, localNetworkSettings = localNetworkSettings)
         }
         hideFromRecentsWhileSecret()
     }

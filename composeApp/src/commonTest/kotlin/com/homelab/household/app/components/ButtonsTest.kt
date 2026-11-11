@@ -44,6 +44,13 @@ class ButtonsTest {
             DestructiveButton(text = "Create", onClick = onClick)
         }
 
+    /** The quiet text button has no border and no fill, but it is still a button big enough to hit. */
+    @Test
+    fun `GIVEN a quiet text button WHEN it is tapped THEN it is big enough to hit and the tap reaches the click handler`() =
+        assertAlwaysClickable { onClick ->
+            QuietTextButton(text = "Create", onClick = onClick)
+        }
+
     /**
      * A button that is already working swallows the tap rather than sending a second one. This is
      * the button's own guard; every ViewModel guards re-entry too, and both are cheap.

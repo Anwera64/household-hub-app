@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.waitUntilDoesNotExist
 import androidx.compose.ui.test.waitUntilExactlyOneExists
 import com.homelab.household.app.components.SKELETON_GROUP_TAG
+import com.homelab.household.app.platform.LocalNetworkSettings
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.calendar_apple
 import com.homelab.household.app.resources.calendar_disconnect_keep
@@ -24,12 +25,15 @@ import com.homelab.household.app.resources.calendar_disconnect_unreachable
 import com.homelab.household.app.resources.calendar_sheet_change
 import com.homelab.household.app.resources.calendar_sheet_choose
 import com.homelab.household.app.resources.calendar_sheet_disconnect
+import com.homelab.household.app.resources.local_network_chip_off
 import com.homelab.household.app.resources.profile_agents
 import com.homelab.household.app.resources.profile_calendar_connect
 import com.homelab.household.app.resources.profile_calendar_options
 import com.homelab.household.app.resources.profile_calendar_sign_in_again
 import com.homelab.household.app.resources.profile_calendar_sign_in_needed
 import com.homelab.household.app.resources.profile_delete_blocked
+import com.homelab.household.app.resources.profile_local_network
+import com.homelab.household.app.resources.profile_local_network_caption
 import com.homelab.household.app.resources.profile_members
 import com.homelab.household.app.resources.profile_memories
 import com.homelab.household.app.resources.profile_memories_counts
@@ -39,10 +43,13 @@ import com.homelab.household.app.resources.profile_sign_out
 import com.homelab.household.app.resources.profile_when_agents_act
 import com.homelab.household.app.resources.profile_when_agents_act_automatic
 import com.homelab.household.app.resources.profile_when_agents_act_none
+import com.homelab.household.app.testing.FakeLocalNetworkAccess
+import com.homelab.household.app.testing.FakeLocalNetworkSettings
 import com.homelab.household.app.testing.FakeMembersHub
 import com.homelab.household.app.testing.StillTheme
 import com.homelab.household.app.testing.TestApp
 import com.homelab.household.data.datasource.local.InMemorySessionStorage
+import com.homelab.household.domain.localnetwork.LocalNetworkStatus
 import com.homelab.household.presentation.profile.ProfileUiState
 import org.jetbrains.compose.resources.getPluralString
 import org.jetbrains.compose.resources.getString
@@ -145,6 +152,20 @@ class ProfileRobot(
 
     suspend fun seesToCheck(count: Int) = seesText(getString(Res.string.profile_memories_to_check, count))
 
+    /** First in the bottom card, above Members, with the Attention chip "Off". */
+    suspend fun seesLocalNetworkAccessIsOff() {
+        seesText(getString(Res.string.profile_local_network))
+        seesText(getString(Res.string.profile_local_network_caption))
+        seesText(getString(Res.string.local_network_chip_off))
+    }
+
+    suspend fun doesNotSeeLocalNetworkAccess() {
+        seesMembers()
+        test.onNodeWithText(getString(Res.string.profile_local_network)).assertDoesNotExist()
+    }
+
+    suspend fun tapsLocalNetworkAccess() = tapsText(getString(Res.string.profile_local_network))
+
     suspend fun tapsMemories() {
         test.onNodeWithText(getString(Res.string.profile_memories)).performScrollTo().performClick()
     }
@@ -209,9 +230,16 @@ fun ComposeUiTest.profileScreen(
     onCalendarSignInAgain: () -> Unit = {},
     onWhenAgentsAct: () -> Unit = {},
     onMemories: () -> Unit = {},
+    localNetwork: LocalNetworkStatus = LocalNetworkStatus.Allowed,
+    localNetworkSettings: LocalNetworkSettings = FakeLocalNetworkSettings(),
 ) {
     setContent {
-        TestApp(hub.engine, sessionStorage = sessionStorage) {
+        TestApp(
+            hub.engine,
+            sessionStorage = sessionStorage,
+            localNetworkAccess = FakeLocalNetworkAccess(localNetwork),
+            localNetworkSettings = localNetworkSettings,
+        ) {
             ProfileScreen(
                 onBack = {},
                 onMembers = onMembers,

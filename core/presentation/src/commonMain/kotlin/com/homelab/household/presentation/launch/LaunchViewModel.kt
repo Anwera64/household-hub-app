@@ -6,8 +6,10 @@ import com.homelab.household.domain.exception.NotFoundException
 import com.homelab.household.domain.exception.ServerOfflineException
 import com.homelab.household.domain.exception.UnexpectedContentTypeException
 import com.homelab.household.domain.exception.UpstreamGatewayException
+import com.homelab.household.domain.localnetwork.LocalNetworkStatus
 import com.homelab.household.domain.usecase.CheckAuthStatusUseCase
 import com.homelab.household.domain.usecase.GetHubHostUseCase
+import com.homelab.household.domain.usecase.GetLocalNetworkStatusUseCase
 import com.homelab.household.domain.util.runCatchingSafe
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -23,6 +25,7 @@ import kotlinx.coroutines.launch
 class LaunchViewModel(
     private val checkAuthStatusUseCase: CheckAuthStatusUseCase,
     private val getHubHostUseCase: GetHubHostUseCase,
+    private val getLocalNetworkStatus: GetLocalNetworkStatusUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LaunchUiState(hubAddress = getHubHostUseCase()))
     val uiState: StateFlow<LaunchUiState> = _uiState.asStateFlow()
@@ -53,14 +56,18 @@ class LaunchViewModel(
         }
     }
 
-    private fun whyUnavailable(error: Throwable): HubFailure =
+    private suspend fun whyUnavailable(error: Throwable): HubFailure =
         when (error) {
-            is ServerOfflineException -> HubFailure.NoRoute
+            is ServerOfflineException -> if (localNetworkOff()) HubFailure.LocalNetworkOff else HubFailure.NoRoute
             is NotFoundException -> HubFailure.AddressNotFound
             is UpstreamGatewayException -> HubFailure.Upstream(error.statusCode)
             is UnexpectedContentTypeException -> HubFailure.NotJson(error.contentType)
             else -> HubFailure.Unknown
         }
+
+    /** Whether the phone itself blocks the hub at home. A phone that can't say makes no claim. */
+    private suspend fun localNetworkOff(): Boolean =
+        runCatchingSafe { getLocalNetworkStatus() }.getOrNull() == LocalNetworkStatus.Off
 
     private fun countDownToAskingAgain() {
         autoRetry =

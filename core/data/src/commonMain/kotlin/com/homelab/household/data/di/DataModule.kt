@@ -2,6 +2,8 @@ package com.homelab.household.data.di
 
 import com.homelab.household.data.BuildConfig
 import com.homelab.household.data.datasource.local.AuthEventsLocalDataSource
+import com.homelab.household.data.datasource.local.HubEventsLocalDataSource
+import com.homelab.household.data.datasource.local.LocalNetworkPreferencesLocalDataSource
 import com.homelab.household.data.datasource.local.SecretPreferencesLocalDataSource
 import com.homelab.household.data.datasource.local.SecretUnlockLocalDataSource
 import com.homelab.household.data.datasource.local.SessionCacheLocalDataSource
@@ -33,6 +35,7 @@ import com.homelab.household.data.network.deviceTimeZoneId
 import com.homelab.household.data.network.deviceUtcOffsetSeconds
 import com.homelab.household.data.network.installBearerAuth
 import com.homelab.household.data.network.logFailedRequests
+import com.homelab.household.data.network.reportUnreachable
 import com.homelab.household.data.network.sendDeviceTimeZone
 import com.homelab.household.data.network.sendSecretUnlock
 import com.homelab.household.data.network.signOutOnUnauthorized
@@ -40,6 +43,8 @@ import com.homelab.household.data.network.telemetryHttpClient
 import com.homelab.household.data.repository.AgentRepositoryImpl
 import com.homelab.household.data.repository.AuthRepositoryImpl
 import com.homelab.household.data.repository.CalendarRepositoryImpl
+import com.homelab.household.data.repository.HubEventsRepositoryImpl
+import com.homelab.household.data.repository.LocalNetworkRepositoryImpl
 import com.homelab.household.data.repository.MembersRepositoryImpl
 import com.homelab.household.data.repository.MemoryRepositoryImpl
 import com.homelab.household.data.repository.SecretPreferencesRepositoryImpl
@@ -56,6 +61,8 @@ import com.homelab.household.domain.model.DeviceTimeZone
 import com.homelab.household.domain.repository.AgentRepository
 import com.homelab.household.domain.repository.AuthRepository
 import com.homelab.household.domain.repository.CalendarRepository
+import com.homelab.household.domain.repository.HubEventsRepository
+import com.homelab.household.domain.repository.LocalNetworkRepository
 import com.homelab.household.domain.repository.MembersRepository
 import com.homelab.household.domain.repository.MemoryRepository
 import com.homelab.household.domain.repository.SecretPreferencesRepository
@@ -116,6 +123,9 @@ val dataModule =
                 logFailedRequests()
                 val events: AuthEventsLocalDataSource = get()
                 signOutOnUnauthorized(storage) { events.raiseSignedOut() }
+                // A call that finds no route may be the phone's local network access (#5).
+                val hubEvents: HubEventsLocalDataSource = get()
+                reportUnreachable(hubEvents::raiseUnreachable)
             }
         }
 
@@ -138,10 +148,12 @@ val dataModule =
             )
         }
         single { AuthEventsLocalDataSource() }
+        single { HubEventsLocalDataSource() }
         single { SessionCacheLocalDataSource() }
         single { SecretUnlockLocalDataSource() }
         // The platform's own small store comes from the platform module.
         single { SecretPreferencesLocalDataSource(get()) }
+        single { LocalNetworkPreferencesLocalDataSource(get()) }
         single<SecretUnlockRemoteDataSource> { KtorSecretUnlockRemoteDataSource(get(), get<HubConfig>().baseUrl) }
         single<AuthRemoteDataSource> { KtorAuthRemoteDataSource(get(), get<HubConfig>().baseUrl) }
         single<MembersRemoteDataSource> { KtorMembersRemoteDataSource(get(), get<HubConfig>().baseUrl) }
@@ -159,6 +171,8 @@ val dataModule =
         single<SessionRepository> { SessionRepositoryImpl(get(), get(), get()) }
         single<SecretUnlockRepository> { SecretUnlockRepositoryImpl(get(), get()) }
         single<SecretPreferencesRepository> { SecretPreferencesRepositoryImpl(get()) }
+        single<LocalNetworkRepository> { LocalNetworkRepositoryImpl(get()) }
+        single<HubEventsRepository> { HubEventsRepositoryImpl(get()) }
         single<ServerStatusRepository> { ServerStatusRepositoryImpl(get()) }
         single<AgentRepository> { AgentRepositoryImpl(get()) }
         single<SpaceRepository> { SpaceRepositoryImpl(get()) }

@@ -48,6 +48,14 @@ class ProfileUiStateProvider : PreviewParameterProvider<ProfileUiState> {
                     status = ProfileStatus.Ready,
                 ),
             "A member" to ProfileUiState(member = liam, isSoleAdmin = false, status = ProfileStatus.Ready),
+            // This phone blocks the hub at home: the row above Members (#5).
+            "Local network off" to
+                ProfileUiState(
+                    member = liam,
+                    isSoleAdmin = false,
+                    status = ProfileStatus.Ready,
+                    localNetworkOff = true,
+                ),
             // Arriving knows nothing yet — not the name, not whether leaving is even possible.
             "Arriving" to ProfileUiState(member = null, status = ProfileStatus.Loading),
             "Hub unreachable" to ProfileUiState(member = emma, status = ProfileStatus.Unreachable),
