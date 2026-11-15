@@ -7,6 +7,7 @@ import com.homelab.household.app.resources.tool_reason_event_not_found
 import com.homelab.household.app.resources.tool_reason_forbidden
 import com.homelab.household.app.resources.tool_reason_not_a_page
 import com.homelab.household.app.resources.tool_reason_not_found
+import com.homelab.household.app.resources.tool_reason_private
 import com.homelab.household.app.resources.tool_reason_search_unavailable
 import com.homelab.household.app.resources.tool_reason_secret_mode
 import com.homelab.household.app.resources.tool_reason_site_unavailable
@@ -188,6 +189,11 @@ private fun reasonWords(
         // Every write's own failure, then why: "Couldn’t add it to your calendar · locked in Secret Mode".
         ToolFailureReason.SecretMode -> {
             Res.string.tool_reason_secret_mode
+        }
+
+        // A private turn in a chat that isn't secret: "Couldn’t add it to your calendar · from a private message".
+        ToolFailureReason.Private -> {
+            Res.string.tool_reason_private
         }
 
         // The fix card under the step says these, with the button that fixes them.

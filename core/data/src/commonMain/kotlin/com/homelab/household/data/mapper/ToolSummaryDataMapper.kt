@@ -64,6 +64,7 @@ object ToolSummaryDataMapper {
             "calendar_rejected" -> ToolFailureReason.CalendarRejected
             "calendar_not_connected" -> ToolFailureReason.CalendarNotConnected
             "secret_mode" -> ToolFailureReason.SecretMode
+            "private" -> ToolFailureReason.Private
             else -> ToolFailureReason.Unknown
         }
 

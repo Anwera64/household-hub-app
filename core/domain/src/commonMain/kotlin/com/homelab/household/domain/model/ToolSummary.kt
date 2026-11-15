@@ -59,5 +59,11 @@ enum class ToolFailureReason {
 
     /** A write refused because the turn was secret: nothing said there may leave it. */
     SecretMode,
+
+    /**
+     * A write refused because the turn was private in a chat that isn't secret: it came from, or was in, a message the
+     * member asked to keep private.
+     */
+    Private,
     Unknown,
 }

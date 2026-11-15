@@ -1960,4 +1960,30 @@ class ConversationScreenTest {
 
             onConversation { seesItCouldNotAddBecauseSecretModeLocksIt() }
         }
+
+    @Test
+    fun `GIVEN an add refused in a private turn of an ordinary chat WHEN drawn THEN the step says it came from a private message`() =
+        runComposeUiTest {
+            val refused =
+                safe.copy(
+                    content = "That one stays between us.",
+                    parts =
+                        listOf(
+                            AnswerPart.ToolFailed(
+                                HubTool.CALENDAR_WRITE,
+                                ToolSummary(action = ToolAction.Create, reason = ToolFailureReason.Private),
+                            ),
+                            AnswerPart.Text("That one stays between us."),
+                        ),
+                )
+            conversationScreen(
+                ChatSessionUiState(
+                    session = chat,
+                    messages = listOf(kept, refused),
+                    agentName = "Home Coordinator",
+                ),
+            )
+
+            onConversation { seesItCouldNotAddBecauseItCameFromAPrivateMessage() }
+        }
 }

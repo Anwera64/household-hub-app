@@ -964,6 +964,39 @@ class ConversationUiStateProvider : PreviewParameterProvider<ChatSessionUiState>
                             ).copy(isSecret = true),
                         ),
                 ),
+            // Canvas: PrivateWriteRefused. A write refused because its turn was private, in a chat that isn't secret.
+            "An add refused from a private message" to
+                agent.copy(
+                    messages =
+                        listOf(
+                            said(
+                                "m-1",
+                                "Put the jeweller in on Friday at 10. It's for Liam's ring, so he can't know",
+                                MessageRole.USER,
+                            ).copy(isPrivate = true),
+                            said(
+                                "m-2",
+                                "That one stays between us, so it can't go in a calendar. " +
+                                    "Friday at 10 is free if you add it yourself.",
+                                MessageRole.ASSISTANT,
+                                parts =
+                                    listOf(
+                                        AnswerPart.ToolFailed(
+                                            HubTool.CALENDAR_WRITE,
+                                            ToolSummary(
+                                                action = ToolAction.Create,
+                                                reason = ToolFailureReason.Private,
+                                            ),
+                                        ),
+                                        AnswerPart.Text(
+                                            "That one stays between us, so it can't go in a calendar. " +
+                                                "Friday at 10 is free if you add it yourself.",
+                                        ),
+                                    ),
+                            ),
+                        ),
+                    secretOffer = SecretOffer.Judged,
+                ),
         )
 
     override val values: Sequence<ChatSessionUiState> = named.map { it.second }.asSequence()
