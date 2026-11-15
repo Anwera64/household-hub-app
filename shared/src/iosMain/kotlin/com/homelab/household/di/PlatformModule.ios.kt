@@ -2,6 +2,11 @@ package com.homelab.household.di
 
 import com.homelab.household.data.datasource.local.KeychainSessionStorage
 import com.homelab.household.data.datasource.local.StoredSessionLocalDataSource
+import com.homelab.household.data.network.HubConfig
+import com.homelab.household.domain.localnetwork.LocalNetworkAccess
+import com.homelab.household.localnetwork.HubProbe
+import com.homelab.household.localnetwork.IosLocalNetworkAccess
+import com.homelab.household.localnetwork.ProbeOutcome
 import com.russhwolf.settings.NSUserDefaultsSettings
 import com.russhwolf.settings.Settings
 import io.ktor.client.engine.HttpClientEngine
@@ -25,5 +30,9 @@ actual val platformModule: Module =
             }
         }
         single<StoredSessionLocalDataSource> { KeychainSessionStorage() }
+        single<LocalNetworkAccess> { IosLocalNetworkAccess(get<HubConfig>().baseUrl, get()) }
+        // The app replaces this with its Network framework probe (MainViewController.kt). Without one
+        // nothing is known, so nothing is shown.
+        single<HubProbe> { HubProbe { _, _ -> ProbeOutcome.Failed } }
         single<Settings> { NSUserDefaultsSettings(NSUserDefaults.standardUserDefaults) }
     }

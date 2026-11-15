@@ -12,6 +12,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -153,6 +154,32 @@ fun SecondaryButton(
         compact = compact,
         modifier = modifier,
     )
+}
+
+/**
+ * The quietest way out: no fill and no border, in muted ink, for a choice that should be there but
+ * not compete with the two above it ("Don't ask again on this phone"). Still a button a finger can
+ * hit: at least the touch target tall.
+ */
+@Composable
+fun QuietTextButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.heightIn(min = HearthTheme.size.touchTarget),
+        shape = HearthShapes.button,
+        colors = ButtonDefaults.textButtonColors(contentColor = HearthTheme.colors.textMuted),
+        contentPadding =
+            PaddingValues(
+                horizontal = HearthTheme.spacing.xxl,
+                vertical = HearthTheme.spacing.md,
+            ),
+    ) {
+        Text(text, style = HearthTheme.typography.bodyStrong)
+    }
 }
 
 /** Outlined in error red rather than filled: destructive, but never the page's purpose. */

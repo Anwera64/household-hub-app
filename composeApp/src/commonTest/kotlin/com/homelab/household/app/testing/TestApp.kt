@@ -5,12 +5,16 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import com.homelab.household.app.platform.ExternalApps
 import com.homelab.household.app.platform.LocalExternalApps
+import com.homelab.household.app.platform.LocalLocalNetworkSettings
+import com.homelab.household.app.platform.LocalNetworkSettings
 import com.homelab.household.data.datasource.local.InMemorySessionStorage
 import com.homelab.household.data.datasource.local.StoredSessionLocalDataSource
 import com.homelab.household.data.network.HubConfig
+import com.homelab.household.domain.localnetwork.LocalNetworkAccess
 import com.homelab.household.sdk.sdkModules
 import com.russhwolf.settings.MapSettings
 import com.russhwolf.settings.Settings
@@ -24,7 +28,8 @@ const val TEST_HUB_URL = "https://$TEST_HUB_HOST"
 
 /**
  * The app's real dependency graph with only its outermost seams replaced: the HTTP engine, where
- * tokens and a member's choices are kept, and the other apps a screen can hand the user to. Everything between a screen
+ * tokens and a member's choices are kept, the other apps a screen can hand the user to, and the
+ * phone's local network permission with its question and Settings page. Everything between a screen
  * and the network — ViewModels, use cases, repositories, mappers, the Ktor client and its auth —
  * is the production wiring.
  *
@@ -41,6 +46,9 @@ fun TestApp(
     sessionStorage: StoredSessionLocalDataSource = InMemorySessionStorage(),
     choices: Settings = MapSettings(),
     externalApps: ExternalApps = FakeExternalApps(),
+    localNetworkAccess: LocalNetworkAccess = FakeLocalNetworkAccess(),
+    localNetworkSettings: LocalNetworkSettings = FakeLocalNetworkSettings(),
+    lifecycle: TestLifecycle? = null,
     content: @Composable () -> Unit,
 ) {
     val viewModelStoreOwner =
@@ -58,15 +66,21 @@ fun TestApp(
                     single<HttpClientEngine> { engine }
                     single<StoredSessionLocalDataSource> { sessionStorage }
                     single<Settings> { choices }
+                    single<LocalNetworkAccess> { localNetworkAccess }
                 },
         )
     }) {
         CompositionLocalProvider(
             LocalViewModelStoreOwner provides viewModelStoreOwner,
             LocalExternalApps provides externalApps,
+            LocalLocalNetworkSettings provides localNetworkSettings,
         ) {
             StillTheme {
-                content()
+                if (lifecycle == null) {
+                    content()
+                } else {
+                    CompositionLocalProvider(LocalLifecycleOwner provides lifecycle, content = content)
+                }
             }
         }
     }

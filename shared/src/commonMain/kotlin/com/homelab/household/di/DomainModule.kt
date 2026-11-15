@@ -1,6 +1,8 @@
 package com.homelab.household.di
 
+import com.homelab.household.domain.localnetwork.LocalNetworkGate
 import com.homelab.household.domain.repository.AuthRepository
+import com.homelab.household.domain.repository.HubEventsRepository
 import com.homelab.household.domain.repository.SecretUnlockRepository
 import com.homelab.household.domain.secret.AppSwitcherPrivacy
 import com.homelab.household.domain.secret.SecretLockController
@@ -27,6 +29,7 @@ import com.homelab.household.domain.usecase.GetChangesToCheckUseCase
 import com.homelab.household.domain.usecase.GetCurrentUserUseCase
 import com.homelab.household.domain.usecase.GetHouseholdSpaceUseCase
 import com.homelab.household.domain.usecase.GetHubHostUseCase
+import com.homelab.household.domain.usecase.GetLocalNetworkStatusUseCase
 import com.homelab.household.domain.usecase.GetLookedOverUseCase
 import com.homelab.household.domain.usecase.GetMemoryPageUseCase
 import com.homelab.household.domain.usecase.GetPersonalSpaceUseCase
@@ -42,6 +45,7 @@ import com.homelab.household.domain.usecase.ListSessionsUseCase
 import com.homelab.household.domain.usecase.LoginUseCase
 import com.homelab.household.domain.usecase.LogoutUseCase
 import com.homelab.household.domain.usecase.LookUpInviteUseCase
+import com.homelab.household.domain.usecase.ObserveHubUnreachableUseCase
 import com.homelab.household.domain.usecase.ObserveMessagesUseCase
 import com.homelab.household.domain.usecase.ObserveServerStatusUseCase
 import com.homelab.household.domain.usecase.ObserveSignedOutUseCase
@@ -90,6 +94,7 @@ import com.homelab.household.domain.usecase.impl.GetChangesToCheckUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetCurrentUserUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetHouseholdSpaceUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetHubHostUseCaseImpl
+import com.homelab.household.domain.usecase.impl.GetLocalNetworkStatusUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetLookedOverUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetMemoryPageUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetPersonalSpaceUseCaseImpl
@@ -105,6 +110,7 @@ import com.homelab.household.domain.usecase.impl.ListSessionsUseCaseImpl
 import com.homelab.household.domain.usecase.impl.LoginUseCaseImpl
 import com.homelab.household.domain.usecase.impl.LogoutUseCaseImpl
 import com.homelab.household.domain.usecase.impl.LookUpInviteUseCaseImpl
+import com.homelab.household.domain.usecase.impl.ObserveHubUnreachableUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ObserveMessagesUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ObserveServerStatusUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ObserveSignedOutUseCaseImpl
@@ -156,6 +162,18 @@ val domainModule =
             )
         }
 
+        // When the app explains local network access and when it says access is off (#5). One for
+        // the app: "Not now" lasts as long as the process does.
+        single {
+            LocalNetworkGate(
+                access = get(),
+                choices = get(),
+                hasStoredSession = get(),
+                hubUnreachable = get<HubEventsRepository>().observeUnreachable(),
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            )
+        }
+
         // Session use cases
         factory<CreateSessionUseCase> { CreateSessionUseCaseImpl(get()) }
         factory<GetSessionUseCase> { GetSessionUseCaseImpl(get()) }
@@ -199,6 +217,8 @@ val domainModule =
 
         // Server status use cases
         factory<ObserveServerStatusUseCase> { ObserveServerStatusUseCaseImpl(get()) }
+        factory<ObserveHubUnreachableUseCase> { ObserveHubUnreachableUseCaseImpl(get()) }
+        factory<GetLocalNetworkStatusUseCase> { GetLocalNetworkStatusUseCaseImpl(get()) }
         factory<CheckServerHealthUseCase> { CheckServerHealthUseCaseImpl(get()) }
 
         // Secret lock use cases

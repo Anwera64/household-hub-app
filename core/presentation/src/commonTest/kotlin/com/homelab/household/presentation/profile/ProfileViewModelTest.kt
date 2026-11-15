@@ -2,6 +2,7 @@ package com.homelab.household.presentation.profile
 
 import app.cash.turbine.test
 import com.homelab.household.domain.exception.ServerOfflineException
+import com.homelab.household.domain.localnetwork.LocalNetworkStatus
 import com.homelab.household.domain.model.CalendarConnection
 import com.homelab.household.domain.model.CalendarProvider
 import com.homelab.household.domain.model.HubTool
@@ -14,6 +15,7 @@ import com.homelab.household.domain.model.ToolApproval
 import com.homelab.household.domain.model.User
 import com.homelab.household.domain.usecase.GetCalendarUseCase
 import com.homelab.household.domain.usecase.GetCurrentUserUseCase
+import com.homelab.household.domain.usecase.GetLocalNetworkStatusUseCase
 import com.homelab.household.domain.usecase.GetMemoryPageUseCase
 import com.homelab.household.domain.usecase.GetToolApprovalsUseCase
 import com.homelab.household.domain.usecase.ListHouseholdMembersUseCase
@@ -55,6 +57,7 @@ class ProfileViewModelTest {
     private val removeCalendar = mock<RemoveCalendarUseCase>()
     private val getToolApprovals = mock<GetToolApprovalsUseCase>()
     private val getMemoryPage = mock<GetMemoryPageUseCase>()
+    private val getLocalNetworkStatus = mock<GetLocalNetworkStatusUseCase>()
 
     /** Four minutes after the hub last checked the calendar below. */
     private val clock =
@@ -90,8 +93,51 @@ class ProfileViewModelTest {
             removeCalendar,
             getToolApprovals,
             getMemoryPage,
+            getLocalNetworkStatus,
             clock,
         )
+
+    @Test
+    fun `GIVEN local network access off on this phone WHEN the profile is shown THEN it offers the local network row`() =
+        runTest(testDispatcher) {
+            everySuspend { getCurrentUser() } returns emma
+            everySuspend { listHouseholdMembers() } returns listOf(emma)
+            everySuspend { getLocalNetworkStatus() } returns LocalNetworkStatus.Off
+            val viewModel = viewModel()
+
+            viewModel.loadLocalNetwork()
+            advanceUntilIdle()
+
+            assertEquals(true, viewModel.uiState.value.localNetworkOff)
+        }
+
+    @Test
+    fun `GIVEN local network access on WHEN the profile is shown THEN there is no local network row`() =
+        runTest(testDispatcher) {
+            everySuspend { getCurrentUser() } returns emma
+            everySuspend { listHouseholdMembers() } returns listOf(emma)
+            everySuspend { getLocalNetworkStatus() } returns LocalNetworkStatus.Allowed
+            val viewModel = viewModel()
+
+            viewModel.loadLocalNetwork()
+            advanceUntilIdle()
+
+            assertEquals(false, viewModel.uiState.value.localNetworkOff)
+        }
+
+    @Test
+    fun `GIVEN an iPhone that cannot tell WHEN the profile is shown THEN there is no local network row`() =
+        runTest(testDispatcher) {
+            everySuspend { getCurrentUser() } returns emma
+            everySuspend { listHouseholdMembers() } returns listOf(emma)
+            everySuspend { getLocalNetworkStatus() } returns LocalNetworkStatus.Unknown
+            val viewModel = viewModel()
+
+            viewModel.loadLocalNetwork()
+            advanceUntilIdle()
+
+            assertEquals(false, viewModel.uiState.value.localNetworkOff)
+        }
 
     @Test
     fun `GIVEN the only admin in the household WHEN the profile loads THEN the member shows and the sole admin flag is set`() =

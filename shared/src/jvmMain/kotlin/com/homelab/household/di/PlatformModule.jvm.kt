@@ -2,6 +2,8 @@ package com.homelab.household.di
 
 import com.homelab.household.data.datasource.local.FileSessionStorage
 import com.homelab.household.data.datasource.local.StoredSessionLocalDataSource
+import com.homelab.household.domain.localnetwork.LocalNetworkAccess
+import com.homelab.household.localnetwork.JvmLocalNetworkAccess
 import com.russhwolf.settings.PreferencesSettings
 import com.russhwolf.settings.Settings
 import io.ktor.client.engine.HttpClientEngine
@@ -14,5 +16,6 @@ actual val platformModule: Module =
     module {
         single<HttpClientEngine> { CIO.create() }
         single<StoredSessionLocalDataSource> { FileSessionStorage() }
+        single<LocalNetworkAccess> { JvmLocalNetworkAccess() }
         single<Settings> { PreferencesSettings(Preferences.userRoot().node("household-hub")) }
     }

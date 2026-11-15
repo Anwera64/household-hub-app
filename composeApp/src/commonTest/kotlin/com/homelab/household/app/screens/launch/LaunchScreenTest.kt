@@ -6,10 +6,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.dp
+import com.homelab.household.app.screens.localnetwork.LocalNetworkGateHost
 import com.homelab.household.app.testing.FakeExternalApps
+import com.homelab.household.app.testing.FakeLocalNetworkSettings
 import com.homelab.household.app.testing.StillTheme
 import com.homelab.household.app.testing.TEST_HUB_HOST
+import com.homelab.household.app.testing.explainedBefore
 import com.homelab.household.app.testing.runScreenTest
+import com.homelab.household.domain.localnetwork.LocalNetworkStatus
 import com.homelab.household.presentation.launch.HubFailure
 import com.homelab.household.presentation.launch.HubStatus
 import io.ktor.http.HttpStatusCode
@@ -170,14 +174,22 @@ class LaunchScreenTest {
     @Test
     fun `GIVEN every previewed state WHEN launch is reached through the hub THEN each state draws with the hub address`() {
         val states = LaunchUiStateProvider().values.toList()
-        assertEquals(6, states.size)
+        assertEquals(7, states.size)
 
         states.forEach { state ->
             val hub = FakeLaunchHub()
             hub.producing(state.status)
+            val reason = (state.status as? HubStatus.Unavailable)?.reason
+            val access = if (reason ==
+                HubFailure.LocalNetworkOff
+            ) {
+                LocalNetworkStatus.Off
+            } else {
+                LocalNetworkStatus.Allowed
+            }
 
             runScreenTest {
-                launchScreen(hub)
+                launchScreen(hub, localNetwork = access)
 
                 onLaunch {
                     when (val status = state.status) {
@@ -190,6 +202,49 @@ class LaunchScreenTest {
                 }
             }
         }
+    }
+
+    /**
+     * Android 17 at home without local network access: launch says so in its own words, keeps
+     * counting down, and offers the fix and Tailscale. The cover never draws over it, even with the
+     * gate at the app root.
+     */
+    @Test
+    fun `GIVEN a phone at home with local network access off WHEN launch finds no route THEN it says access is off with the fix and nothing covers it`() {
+        val hub = FakeLaunchHub()
+        hub.findsNoRoute()
+
+        runScreenTest {
+            launchScreen(
+                hub,
+                localNetwork = LocalNetworkStatus.Off,
+                choices = explainedBefore(),
+                around = { content -> LocalNetworkGateHost(content = content) },
+            )
+
+            onLaunch {
+                seesTheHubIsUnavailable(HubFailure.LocalNetworkOff)
+                seesNothingCoveringIt()
+            }
+        }
+    }
+
+    @Test
+    fun `GIVEN launch says local network access is off WHEN the member taps Open settings THEN Settings opens once`() {
+        val hub = FakeLaunchHub()
+        hub.findsNoRoute()
+        val settings = FakeLocalNetworkSettings()
+
+        runScreenTest {
+            launchScreen(hub, localNetwork = LocalNetworkStatus.Off, localNetworkSettings = settings)
+
+            onLaunch {
+                seesTheHubIsUnavailable(HubFailure.LocalNetworkOff)
+                tapsOpenSettings()
+            }
+        }
+
+        assertEquals(1, settings.settingsOpened)
     }
 
     /** A short phone or a large font: the offline screen scrolls rather than clipping its buttons. */

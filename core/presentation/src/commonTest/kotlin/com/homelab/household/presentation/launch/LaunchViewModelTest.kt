@@ -6,9 +6,11 @@ import com.homelab.household.domain.exception.NotFoundException
 import com.homelab.household.domain.exception.ServerOfflineException
 import com.homelab.household.domain.exception.UnexpectedContentTypeException
 import com.homelab.household.domain.exception.UpstreamGatewayException
+import com.homelab.household.domain.localnetwork.LocalNetworkStatus
 import com.homelab.household.domain.model.AuthStatus
 import com.homelab.household.domain.usecase.CheckAuthStatusUseCase
 import com.homelab.household.domain.usecase.GetHubHostUseCase
+import com.homelab.household.domain.usecase.GetLocalNetworkStatusUseCase
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.every
@@ -44,11 +46,13 @@ class LaunchViewModelTest {
 
     private val checkAuthStatusUseCase = mock<CheckAuthStatusUseCase>()
     private val getHubHostUseCase = mock<GetHubHostUseCase>()
+    private val getLocalNetworkStatus = mock<GetLocalNetworkStatusUseCase>()
 
     @BeforeTest
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         every { getHubHostUseCase() } returns "hub.spicy-llama.duckdns.org"
+        everySuspend { getLocalNetworkStatus() } returns LocalNetworkStatus.Allowed
     }
 
     @AfterTest
@@ -60,6 +64,7 @@ class LaunchViewModelTest {
         LaunchViewModel(
             checkAuthStatusUseCase = checkAuthStatusUseCase,
             getHubHostUseCase = getHubHostUseCase,
+            getLocalNetworkStatus = getLocalNetworkStatus,
         )
 
     /**
@@ -128,6 +133,33 @@ class LaunchViewModelTest {
                 expectNoEvents()
                 cancelAndIgnoreRemainingEvents()
             }
+            viewModel.stop()
+        }
+
+    @Test
+    fun `GIVEN a phone at home with local network access off WHEN the hub finds no route THEN launch says access is off and counts down`() =
+        runTest(testDispatcher) {
+            everySuspend { checkAuthStatusUseCase() } throws ServerOfflineException()
+            everySuspend { getLocalNetworkStatus() } returns LocalNetworkStatus.Off
+            val viewModel = viewModel()
+
+            runCurrent()
+
+            assertEquals(HubStatus.Unavailable(HubFailure.LocalNetworkOff), viewModel.uiState.value.status)
+            assertEquals(10, viewModel.uiState.value.retryInSeconds)
+            viewModel.stop()
+        }
+
+    @Test
+    fun `GIVEN local network access on WHEN the hub finds no route THEN it has no route as before`() =
+        runTest(testDispatcher) {
+            everySuspend { checkAuthStatusUseCase() } throws ServerOfflineException()
+            everySuspend { getLocalNetworkStatus() } returns LocalNetworkStatus.Allowed
+            val viewModel = viewModel()
+
+            runCurrent()
+
+            assertEquals(HubStatus.Unavailable(HubFailure.NoRoute), viewModel.uiState.value.status)
             viewModel.stop()
         }
 

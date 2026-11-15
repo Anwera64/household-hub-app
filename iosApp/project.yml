@@ -78,7 +78,8 @@ targets:
         # network bug rather than a missing plist key. No NSAppTransportSecurity exception is
         # needed, because the hub is HTTPS; only a move to cleartext on the LAN would want
         # NSAllowsLocalNetworking.
-        NSLocalNetworkUsageDescription: Connects to your home hub on the local network.
+        # The words in iOS's own question (#5); the app explains first on a new install.
+        NSLocalNetworkUsageDescription: $(APP_DISPLAY_NAME) only talks to your hub on your home Wi-Fi.
         # TestFlight asks about encryption for each build unless this answers it. The app only
         # uses the HTTPS built into iOS (Ktor's Darwin engine), which Apple counts as exempt.
         ITSAppUsesNonExemptEncryption: false

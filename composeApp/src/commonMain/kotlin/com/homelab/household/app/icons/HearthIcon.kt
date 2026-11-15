@@ -174,6 +174,15 @@ enum class HearthIcon(
             solids(circle(12.0, 19.2, 1.3)) +
             strokes("M3.8 3.8 20.2 20.2"),
     ),
+
+    /** Away from home, through Tailscale: the Local network access page's status rows (#5). */
+    Globe(
+        "globe",
+        strokes(
+            circle(12.0, 12.0, 8.2),
+            "M3.8 12h16.4M12 3.8c2.4 2.3 3.6 5 3.6 8.2s-1.2 5.9-3.6 8.2c-2.4-2.3-3.6-5-3.6-8.2s1.2-5.9 3.6-8.2Z",
+        ),
+    ),
     Synced("synced", strokes(circle(12.0, 12.0, 8.2), "M8.2 12.2l2.7 2.7 5-5.4")),
     Warning(
         "warning",

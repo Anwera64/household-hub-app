@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import com.homelab.household.app.components.BentoCard
@@ -29,10 +30,13 @@ import com.homelab.household.app.components.PrimaryButton
 import com.homelab.household.app.components.SecondaryButton
 import com.homelab.household.app.icons.HearthIcon
 import com.homelab.household.app.icons.HearthIconImage
+import com.homelab.household.app.platform.SettingsPlatform
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.app_name
 import com.homelab.household.app.resources.launch_action_description
 import com.homelab.household.app.resources.launch_checking
+import com.homelab.household.app.resources.launch_local_network_chip
+import com.homelab.household.app.resources.launch_local_network_detail
 import com.homelab.household.app.resources.launch_no_route_chip
 import com.homelab.household.app.resources.launch_no_route_detail
 import com.homelab.household.app.resources.launch_no_route_title
@@ -53,6 +57,10 @@ import com.homelab.household.app.resources.launch_upstream_title
 import com.homelab.household.app.resources.launch_web_page_chip
 import com.homelab.household.app.resources.launch_web_page_detail
 import com.homelab.household.app.resources.launch_web_page_title
+import com.homelab.household.app.resources.local_network_off_title
+import com.homelab.household.app.resources.local_network_open_settings
+import com.homelab.household.app.resources.local_network_turn_on
+import com.homelab.household.app.screens.localnetwork.WherePath
 import com.homelab.household.app.theme.HearthShapes
 import com.homelab.household.app.theme.HearthTheme
 import com.homelab.household.app.theme.PreviewDayNight
@@ -73,6 +81,7 @@ fun LaunchContent(
     onRetry: () -> Unit,
     onOpenTailscale: () -> Unit,
     modifier: Modifier = Modifier,
+    localNetworkFix: LocalNetworkFix = LocalNetworkFix(),
 ) {
     when (val status = state.status) {
         HubStatus.Checking -> {
@@ -86,11 +95,23 @@ fun LaunchContent(
                 retryInSeconds = state.retryInSeconds,
                 onRetry = onRetry,
                 onOpenTailscale = onOpenTailscale,
+                localNetworkFix = localNetworkFix,
                 modifier = modifier,
             )
         }
     }
 }
+
+/**
+ * How the offline screen fixes local network access when that is the reason: the phone's own
+ * question while Android can still ask, its Settings page otherwise, and where the switch is.
+ */
+data class LocalNetworkFix(
+    val platform: SettingsPlatform = SettingsPlatform.Android,
+    val canAskAgain: Boolean = false,
+    val onOpenSettings: () -> Unit = {},
+    val onTurnOn: () -> Unit = {},
+)
 
 /**
  * The splash: the hub is being asked. A useful answer moves the user on from here, so this is
@@ -176,11 +197,14 @@ private fun OfflineContent(
     retryInSeconds: Int?,
     onRetry: () -> Unit,
     onOpenTailscale: () -> Unit,
+    localNetworkFix: LocalNetworkFix,
     modifier: Modifier = Modifier,
 ) {
     val colors = HearthTheme.colors
     val type = HearthTheme.typography
     val words = wordsFor(reason)
+    // A setting to fix rather than a failure: the attention tone, and the fix in place of Try again.
+    val localNetworkOff = reason == HubFailure.LocalNetworkOff
 
     HearthScaffold(modifier = modifier, gutter = HearthTheme.spacing.xxxl) { padding ->
         // Fixed shape by design, but a short phone or a large font would clip the buttons: it scrolls
@@ -194,7 +218,7 @@ private fun OfflineContent(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.xxl, Alignment.CenterVertically),
         ) {
-            OfflineTile()
+            OfflineTile(attention = localNetworkOff)
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -226,7 +250,10 @@ private fun OfflineContent(
                         color = colors.textMuted,
                         modifier = Modifier.weight(1f),
                     )
-                    HearthChip(label = words.chip, variant = ChipVariant.Error)
+                    HearthChip(
+                        label = words.chip,
+                        variant = if (localNetworkOff) ChipVariant.Attention else ChipVariant.Error,
+                    )
                 }
                 retryInSeconds?.let { seconds ->
                     HorizontalDivider(thickness = HearthTheme.size.hairline, color = colors.outlineSoft)
@@ -247,18 +274,55 @@ private fun OfflineContent(
                         )
                     }
                 }
+                if (localNetworkOff) {
+                    HorizontalDivider(thickness = HearthTheme.size.hairline, color = colors.outlineSoft)
+                    Row(horizontalArrangement = Arrangement.spacedBy(HearthTheme.spacing.sm)) {
+                        HearthIconImage(
+                            icon = HearthIcon.Settings,
+                            contentDescription = null,
+                            size = HearthTheme.size.iconSm,
+                            tint = colors.textPrimary,
+                        )
+                        WherePath(
+                            platform = localNetworkFix.platform,
+                            appName = stringResource(Res.string.app_name),
+                            color = colors.textMuted,
+                        )
+                    }
+                }
             }
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.md),
             ) {
-                PrimaryButton(
-                    text = stringResource(Res.string.launch_retry),
-                    onClick = onRetry,
-                    icon = HearthIcon.Retry,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                when {
+                    !localNetworkOff -> {
+                        PrimaryButton(
+                            text = stringResource(Res.string.launch_retry),
+                            onClick = onRetry,
+                            icon = HearthIcon.Retry,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    localNetworkFix.canAskAgain -> {
+                        PrimaryButton(
+                            text = stringResource(Res.string.local_network_turn_on),
+                            onClick = localNetworkFix.onTurnOn,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+
+                    else -> {
+                        PrimaryButton(
+                            text = stringResource(Res.string.local_network_open_settings),
+                            onClick = localNetworkFix.onOpenSettings,
+                            icon = HearthIcon.Settings,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
                 SecondaryButton(
                     text = stringResource(Res.string.launch_open_tailscale),
                     onClick = onOpenTailscale,
@@ -311,6 +375,14 @@ private fun wordsFor(reason: HubFailure): OfflineWords =
             )
         }
 
+        HubFailure.LocalNetworkOff -> {
+            OfflineWords(
+                title = stringResource(Res.string.local_network_off_title),
+                detail = stringResource(Res.string.launch_local_network_detail, stringResource(Res.string.app_name)),
+                chip = stringResource(Res.string.launch_local_network_chip),
+            )
+        }
+
         HubFailure.AddressNotFound -> {
             OfflineWords(
                 title = stringResource(Res.string.launch_not_found_title),
@@ -329,13 +401,15 @@ private fun wordsFor(reason: HubFailure): OfflineWords =
     }
 
 @Composable
-private fun OfflineTile() {
+private fun OfflineTile(attention: Boolean) {
     val colors = HearthTheme.colors
+    val container: Color = if (attention) colors.tertiaryContainer else colors.errorContainer
+    val content: Color = if (attention) colors.onTertiaryContainer else colors.onErrorContainer
     Box(
         modifier = Modifier
             .size(HearthTheme.size.tile)
             .background(
-                color = colors.errorContainer,
+                color = container,
                 shape = HearthShapes.tile,
             ),
         contentAlignment = Alignment.Center,
@@ -344,7 +418,7 @@ private fun OfflineTile() {
             icon = HearthIcon.HubOffline,
             contentDescription = null,
             size = HearthTheme.size.iconXxl,
-            tint = colors.onErrorContainer,
+            tint = content,
         )
     }
 }

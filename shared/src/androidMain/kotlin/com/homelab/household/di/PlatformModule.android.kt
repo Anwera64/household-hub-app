@@ -3,6 +3,8 @@ package com.homelab.household.di
 import android.content.Context
 import com.homelab.household.data.datasource.local.KeystoreSessionStorage
 import com.homelab.household.data.datasource.local.StoredSessionLocalDataSource
+import com.homelab.household.domain.localnetwork.LocalNetworkAccess
+import com.homelab.household.localnetwork.AndroidLocalNetworkAccess
 import com.russhwolf.settings.Settings
 import com.russhwolf.settings.SharedPreferencesSettings
 import io.ktor.client.engine.HttpClientEngine
@@ -28,6 +30,7 @@ actual val platformModule: Module =
             }
         }
         single<StoredSessionLocalDataSource> { KeystoreSessionStorage(androidContext()) }
+        single<LocalNetworkAccess> { AndroidLocalNetworkAccess(androidContext()) }
         single<Settings> {
             SharedPreferencesSettings(androidContext().getSharedPreferences("household_hub", Context.MODE_PRIVATE))
         }

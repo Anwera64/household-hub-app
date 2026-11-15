@@ -3,9 +3,11 @@ package com.homelab.household.presentation.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.homelab.household.domain.exception.ServerOfflineException
+import com.homelab.household.domain.localnetwork.LocalNetworkStatus
 import com.homelab.household.domain.model.CalendarConnection
 import com.homelab.household.domain.usecase.GetCalendarUseCase
 import com.homelab.household.domain.usecase.GetCurrentUserUseCase
+import com.homelab.household.domain.usecase.GetLocalNetworkStatusUseCase
 import com.homelab.household.domain.usecase.GetMemoryPageUseCase
 import com.homelab.household.domain.usecase.GetToolApprovalsUseCase
 import com.homelab.household.domain.usecase.ListHouseholdMembersUseCase
@@ -33,6 +35,7 @@ class ProfileViewModel(
     private val removeCalendar: RemoveCalendarUseCase,
     private val getToolApprovals: GetToolApprovalsUseCase,
     private val getMemoryPage: GetMemoryPageUseCase,
+    private val getLocalNetworkStatus: GetLocalNetworkStatusUseCase,
     private val clock: Clock = Clock.System,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -111,6 +114,17 @@ class ProfileViewModel(
             _uiState.update {
                 it.copy(memoryCounts = page?.let { MemoryCounts(it.yours.size, it.household.size, it.toCheck) })
             }
+        }
+    }
+
+    /**
+     * Read each time the profile is shown, so coming back from Settings drops the row. A phone that
+     * can't say (an iPhone away from home) shows no row.
+     */
+    fun loadLocalNetwork() {
+        viewModelScope.launch {
+            val off = runCatchingSafe { getLocalNetworkStatus() }.getOrNull() == LocalNetworkStatus.Off
+            _uiState.update { it.copy(localNetworkOff = off) }
         }
     }
 
