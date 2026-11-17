@@ -23,8 +23,11 @@ import com.homelab.household.app.icons.HearthIcon
 import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.changes_back
 import com.homelab.household.app.resources.changes_intro
+import com.homelab.household.app.resources.changes_intro_all
 import com.homelab.household.app.resources.changes_none_line
 import com.homelab.household.app.resources.changes_none_title
+import com.homelab.household.app.resources.changes_section_changes
+import com.homelab.household.app.resources.changes_section_held
 import com.homelab.household.app.resources.changes_title
 import com.homelab.household.app.resources.changes_waiting_for
 import com.homelab.household.app.resources.changes_waiting_line
@@ -33,8 +36,10 @@ import com.homelab.household.app.resources.memories_failed_title
 import com.homelab.household.app.resources.memories_offline_line
 import com.homelab.household.app.resources.memories_offline_title
 import com.homelab.household.app.resources.memories_try_again
+import com.homelab.household.app.resources.to_check_all
 import com.homelab.household.app.theme.HearthTheme
 import com.homelab.household.app.theme.PreviewDayNight
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.ProposalAnswer
 import com.homelab.household.presentation.memories.ChangesToCheckUiState
 import com.homelab.household.presentation.memories.MemoriesStatus
@@ -56,6 +61,8 @@ fun ChangesToCheckContent(
     onUndo: (String) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onHeldAnswer: (String, HeldFactAnswer) -> Unit = { _, _ -> },
+    onHeldUndo: (String) -> Unit = {},
 ) {
     HearthScaffold(
         modifier = modifier,
@@ -90,7 +97,13 @@ fun ChangesToCheckContent(
                 }
 
                 MemoriesStatus.Ready -> {
-                    ChangeList(state = state, onAnswer = onAnswer, onUndo = onUndo)
+                    ChangeList(
+                        state = state,
+                        onAnswer = onAnswer,
+                        onUndo = onUndo,
+                        onHeldAnswer = onHeldAnswer,
+                        onHeldUndo = onHeldUndo,
+                    )
                 }
             }
         }
@@ -102,13 +115,34 @@ private fun ChangeList(
     state: ChangesToCheckUiState,
     onAnswer: (String, ProposalAnswer) -> Unit,
     onUndo: (String) -> Unit,
+    onHeldAnswer: (String, HeldFactAnswer) -> Unit,
+    onHeldUndo: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // With no facts not saved yet the page reads as it always has: no section labels.
+    val withHeld = state.held.isNotEmpty()
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.md),
     ) {
-        item(key = "heading") { Heading(openCount = state.openCount) }
+        item(key = "heading") { Heading(openCount = state.openCount, withHeld = withHeld) }
+        if (withHeld) {
+            item(key = "held-label") {
+                SectionLabel(stringResource(Res.string.changes_section_held, state.heldOpenCount))
+            }
+            items(state.held, key = { "held-${it.fact.id}" }) { row ->
+                HeldCard(
+                    row = row,
+                    onAnswer = { answer -> onHeldAnswer(row.fact.id, answer) },
+                    onUndo = { onHeldUndo(row.fact.id) },
+                )
+            }
+            if (state.toCheck.isNotEmpty()) {
+                item(key = "changes-label") {
+                    SectionLabel(stringResource(Res.string.changes_section_changes, state.changesOpenCount))
+                }
+            }
+        }
         items(state.toCheck, key = { it.card.id }) { row ->
             ChangeCard(
                 row = row,
@@ -123,10 +157,14 @@ private fun ChangeList(
     }
 }
 
-/** "2 changes to check", or "Nothing left to check" once every card is answered. */
+/**
+ * "2 changes to check", or "2 to check" when facts not saved yet are among them; "Nothing left to
+ * check" once every card is answered.
+ */
 @Composable
 private fun Heading(
     openCount: Int,
+    withHeld: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = HearthTheme.colors
@@ -140,13 +178,35 @@ private fun Heading(
             Text(stringResource(Res.string.changes_none_line), style = type.body, color = colors.textMuted)
         } else {
             Text(
-                pluralStringResource(Res.plurals.changes_title, openCount, openCount),
+                pluralStringResource(
+                    if (withHeld) Res.plurals.to_check_all else Res.plurals.changes_title,
+                    openCount,
+                    openCount,
+                ),
                 style = type.title,
                 color = colors.textPrimary,
             )
-            Text(stringResource(Res.string.changes_intro), style = type.body, color = colors.textMuted)
+            Text(
+                stringResource(if (withHeld) Res.string.changes_intro_all else Res.string.changes_intro),
+                style = type.body,
+                color = colors.textMuted,
+            )
         }
     }
+}
+
+/** "Not saved yet · 1", "Changes · 1": a section's overline. */
+@Composable
+internal fun SectionLabel(
+    words: String,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        words.uppercase(),
+        modifier = modifier.padding(horizontal = HearthTheme.spacing.sm, vertical = HearthTheme.spacing.xs),
+        style = HearthTheme.typography.overline,
+        color = HearthTheme.colors.textMuted,
+    )
 }
 
 /** "Waiting for Liam": only the person who said the stored memory chooses. */

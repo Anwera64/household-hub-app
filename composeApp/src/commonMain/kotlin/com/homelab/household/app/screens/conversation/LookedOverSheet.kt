@@ -51,13 +51,12 @@ import com.homelab.household.app.resources.memories_offline_title
 import com.homelab.household.app.resources.memories_tab_household_plain
 import com.homelab.household.app.resources.memories_tab_yours_plain
 import com.homelab.household.app.resources.memories_try_again
-import com.homelab.household.app.resources.memories_until
 import com.homelab.household.app.screens.changes.ChangeCard
 import com.homelab.household.app.screens.changes.WaitingHeading
 import com.homelab.household.app.screens.changes.words
 import com.homelab.household.app.screens.memories.RemoveButton
 import com.homelab.household.app.screens.memories.RemovedRow
-import com.homelab.household.app.screens.memories.SHORT_MONTHS
+import com.homelab.household.app.screens.memories.UntilChip
 import com.homelab.household.app.screens.memories.memorySentence
 import com.homelab.household.app.screens.memories.words
 import com.homelab.household.app.theme.HearthShapes
@@ -265,22 +264,7 @@ private fun RememberedRow(
                             ),
                         variant = if (household) ChipVariant.Neutral else ChipVariant.Primary,
                     )
-                    row.until?.let { until ->
-                        HearthChip(
-                            label = stringResource(
-                                Res.string.memories_until,
-                                until.day,
-                                stringResource(
-                                    SHORT_MONTHS[
-                                        until.month -
-                                            1,
-                                    ],
-                                ),
-                            ),
-                            variant = ChipVariant.Attention,
-                            icon = HearthIcon.Schedule,
-                        )
-                    }
+                    row.until?.let { until -> UntilChip(until) }
                 }
             }
             if (item.canRemove) {

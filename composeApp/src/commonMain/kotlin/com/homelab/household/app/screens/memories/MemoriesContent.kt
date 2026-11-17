@@ -74,7 +74,6 @@ import com.homelab.household.app.resources.memories_try_again
 import com.homelab.household.app.resources.memories_undo
 import com.homelab.household.app.resources.memories_undo_failed
 import com.homelab.household.app.resources.memories_undo_unreachable
-import com.homelab.household.app.resources.memories_until
 import com.homelab.household.app.resources.memories_waiting_caption
 import com.homelab.household.app.resources.memories_waiting_on
 import com.homelab.household.app.resources.memories_waiting_yours
@@ -383,22 +382,7 @@ private fun MemoryCard(
                             color = colors.textMuted,
                         )
                     }
-                    row.until?.let { until ->
-                        HearthChip(
-                            label = stringResource(
-                                Res.string.memories_until,
-                                until.day,
-                                stringResource(
-                                    SHORT_MONTHS[
-                                        until.month -
-                                            1,
-                                    ],
-                                ),
-                            ),
-                            variant = ChipVariant.Attention,
-                            icon = HearthIcon.Schedule,
-                        )
-                    }
+                    row.until?.let { until -> UntilChip(until) }
                     // Asked for by whoever said it: only yours read "You asked".
                     if (item.isMine && item.origin == MemoryOrigin.Tool) {
                         HearthChip(label = stringResource(Res.string.memories_you_asked), variant = ChipVariant.Primary)

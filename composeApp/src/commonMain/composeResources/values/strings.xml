@@ -930,6 +930,22 @@
     <string name="looked_over_to_check">To check · %1$d</string>
     <string name="looked_over_remembered">Remembered · %1$d</string>
     <string name="looked_over_all_memories">All memories</string>
+    <string name="held_label">Not saved yet</string>
+    <string name="held_rule">Save it only if it isn’t about your private message.</string>
+    <string name="held_household">Saving shares it with everyone in the household.</string>
+    <string name="held_dont_save">Don’t save</string>
+    <string name="held_save">Save</string>
+    <string name="held_done_saved">Saved “%1$s”</string>
+    <string name="held_done_not_saved">Not saved: “%1$s”</string>
+    <string name="changes_section_held">Not saved yet · %1$d</string>
+    <string name="changes_section_changes">Changes · %1$d</string>
+    <string name="changes_intro_all">Nothing is saved or changed until you choose.</string>
+    <plurals name="to_check_all">
+        <item quantity="one">%1$d to check</item>
+        <item quantity="other">%1$d to check</item>
+    </plurals>
+    <string name="memories_band_line_held">Something an agent read in a chat wasn’t saved yet.</string>
+    <string name="memories_band_line_both">Things agents read in your chats wait for your answer.</string>
 
     <!-- Local network access (#5): the first-time explanation, the "access is off" cover over any
          screen, launch's offline reason and the Profile row. %1$s is app_name. -->
