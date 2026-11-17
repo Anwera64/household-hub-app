@@ -319,7 +319,7 @@ object RealAppScreens : AppScreens {
         onUnlock: () -> Unit,
         onBack: () -> Unit,
     ) {
-        SecretUnlockScreen(onUnlock = onUnlock, onBack = onBack, allChats = true)
+        SecretUnlockScreen(onUnlock = onUnlock, onBack = onBack)
     }
 
     @Composable

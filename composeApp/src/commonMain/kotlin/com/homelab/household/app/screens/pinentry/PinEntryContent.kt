@@ -113,8 +113,8 @@ fun PinEntryContent(
 /**
  * The PIN pad itself, for whatever the PIN is for: [face] and [title] above six dots, [lines] of
  * small print under the title, the line saying where things stand, and the keys. Signing in shows
- * the member and "Forgotten your PIN?"; a locked secret chat shows a lock tile and no link
- * (canvas SecretUnlock: "the sign-in PIN pad with a lock tile in place of the avatar").
+ * the member and "Forgotten your PIN?"; the secret chats pad shows a lock tile and no link
+ * (canvas ChatsSecretUnlock: the sign-in PIN pad with a lock tile in place of the avatar).
  */
 @Composable
 internal fun PinPad(

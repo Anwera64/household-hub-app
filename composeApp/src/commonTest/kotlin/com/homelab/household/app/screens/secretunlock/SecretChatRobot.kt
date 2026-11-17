@@ -19,9 +19,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.waitUntilExactlyOneExists
+import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.result.LocalResultEventBus
 import androidx.navigation3.runtime.result.ResultEventBus
-import androidx.navigation3.runtime.NavKey
 import com.homelab.household.app.navigation.AppNavHost
 import com.homelab.household.app.navigation.AppScreens
 import com.homelab.household.app.navigation.Destination
@@ -55,7 +55,8 @@ import org.koin.mp.KoinPlatform
 
 /**
  * What the back stack gives a chat: the bus it hears results on, and how often it asked for the
- * secret chats PIN pad, which is a destination of its own (AppNavHostTest covers the pad itself).
+ * secret chats PIN pad. The pad is a destination of its own, opened over the chat and never drawn
+ * inside it: AppNavHostTest covers where it goes, and [secretChatInTheApp] the real one.
  */
 class ChatNavigation {
     val results = ResultEventBus()
@@ -236,7 +237,8 @@ fun ComposeUiTest.secretChatInTheApp(
 ) {
     setContent {
         TestApp(hub.engine, sessionStorage = InMemorySessionStorage().apply { saveTokens("signed-in-token") }) {
-            val backStack = remember { mutableStateListOf<NavKey>(Destination.Chats, Destination.Conversation(sessionId)) }
+            val backStack =
+                remember { mutableStateListOf<NavKey>(Destination.Chats, Destination.Conversation(sessionId)) }
             AppNavHost(screens = SecretChatScreens(), backStack = backStack, session = StubSession())
         }
     }

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -54,9 +55,10 @@ fun ConversationScreen(
     // the hub refused as locked goes.
     ResultEffect<SecretChatsUnlocked> { viewModel.unlocked(it.thenSend) }
     // A send refused as locked: the words are back in the box, and the pad opens once.
+    val askForThePad by rememberUpdatedState(onUnlockSecretChats)
     LaunchedEffect(state.askingForPinToSend) {
         if (state.askingForPinToSend) {
-            onUnlockSecretChats(true)
+            askForThePad(true)
             viewModel.pinPadAsked()
         }
     }

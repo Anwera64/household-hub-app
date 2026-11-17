@@ -672,7 +672,11 @@ class AppNavHostTest {
 
                 seesTheSecretChatsPin()
                 assertEquals(
-                    listOf(Destination.Chats, Destination.Conversation("s-1"), Destination.SecretChatsUnlock(thenSend = false)),
+                    listOf(
+                        Destination.Chats,
+                        Destination.Conversation("s-1"),
+                        Destination.SecretChatsUnlock(thenSend = false),
+                    ),
                     backStack.toList(),
                 )
             }
