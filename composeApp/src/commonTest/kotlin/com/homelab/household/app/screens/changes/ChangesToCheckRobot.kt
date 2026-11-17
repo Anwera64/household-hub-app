@@ -29,9 +29,9 @@ import com.homelab.household.app.resources.changes_title
 import com.homelab.household.app.resources.changes_use_new
 import com.homelab.household.app.resources.changes_waiting_for
 import com.homelab.household.app.resources.changes_waiting_line
-import com.homelab.household.app.resources.held_dont_save
 import com.homelab.household.app.resources.held_done_not_saved
 import com.homelab.household.app.resources.held_done_saved
+import com.homelab.household.app.resources.held_dont_save
 import com.homelab.household.app.resources.held_household
 import com.homelab.household.app.resources.held_label
 import com.homelab.household.app.resources.held_rule

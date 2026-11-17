@@ -46,8 +46,7 @@ class LookedOverSheetRobot(
 
     suspend fun seesToCheck(count: Int) = seesText(getString(Res.string.looked_over_to_check, count).uppercase())
 
-    suspend fun seesNotSavedYet(count: Int) =
-        seesText(getString(Res.string.changes_section_held, count).uppercase())
+    suspend fun seesNotSavedYet(count: Int) = seesText(getString(Res.string.changes_section_held, count).uppercase())
 
     /** "Not saved yet · 1" sits above "To check · 1". */
     suspend fun seesNotSavedYetBeforeToCheck() {
