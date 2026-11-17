@@ -2,11 +2,14 @@ package com.homelab.household.app.screens.conversation
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import com.homelab.household.app.screens.changes.previewChangeRow
+import com.homelab.household.app.screens.changes.previewHeldRow
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.MemoryItem
 import com.homelab.household.domain.model.MemoryOrigin
 import com.homelab.household.domain.model.MemoryScope
 import com.homelab.household.domain.model.ProposalAnswer
 import com.homelab.household.presentation.memories.ChangeStatus
+import com.homelab.household.presentation.memories.HeldStatus
 import com.homelab.household.presentation.memories.LocalDay
 import com.homelab.household.presentation.memories.LocalTime
 import com.homelab.household.presentation.memories.LookedOverUiState
@@ -49,6 +52,12 @@ class LookedOverUiStateProvider : PreviewParameterProvider<LookedOverUiState> {
     private val change =
         previewChangeRow("c1", "Is vegetarian, but cooks fish for Liam.", "Eats fish again since September.")
     private val liams = previewChangeRow("c3", "Works late on Thursdays.", "Now works late on Fridays.", mine = false)
+    private val dentist =
+        previewHeldRow(
+            "h1",
+            "Sam has a dentist appointment on Monday 23 November at 09:00.",
+            until = LocalDay(day = 23, month = 11),
+        )
     private val rows =
         listOf(
             remembered("r1", "Studio Jury on Friday 17 October, 09:00.", until = LocalDay(day = 17, month = 10)),
@@ -73,6 +82,9 @@ class LookedOverUiStateProvider : PreviewParameterProvider<LookedOverUiState> {
                 remembered = listOf(rows[0].copy(removed = true), rows[1]),
             ),
             sheet.copy(toCheck = listOf(change.copy(status = ChangeStatus.Saving(ProposalAnswer.KeepBoth)))),
+            // Canvas: MemHeldSheet. This chat's fact not saved yet comes first.
+            sheet.copy(held = listOf(dentist), waiting = emptyList()),
+            sheet.copy(held = listOf(dentist.copy(status = HeldStatus.Done(HeldFactAnswer.DontSave)))),
             LookedOverUiState(status = MemoriesStatus.Loading),
             LookedOverUiState(status = MemoriesStatus.Unreachable),
         )

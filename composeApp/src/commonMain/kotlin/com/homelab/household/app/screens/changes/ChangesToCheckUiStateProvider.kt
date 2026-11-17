@@ -2,6 +2,8 @@ package com.homelab.household.app.screens.changes
 
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import com.homelab.household.domain.model.ChangeCard
+import com.homelab.household.domain.model.HeldFact
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.MemoryItem
 import com.homelab.household.domain.model.MemoryOrigin
 import com.homelab.household.domain.model.MemoryScope
@@ -9,6 +11,9 @@ import com.homelab.household.domain.model.ProposalAnswer
 import com.homelab.household.presentation.memories.ChangeRow
 import com.homelab.household.presentation.memories.ChangeStatus
 import com.homelab.household.presentation.memories.ChangesToCheckUiState
+import com.homelab.household.presentation.memories.HeldRow
+import com.homelab.household.presentation.memories.HeldStatus
+import com.homelab.household.presentation.memories.LocalDay
 import com.homelab.household.presentation.memories.LocalTime
 import com.homelab.household.presentation.memories.MemoriesStatus
 import com.homelab.household.presentation.memories.MemoryAge
@@ -58,6 +63,33 @@ internal fun previewChangeRow(
     status = status,
 )
 
+/** A fact not saved yet as the previews draw it: read in "Weekend plans" today at 10:42. */
+@OptIn(ExperimentalTime::class)
+internal fun previewHeldRow(
+    id: String,
+    content: String,
+    household: Boolean = false,
+    until: LocalDay? = null,
+    status: HeldStatus = HeldStatus.Open(),
+) = HeldRow(
+    fact =
+        HeldFact(
+            id = id,
+            content = content,
+            scope = if (household) MemoryScope.HOUSEHOLD else MemoryScope.PERSONAL,
+            agentName = "Planner",
+            createdAt = Instant.parse("2026-11-17T10:42:00Z"),
+            expiresAt = null,
+            sourceTitle = "Weekend plans",
+            sourceOwnerName = "Emma",
+            readAt = Instant.parse("2026-11-17T10:42:00Z"),
+        ),
+    readAge = MemoryAge.Today,
+    readTime = LocalTime(hour = 10, minute = 42),
+    until = until,
+    status = status,
+)
+
 /** Changes to check in each state the canvas draws. `ChangesToCheckScreenTest` renders them all. */
 @OptIn(ExperimentalTime::class)
 class ChangesToCheckUiStateProvider : PreviewParameterProvider<ChangesToCheckUiState> {
@@ -85,8 +117,38 @@ class ChangesToCheckUiStateProvider : PreviewParameterProvider<ChangesToCheckUiS
             household = true,
         )
 
+    private val dentist =
+        previewHeldRow(
+            "h1",
+            "Sam has a dentist appointment on Monday 23 November at 09:00.",
+            until = LocalDay(day = 23, month = 11),
+        )
+    private val parcel = previewHeldRow("h2", "Sam is picking up a parcel in town on Friday.")
+    private val shop = previewHeldRow("h3", "The household does the big shop on Saturday mornings.", household = true)
+
     override val values =
         sequenceOf(
+            // Canvas: MemHeldProposals. A fact not saved yet first, then a change.
+            ChangesToCheckUiState(status = MemoriesStatus.Ready, held = listOf(dentist), toCheck = listOf(vegetarian)),
+            // Canvas: MemHeldAnswered. Saved, Not saved, and an open household fact.
+            ChangesToCheckUiState(
+                status = MemoriesStatus.Ready,
+                held =
+                    listOf(
+                        dentist.copy(status = HeldStatus.Done(HeldFactAnswer.Save)),
+                        parcel.copy(status = HeldStatus.Done(HeldFactAnswer.DontSave)),
+                        shop,
+                    ),
+            ),
+            ChangesToCheckUiState(
+                status = MemoriesStatus.Ready,
+                held =
+                    listOf(
+                        dentist.copy(status = HeldStatus.Saving(HeldFactAnswer.Save)),
+                        shop.copy(status = HeldStatus.Open(failed = true)),
+                    ),
+            ),
+            ChangesToCheckUiState(status = MemoriesStatus.Ready, held = listOf(shop)),
             ChangesToCheckUiState(status = MemoriesStatus.Ready, toCheck = listOf(vegetarian, dinner)),
             ChangesToCheckUiState(status = MemoriesStatus.Ready, toCheck = listOf(vegetarian), waiting = listOf(liams)),
             ChangesToCheckUiState(
