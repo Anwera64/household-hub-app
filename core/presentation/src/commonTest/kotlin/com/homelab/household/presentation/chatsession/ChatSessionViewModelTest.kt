@@ -555,11 +555,28 @@ class ChatSessionViewModelTest {
             isSecret = true,
         )
 
+    private val secretAnswer =
+        ChatMessage(
+            id = "m-10",
+            sessionId = "s-1",
+            role = MessageRole.ASSISTANT,
+            content = "Can Pere on Saturday.",
+            isSecret = true,
+        )
+
+    /** A chat secret from its first message, open with the unlock. */
+    private fun TestScope.openStartedSecret() {
+        everySuspend { getSessionUseCase("s-1") } returns
+            Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(secretQuestion, secretAnswer))
+        viewModel.loadSession("s-1")
+        advanceUntilIdle()
+    }
+
     @Test
-    fun `GIVEN an open secret chat WHEN secret chats lock THEN it reads as locked and its messages are gone`() =
+    fun `GIVEN a chat with ordinary messages and then Secret Mode on WHEN secret chats lock THEN the ordinary messages stay and only the secret part folds`() =
         runTest(testDispatcher) {
             everySuspend { getSessionUseCase("s-1") } returns
-                Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(secretQuestion))
+                Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(question, secretQuestion))
             viewModel.loadSession("s-1")
             advanceUntilIdle()
 
@@ -567,8 +584,67 @@ class ChatSessionViewModelTest {
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
+            assertFalse(state.isLocked)
+            assertEquals(listOf("Dinner Saturday?", ""), state.messages.map { it.content })
+            assertEquals(listOf(false, true), state.messages.map { it.withheld })
+        }
+
+    @Test
+    fun `GIVEN a chat started secret WHEN secret chats lock THEN every message is withheld and the chat reads as locked`() =
+        runTest(testDispatcher) {
+            openStartedSecret()
+
+            secretLocks.emit(Unit)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
             assertTrue(state.isLocked)
-            assertEquals(emptyList(), state.messages)
+            assertEquals(listOf("m-9", "m-10"), state.messages.map { it.id })
+            assertTrue(state.messages.all { it.withheld && it.content.isEmpty() })
+        }
+
+    @Test
+    fun `GIVEN a chat with Secret Mode on and words in the composer WHEN secret chats lock THEN the composer is empty`() =
+        runTest(testDispatcher) {
+            openStartedSecret()
+            viewModel.composerTextChanged("And the flowers?")
+
+            secretLocks.emit(Unit)
+            advanceUntilIdle()
+
+            assertEquals("", viewModel.uiState.value.composerText)
+        }
+
+    @Test
+    fun `GIVEN the hub withholding every message of a chat WHEN it is opened THEN the chat reads as locked`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(
+                    ConversationSession(id = "s-1", userId = "u-1", isSecret = true),
+                    listOf(secretQuestion, secretAnswer).map { it.copy(content = "", withheld = true) },
+                )
+
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.isLocked)
+            assertNull(state.errorMessage)
+        }
+
+    @Test
+    fun `GIVEN the hub withholding all but one ordinary message WHEN the chat is opened THEN it does not read as locked`() =
+        runTest(testDispatcher) {
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(
+                    ConversationSession(id = "s-1", userId = "u-1", isSecret = true),
+                    listOf(question, secretQuestion.copy(content = "", withheld = true)),
+                )
+
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isLocked)
         }
 
     @Test
@@ -788,6 +864,7 @@ class ChatSessionViewModelTest {
             assertTrue(state.isLocked)
             assertFalse(state.isLoading)
             assertNull(state.errorMessage)
+            assertEquals(emptyList(), state.messages)
         }
 
     @Test

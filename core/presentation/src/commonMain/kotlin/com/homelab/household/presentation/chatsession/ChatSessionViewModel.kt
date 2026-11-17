@@ -102,29 +102,17 @@ class ChatSessionViewModel(
     init {
         viewModelScope.launch {
             secretLocks.collect {
-                if (_uiState.value.session?.isSecret != true) {
-                    // A chat no longer secret stays open; only what was said in secret folds away.
-                    foldSecretParts()
-                    return@collect
-                }
                 // A stream already running finishes first: the member is reading it.
                 _uiState.first { it.canSend }
-                lockSecretChat()
+                foldSecretParts()
+                if (_uiState.value.session?.isSecret == true) clearSecretDraft()
             }
         }
     }
 
-    /** Nothing said in secret stays on screen, or in memory, once the chat locks. */
-    private fun lockSecretChat() {
-        _uiState.update {
-            it.copy(
-                isLocked = true,
-                messages = emptyList(),
-                streamingMessage = null,
-                parts = emptyList(),
-                composerText = "",
-            )
-        }
+    /** Nothing typed or being written in secret stays on screen, or in memory, once the chat locks. */
+    private fun clearSecretDraft() {
+        _uiState.update { it.copy(composerText = "", streamingMessage = null, parts = emptyList()) }
     }
 
     /**
@@ -145,7 +133,7 @@ class ChatSessionViewModel(
                             message
                         }
                     },
-            )
+            ).let { folded -> folded.copy(isLocked = allWithheld(folded.messages)) }
         }
     }
 
@@ -351,7 +339,7 @@ class ChatSessionViewModel(
                         agentName = agent?.name ?: session.agentName.orEmpty(),
                         agentAvatar = agent?.avatar ?: session.agentAvatar.orEmpty(),
                         agentTagline = agent?.description.orEmpty(),
-                        isLocked = false,
+                        isLocked = allWithheld(messages),
                         secretParts = secretParts(messages, secretNow = session.isSecret),
                         // A card left waiting is still waiting: the chat reopens on it.
                         turnState = if (session.awaitingApproval) TurnState.AwaitingApproval else it.turnState,
@@ -359,8 +347,9 @@ class ChatSessionViewModel(
                 }
                 pickUpUnansweredQuestion(session, messages)
             } catch (e: SecretLockedException) {
-                // Locked is a state of the chat, not a failure: the screen asks for the PIN (A4).
-                _uiState.update { it.copy(isLoading = false, isLocked = true) }
+                // A hub that reads a secret chat whole refuses it all: everything in it is secret.
+                // Locked is a state of the chat, not a failure.
+                _uiState.update { it.copy(isLoading = false, isLocked = true, messages = emptyList()) }
             } catch (e: Throwable) {
                 _uiState.update {
                     it.copy(
@@ -1003,6 +992,9 @@ internal fun secretParts(
     }
     return parts
 }
+
+/** Everything in the chat is secret and held back: there is nothing to show but the locked screen. */
+private fun allWithheld(messages: List<ChatMessage>): Boolean = messages.isNotEmpty() && messages.all { it.withheld }
 
 /** Secret from after the message at [at] on. */
 private fun List<SecretPart>.turnedOn(at: Int): List<SecretPart> =

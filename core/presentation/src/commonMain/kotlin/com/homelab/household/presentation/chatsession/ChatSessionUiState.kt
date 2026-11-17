@@ -133,7 +133,12 @@ data class ChatSessionUiState(
      */
     val madeAutomatic: AutomaticWrite? = null,
     val errorMessage: String? = null,
-    /** The chat is secret, or holds a secret part, and secret chats are locked: only the PIN pad shows. */
+    /**
+     * Everything in the chat is secret and held back: it has messages and the hub withheld every
+     * one, or reading it answered 423 (a hub that reads secret chats whole). The screen shows the
+     * locked screen in their place, with no composer. A chat with anything ordinary in it is never
+     * locked: its secret parts fold into bands among the rest.
+     */
     val isLocked: Boolean = false,
     /** Where the chat was secret, in order; empty for a chat that never was. */
     val secretParts: List<SecretPart> = emptyList(),
