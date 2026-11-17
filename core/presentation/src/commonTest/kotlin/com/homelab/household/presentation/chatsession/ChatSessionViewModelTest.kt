@@ -692,7 +692,7 @@ class ChatSessionViewModelTest {
             everySuspend { getSessionUseCase("s-1") } returns
                 Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(secretQuestion))
 
-            viewModel.unlocked()
+            viewModel.unlocked(thenSend = false)
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
@@ -867,24 +867,91 @@ class ChatSessionViewModelTest {
             assertEquals(emptyList(), state.messages)
         }
 
+    /** A chat with Secret Mode on, open on its ordinary first message, whose next send the hub refuses as locked. */
+    private fun TestScope.openLockedUnderTheMember() {
+        everySuspend { getSessionUseCase("s-1") } returns
+            Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(question))
+        viewModel.loadSession("s-1")
+        advanceUntilIdle()
+        every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns flow { throw SecretLockedException() }
+    }
+
+    /** [openLockedUnderTheMember], with the send already refused. */
+    private fun TestScope.refusedAsLocked() {
+        openLockedUnderTheMember()
+        viewModel.sendMessage("Also lunch?")
+        advanceUntilIdle()
+        every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns
+            flowOf(ChatStreamEvent.Done(messageId = "m-3", assistantContent = "Soup."))
+    }
+
     @Test
-    fun `GIVEN a secret chat that locked while open WHEN a message is sent THEN it reads as locked and the words go back to the composer`() =
+    fun `GIVEN a chat with Secret Mode on that locked while open WHEN a message is sent THEN the words go back to the composer and the PIN pad is asked for`() =
         runTest(testDispatcher) {
-            everySuspend { getSessionUseCase("s-1") } returns
-                Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(question))
-            viewModel.loadSession("s-1")
-            advanceUntilIdle()
-            every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns flow { throw SecretLockedException() }
+            openLockedUnderTheMember()
 
             viewModel.sendMessage("Also lunch?")
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
-            assertTrue(state.isLocked)
+            assertFalse(state.isLocked)
+            assertTrue(state.askingForPinToSend)
             assertNull(state.errorMessage)
             assertEquals("Also lunch?", state.composerText)
             assertEquals(TurnState.Idle, state.turnState)
             assertEquals(listOf("m-1"), state.messages.map { it.id })
+        }
+
+    @Test
+    fun `GIVEN the PIN pad asked for to send WHEN the screen has opened it THEN it is not asked for again`() =
+        runTest(testDispatcher) {
+            refusedAsLocked()
+
+            viewModel.pinPadAsked()
+
+            assertFalse(viewModel.uiState.value.askingForPinToSend)
+        }
+
+    @Test
+    fun `GIVEN a send refused as locked WHEN the PIN opens secret chats to send THEN the chat is read again and the message sent once`() =
+        runTest(testDispatcher) {
+            refusedAsLocked()
+
+            viewModel.unlocked(thenSend = true)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals("", state.composerText)
+            assertEquals(listOf("Dinner Saturday?", "Also lunch?", "Soup."), state.messages.map { it.content })
+            verifySuspend(VerifyMode.exactly(2)) { getSessionUseCase("s-1") }
+            verify(VerifyMode.exactly(2)) { streamChatTurnUseCase("s-1", "Also lunch?", any()) }
+        }
+
+    @Test
+    fun `GIVEN a send refused as locked WHEN the PIN opens secret chats from a band THEN nothing is sent and the words stay`() =
+        runTest(testDispatcher) {
+            refusedAsLocked()
+
+            viewModel.unlocked(thenSend = false)
+            advanceUntilIdle()
+
+            assertEquals("Also lunch?", viewModel.uiState.value.composerText)
+            verify(VerifyMode.exactly(1)) { streamChatTurnUseCase("s-1", "Also lunch?", any()) }
+        }
+
+    @Test
+    fun `GIVEN a send refused as locked WHEN the PIN opens secret chats but the chat cannot be read THEN nothing is sent and the words stay with the error`() =
+        runTest(testDispatcher) {
+            refusedAsLocked()
+            everySuspend { getSessionUseCase("s-1") } throws ServerOfflineException()
+
+            viewModel.unlocked(thenSend = true)
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals("Also lunch?", state.composerText)
+            assertNotNull(state.errorMessage)
+            verify(VerifyMode.exactly(1)) { streamChatTurnUseCase("s-1", "Also lunch?", any()) }
         }
 
     @Test
@@ -1080,7 +1147,7 @@ class ChatSessionViewModelTest {
             everySuspend { getSessionUseCase("s-1") } returns
                 Pair(secretChat.copy(isSecret = false), listOf(question, secretQuestion, ordinaryAfter))
 
-            viewModel.unlocked()
+            viewModel.unlocked(thenSend = false)
             advanceUntilIdle()
 
             val state = viewModel.uiState.value

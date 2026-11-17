@@ -137,10 +137,25 @@ class ChatSessionViewModel(
         }
     }
 
-    /** The PIN opened secret chats: read this one again, a secret part open in place. */
-    fun unlocked() {
+    /** The screen opened the PIN pad a refused send asked for. */
+    fun pinPadAsked() {
+        _uiState.update { it.copy(askingForPinToSend = false) }
+    }
+
+    /**
+     * The PIN opened secret chats: read this one again, a secret part open in place.
+     *
+     * [thenSend]: the pad was opened by a send the hub refused as locked. Once the chat reads, the
+     * words still in the composer go, once. If it cannot be read, nothing goes: the words stay
+     * with the load error, and Send works again with the unlock the phone keeps.
+     */
+    fun unlocked(thenSend: Boolean) {
         val sessionId = _uiState.value.session?.id ?: openedSessionId ?: return
-        loadSession(sessionId)
+        viewModelScope.launch {
+            if (!readSession(sessionId) || !thenSend) return@launch
+            val words = _uiState.value.composerText
+            if (words.isNotBlank()) sendMessage(words)
+        }
     }
 
     /**
@@ -320,44 +335,50 @@ class ChatSessionViewModel(
         session.lookedOver?.at?.let { at -> localTime(at, deviceTimeZone.offsetSecondsAt(at)) }
 
     fun loadSession(sessionId: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-            try {
-                val (session, messages) = getSessionUseCase(sessionId)
-                // The agent is chrome, not the conversation: failing to name it must not stop the
-                // transcript being read.
-                val agent =
-                    runCatchingSafe { listAgentsUseCase() }
-                        .getOrNull()
-                        ?.firstOrNull { it.id == session.agentId }
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        session = session,
-                        lookedOverAt = lookedOverAt(session),
-                        messages = messages,
-                        agentName = agent?.name ?: session.agentName.orEmpty(),
-                        agentAvatar = agent?.avatar ?: session.agentAvatar.orEmpty(),
-                        agentTagline = agent?.description.orEmpty(),
-                        isLocked = allWithheld(messages),
-                        secretParts = secretParts(messages, secretNow = session.isSecret),
-                        // A card left waiting is still waiting: the chat reopens on it.
-                        turnState = if (session.awaitingApproval) TurnState.AwaitingApproval else it.turnState,
-                    )
-                }
-                pickUpUnansweredQuestion(session, messages)
-            } catch (e: SecretLockedException) {
-                // A hub that reads a secret chat whole refuses it all: everything in it is secret.
-                // Locked is a state of the chat, not a failure.
-                _uiState.update { it.copy(isLoading = false, isLocked = true, messages = emptyList()) }
-            } catch (e: Throwable) {
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        errorMessage = e.message ?: "Failed to load session",
-                    )
-                }
+        viewModelScope.launch { readSession(sessionId) }
+    }
+
+    /** Reads the chat from the hub onto the screen. False when it could not be read: the error says why. */
+    private suspend fun readSession(sessionId: String): Boolean {
+        _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+        try {
+            val (session, messages) = getSessionUseCase(sessionId)
+            // The agent is chrome, not the conversation: failing to name it must not stop the
+            // transcript being read.
+            val agent =
+                runCatchingSafe { listAgentsUseCase() }
+                    .getOrNull()
+                    ?.firstOrNull { it.id == session.agentId }
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    session = session,
+                    lookedOverAt = lookedOverAt(session),
+                    messages = messages,
+                    agentName = agent?.name ?: session.agentName.orEmpty(),
+                    agentAvatar = agent?.avatar ?: session.agentAvatar.orEmpty(),
+                    agentTagline = agent?.description.orEmpty(),
+                    isLocked = allWithheld(messages),
+                    secretParts = secretParts(messages, secretNow = session.isSecret),
+                    // A card left waiting is still waiting: the chat reopens on it.
+                    turnState = if (session.awaitingApproval) TurnState.AwaitingApproval else it.turnState,
+                )
             }
+            pickUpUnansweredQuestion(session, messages)
+            return true
+        } catch (e: SecretLockedException) {
+            // A hub that reads a secret chat whole refuses it all: everything in it is secret.
+            // Locked is a state of the chat, not a failure.
+            _uiState.update { it.copy(isLoading = false, isLocked = true, messages = emptyList()) }
+            return false
+        } catch (e: Throwable) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    errorMessage = e.message ?: "Failed to load session",
+                )
+            }
+            return false
         }
     }
 
@@ -819,7 +840,7 @@ class ChatSessionViewModel(
         }
     }
 
-    /** The chat locked under the member: what they wrote goes back to the composer, unsent. */
+    /** The chat locked under the member: what they wrote goes back to the composer, unsent, and the pad is asked for. */
     private fun holdLocked(userMessageId: String?) {
         _uiState.update { state ->
             val unsent = state.messages.firstOrNull { it.id == userMessageId }
@@ -829,7 +850,7 @@ class ChatSessionViewModel(
                 streamingMessage = null,
                 turnState = TurnState.Idle,
                 parts = emptyList(),
-                isLocked = true,
+                askingForPinToSend = true,
             )
         }
     }

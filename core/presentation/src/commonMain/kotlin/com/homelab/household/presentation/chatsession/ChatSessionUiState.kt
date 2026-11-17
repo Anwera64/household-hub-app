@@ -142,6 +142,11 @@ data class ChatSessionUiState(
     val isLocked: Boolean = false,
     /** Where the chat was secret, in order; empty for a chat that never was. */
     val secretParts: List<SecretPart> = emptyList(),
+    /**
+     * A send was refused because secret chats locked under the member: the words are back in the
+     * composer, and the screen opens the PIN pad once, then says so with `pinPadAsked`.
+     */
+    val askingForPinToSend: Boolean = false,
     /** The ON pill was tapped and the sheet asks before Secret Mode turns off. */
     val askingToTurnOffSecret: Boolean = false,
     /** A new chat's pill was turned on before anything was said: the hub creates it secret. */
