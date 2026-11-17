@@ -12,7 +12,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.ResultEffect
 import com.homelab.household.app.navigation.CalendarConnected
 import com.homelab.household.app.navigation.SecretChatsUnlocked
-import com.homelab.household.app.screens.secretunlock.SecretUnlockScreen
 import com.homelab.household.presentation.chatsession.ChatSessionViewModel
 import com.homelab.household.presentation.profile.ProfileViewModel
 import org.koin.compose.viewmodel.koinViewModel
@@ -26,6 +25,11 @@ import org.koin.compose.viewmodel.koinViewModel
  *
  * Coming back to the app — unlocking the phone, most often — asks for the rest of any answer that
  * was left waiting, so it carries on from the last word rather than waiting out a retry.
+ *
+ * Locked, a chat with everything in it secret shows the locked screen; one with anything ordinary
+ * shows that, each secret part folded into a band. The PIN pad is never drawn here: Unlock, or a
+ * send the hub refused as locked, asks [onUnlockSecretChats] for the secret chats pad over the chat,
+ * with `thenSend` for the send.
  */
 @Composable
 fun ConversationScreen(
@@ -46,16 +50,33 @@ fun ConversationScreen(
     LaunchedEffect(viewModel) { viewModel.onShown() }
     // Back from connecting a calendar from a fix card: the hub has marked those steps fixed.
     ResultEffect<CalendarConnected> { viewModel.refresh() }
-    // Back from the secret chats PIN pad, opened from a locked secret part: it opens in place.
+    // Back from the secret chats PIN pad with the right PIN: the chat opens in place, and a send
+    // the hub refused as locked goes.
     ResultEffect<SecretChatsUnlocked> { viewModel.unlocked(it.thenSend) }
+    // A send refused as locked: the words are back in the box, and the pad opens once.
+    LaunchedEffect(state.askingForPinToSend) {
+        if (state.askingForPinToSend) {
+            onUnlockSecretChats(true)
+            viewModel.pinPadAsked()
+        }
+    }
     LifecycleResumeEffect(viewModel) {
         viewModel.onForeground()
         onPauseOrDispose {}
     }
 
-    // Locked is its own screen, never the new-chat one: nothing to type into until the PIN opens it.
+    // All secret and locked: its own screen, never the new-chat one, with nothing to type into.
     if (state.isLocked) {
-        SecretUnlockScreen(onUnlock = { viewModel.unlocked(thenSend = false) }, onBack = onBack, modifier = modifier)
+        LockedChatContent(
+            state = state,
+            onUnlock = { onUnlockSecretChats(false) },
+            onBack = onBack,
+            onTurnOnSecret = { viewModel.toggleSecret(true) },
+            onTurnOffSecret = viewModel::secretPillTapped,
+            onKeepSecret = viewModel::keepSecret,
+            onConfirmSecretOff = viewModel::turnOffSecret,
+            modifier = modifier,
+        )
         return
     }
 

@@ -269,25 +269,14 @@ fun ConversationContent(
     HearthScaffold(
         modifier = modifier,
         header = {
-            HearthTopBar(
+            // A new chat can start secret too: the hub creates it so with the first message.
+            ConversationTopBar(
+                state = state,
+                secret = secret,
                 onBack = onBack,
-                backDescription = stringResource(Res.string.conversation_back),
-                actions = {
-                    // A new chat can start secret too: the hub creates it so with the first message.
-                    SecretPill(on = secret, onTurnOn = onTurnOnSecret, onTurnOff = onTurnOffSecret)
-                },
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(HearthTheme.spacing.sm),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (state.agentAvatar.isNotEmpty()) {
-                        Text(text = state.agentAvatar, style = type.glyphSm)
-                    }
-                    // No chevron: a conversation is bound to one agent, so there is nothing to open.
-                    Text(text = state.agentName, style = type.heading, color = colors.textPrimary)
-                }
-            }
+                onTurnOnSecret = onTurnOnSecret,
+                onTurnOffSecret = onTurnOffSecret,
+            )
         },
         bottomBar = {
             Column {
@@ -818,6 +807,38 @@ private fun TurnStatus(
 
         TurnState.Idle, TurnState.Streaming, TurnState.AwaitingApproval -> {
             Unit
+        }
+    }
+}
+
+/**
+ * The chat's own top bar: back, who is answering, and the Secret Mode pill. The locked screen
+ * wears it too, so Secret Mode can be turned off while the chat is locked.
+ */
+@Composable
+internal fun ConversationTopBar(
+    state: ChatSessionUiState,
+    secret: Boolean,
+    onBack: () -> Unit,
+    onTurnOnSecret: () -> Unit,
+    onTurnOffSecret: () -> Unit,
+) {
+    val colors = HearthTheme.colors
+    val type = HearthTheme.typography
+    HearthTopBar(
+        onBack = onBack,
+        backDescription = stringResource(Res.string.conversation_back),
+        actions = { SecretPill(on = secret, onTurnOn = onTurnOnSecret, onTurnOff = onTurnOffSecret) },
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(HearthTheme.spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (state.agentAvatar.isNotEmpty()) {
+                Text(text = state.agentAvatar, style = type.glyphSm)
+            }
+            // No chevron: a conversation is bound to one agent, so there is nothing to open.
+            Text(text = state.agentName, style = type.heading, color = colors.textPrimary)
         }
     }
 }
