@@ -50,6 +50,8 @@ import com.homelab.household.app.resources.changes_stored
 import com.homelab.household.app.resources.changes_title
 import com.homelab.household.app.resources.memories_back
 import com.homelab.household.app.resources.memories_band_line
+import com.homelab.household.app.resources.memories_band_line_both
+import com.homelab.household.app.resources.memories_band_line_held
 import com.homelab.household.app.resources.memories_empty_line
 import com.homelab.household.app.resources.memories_empty_title
 import com.homelab.household.app.resources.memories_failed_line
@@ -81,6 +83,7 @@ import com.homelab.household.app.resources.memories_withdraw
 import com.homelab.household.app.resources.memories_withdrawn
 import com.homelab.household.app.resources.memories_you
 import com.homelab.household.app.resources.memories_you_asked
+import com.homelab.household.app.resources.to_check_all
 import com.homelab.household.app.screens.changes.SentenceBox
 import com.homelab.household.app.theme.HearthShapes
 import com.homelab.household.app.theme.HearthTheme
@@ -139,8 +142,8 @@ fun MemoriesContent(
                 Text(stringResource(Res.string.memories_intro), style = type.body, color = colors.textMuted)
             }
 
-            if (ready && state.toCheck > 0) {
-                ChangesBand(count = state.toCheck, onClick = onChangesToCheck)
+            if (ready && state.showsBand) {
+                ChangesBand(toCheck = state.toCheck, held = state.held, onClick = onChangesToCheck)
             }
 
             MemoryTabs(
@@ -227,14 +230,19 @@ fun MemoriesContent(
     }
 }
 
-/** "2 changes to check" at the top of the page (board MemList); a tap opens Changes to check. */
+/**
+ * "2 changes to check" at the top of the page (board MemList), or "2 to check" once facts not saved
+ * yet are among them (board MemHeldBand); a tap opens Changes to check.
+ */
 @Composable
 private fun ChangesBand(
-    count: Int,
+    toCheck: Int,
+    held: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = HearthTheme.colors
+    val count = toCheck + held
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -248,12 +256,22 @@ private fun ChangesBand(
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.xxs)) {
             Text(
-                pluralStringResource(Res.plurals.changes_title, count, count),
+                pluralStringResource(
+                    if (held > 0) Res.plurals.to_check_all else Res.plurals.changes_title,
+                    count,
+                    count,
+                ),
                 style = HearthTheme.typography.bodyStrong,
                 color = colors.onSecondaryContainer,
             )
             Text(
-                stringResource(Res.string.memories_band_line),
+                stringResource(
+                    when {
+                        held == 0 -> Res.string.memories_band_line
+                        toCheck == 0 -> Res.string.memories_band_line_held
+                        else -> Res.string.memories_band_line_both
+                    },
+                ),
                 style = HearthTheme.typography.caption,
                 color = colors.onSecondaryContainer,
             )

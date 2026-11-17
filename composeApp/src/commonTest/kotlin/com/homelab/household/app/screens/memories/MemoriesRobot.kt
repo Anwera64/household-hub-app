@@ -15,6 +15,8 @@ import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.changes_stored
 import com.homelab.household.app.resources.changes_title
 import com.homelab.household.app.resources.memories_band_line
+import com.homelab.household.app.resources.memories_band_line_both
+import com.homelab.household.app.resources.memories_band_line_held
 import com.homelab.household.app.resources.memories_empty_title
 import com.homelab.household.app.resources.memories_household_note
 import com.homelab.household.app.resources.memories_moved_theirs
@@ -36,6 +38,7 @@ import com.homelab.household.app.resources.memories_withdraw
 import com.homelab.household.app.resources.memories_withdrawn
 import com.homelab.household.app.resources.memories_you_asked
 import com.homelab.household.app.resources.tool_card_month_oct
+import com.homelab.household.app.resources.to_check_all
 import com.homelab.household.app.testing.FakeMembersHub
 import com.homelab.household.app.testing.StillTheme
 import com.homelab.household.app.testing.TestApp
@@ -63,6 +66,17 @@ class MemoriesRobot(
     suspend fun seesTheBand(count: Int) {
         seesText(getPluralString(Res.plurals.changes_title, count, count))
         seesText(getString(Res.string.memories_band_line))
+    }
+
+    /** "2 to check": changes and facts not saved yet, in one band. */
+    suspend fun seesTheBandForChangesAndFacts(count: Int) {
+        seesText(getPluralString(Res.plurals.to_check_all, count, count))
+        seesText(getString(Res.string.memories_band_line_both))
+    }
+
+    suspend fun seesTheBandForFactsOnly(count: Int) {
+        seesText(getPluralString(Res.plurals.to_check_all, count, count))
+        seesText(getString(Res.string.memories_band_line_held))
     }
 
     suspend fun seesNoBand() =

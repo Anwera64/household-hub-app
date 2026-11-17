@@ -896,6 +896,20 @@ class ConversationUiStateProvider : PreviewParameterProvider<ChatSessionUiState>
                             said("m-3", "And what about Friday?", MessageRole.USER),
                         ),
                 ),
+            // Canvas: MemHeldSheet. One change and one fact not saved yet: the chip counts both.
+            "Looked over, one held" to
+                agent.copy(
+                    session = session.copy(lookedOver = lookedOver.copy(held = 1)),
+                    lookedOverAt = LocalTime(hour = 10, minute = 52),
+                    messages = listOf(question, said("m-2", "The panel review is tomorrow at 14:30.", MessageRole.ASSISTANT)),
+                ),
+            // A look-over that only held a fact: not "nothing new", and the line opens the sheet.
+            "Looked over, only held" to
+                agent.copy(
+                    session = session.copy(lookedOver = lookedOver.copy(remembered = 0, toCheck = 0, held = 1)),
+                    lookedOverAt = LocalTime(hour = 10, minute = 52),
+                    messages = listOf(question, said("m-2", "The panel review is tomorrow at 14:30.", MessageRole.ASSISTANT)),
+                ),
             // Canvas: MemChatLineNothing. Looked over, and nothing was worth keeping.
             "Looked over, nothing new" to
                 agent.copy(

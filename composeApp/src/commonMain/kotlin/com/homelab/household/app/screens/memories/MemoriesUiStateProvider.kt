@@ -98,6 +98,10 @@ class MemoriesUiStateProvider : PreviewParameterProvider<MemoriesUiState> {
             "Household" to ready.copy(tab = MemoryTab.Household),
             "One removed, with Undo" to
                 ready.copy(yours = yours.mapIndexed { i, it -> if (i == 1) it.copy(removed = true) else it }),
+            "Changes to check" to ready.copy(toCheck = 2),
+            // Canvas: MemHeldBand. One band counts changes and facts not saved yet.
+            "Changes and a fact not saved yet" to ready.copy(toCheck = 1, held = 1),
+            "Only a fact not saved yet" to ready.copy(held = 1),
             "A removal that didn't reach the hub" to ready.copy(failure = MemoryActionFailure.RemoveUnreachable),
             "Arriving" to MemoriesUiState(status = MemoriesStatus.Loading),
             "Can't reach the hub" to MemoriesUiState(status = MemoriesStatus.Unreachable),
