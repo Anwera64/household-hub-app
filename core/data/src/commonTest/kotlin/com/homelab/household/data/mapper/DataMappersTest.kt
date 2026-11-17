@@ -434,6 +434,27 @@ class DataMappersTest {
     }
 
     @Test
+    fun `GIVEN a write refused in a private turn of an ordinary chat WHEN mapped THEN the part says it came from a private message`() {
+        val parts =
+            AnswerPartDataMapper.fromJson(
+                Json.parseToJsonElement(
+                    """[{"type": "tool", "tool": "calendar_write", "success": false,
+                        "summary": {"action": "create", "reason": "private"}}]""",
+                ),
+            )
+
+        assertEquals(
+            listOf(
+                AnswerPart.ToolFailed(
+                    "calendar_write",
+                    ToolSummary(action = ToolAction.Create, reason = ToolFailureReason.Private),
+                ),
+            ),
+            parts,
+        )
+    }
+
+    @Test
     fun `GIVEN a reason this phone does not know WHEN mapped THEN it is unknown`() {
         val parts =
             partsOf(

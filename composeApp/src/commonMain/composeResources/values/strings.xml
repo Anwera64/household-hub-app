@@ -629,6 +629,7 @@
     <string name="tool_reason_not_found">it couldn’t be found</string>
     <string name="tool_reason_event_not_found">that event isn’t in your calendar</string>
     <string name="tool_reason_secret_mode">locked in Secret Mode</string>
+    <string name="tool_reason_private">from a private message</string>
     <string name="tool_results_show">Show results</string>
     <string name="tool_results_hide">Hide results</string>
     <string name="tool_pdf_running">Reading the document…</string>

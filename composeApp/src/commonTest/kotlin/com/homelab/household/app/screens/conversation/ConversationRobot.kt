@@ -167,6 +167,7 @@ import com.homelab.household.app.resources.tool_read_page_done
 import com.homelab.household.app.resources.tool_read_page_done_named
 import com.homelab.household.app.resources.tool_read_page_failed_named
 import com.homelab.household.app.resources.tool_reason_blocked
+import com.homelab.household.app.resources.tool_reason_private
 import com.homelab.household.app.resources.tool_reason_secret_mode
 import com.homelab.household.app.resources.tool_remember_automatic_ask
 import com.homelab.household.app.resources.tool_remember_card
@@ -1186,6 +1187,15 @@ class ConversationRobot(
                 Res.string.tool_step_named,
                 getString(Res.string.tool_calendar_add_failed),
                 getString(Res.string.tool_reason_secret_mode),
+            ),
+        )
+
+    suspend fun seesItCouldNotAddBecauseItCameFromAPrivateMessage() =
+        seesText(
+            getString(
+                Res.string.tool_step_named,
+                getString(Res.string.tool_calendar_add_failed),
+                getString(Res.string.tool_reason_private),
             ),
         )
 

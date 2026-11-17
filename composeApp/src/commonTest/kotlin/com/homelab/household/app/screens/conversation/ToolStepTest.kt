@@ -17,6 +17,7 @@ import com.homelab.household.app.resources.tool_note_replace_done
 import com.homelab.household.app.resources.tool_reason_blocked
 import com.homelab.household.app.resources.tool_reason_event_not_found
 import com.homelab.household.app.resources.tool_reason_not_found
+import com.homelab.household.app.resources.tool_reason_private
 import com.homelab.household.app.resources.tool_reason_search_unavailable
 import com.homelab.household.app.resources.tool_reason_secret_mode
 import com.homelab.household.app.resources.tool_reason_site_unavailable
@@ -222,6 +223,40 @@ class ToolStepTest {
                 )
 
             assertEquals(StepWords.Failed(failed, Res.string.tool_reason_secret_mode), step.words, "$tool $action")
+        }
+    }
+
+    @Test
+    fun `GIVEN an add refused because it came from a private message WHEN described THEN it says it couldn't add it because of the private message`() {
+        val private = ToolSummary(action = ToolAction.Create, reason = ToolFailureReason.Private)
+
+        val step = toolStep(AnswerPart.ToolFailed("calendar_write", private))
+
+        assertEquals(
+            StepWords.Failed(Res.string.tool_calendar_add_failed, Res.string.tool_reason_private),
+            step.words,
+        )
+        assertTrue(step.failed)
+    }
+
+    @Test
+    fun `GIVEN every write refused in a private turn WHEN described THEN each says its own failure and that it came from a private message`() {
+        val writes =
+            listOf(
+                Triple("calendar_write", ToolAction.Update, Res.string.tool_calendar_change_failed),
+                Triple("calendar_write", ToolAction.Delete, Res.string.tool_calendar_remove_failed),
+                Triple("document_writer", ToolAction.Create, Res.string.tool_note_create_failed),
+                Triple("remember", ToolAction.Create, Res.string.tool_remember_failed),
+                Triple("forget", ToolAction.Delete, Res.string.tool_forget_failed),
+            )
+
+        writes.forEach { (tool, action, failed) ->
+            val step =
+                toolStep(
+                    AnswerPart.ToolFailed(tool, ToolSummary(action = action, reason = ToolFailureReason.Private)),
+                )
+
+            assertEquals(StepWords.Failed(failed, Res.string.tool_reason_private), step.words, "$tool $action")
         }
     }
 
