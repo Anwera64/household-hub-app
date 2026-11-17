@@ -90,7 +90,7 @@ class SecretChatRobot(
     /** The PIN typed on the secret chats pad, which then tells the chat it opened them. */
     suspend fun opensSecretChatsOnThePad() {
         KoinPlatform.getKoin().get<UnlockSecretChatsUseCase>()(FakeSecretChatHub.RIGHT_PIN)
-        test.runOnUiThread { navigation.results.sendResult(result = SecretChatsUnlocked) }
+        test.runOnUiThread { navigation.results.sendResult(result = SecretChatsUnlocked(thenSend = false)) }
         test.waitForIdle()
     }
 

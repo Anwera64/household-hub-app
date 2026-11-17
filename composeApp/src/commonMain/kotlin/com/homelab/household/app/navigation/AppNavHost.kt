@@ -133,17 +133,18 @@ fun AppNavHost(
                         onProfile = { backStack.add(Destination.Profile) },
                         onOpen = { sessionId -> backStack.add(Destination.Conversation(sessionId)) },
                         onNewChat = { backStack.add(Destination.Conversation()) },
-                        onUnlockSecretChats = { backStack.add(Destination.SecretChatsUnlock) },
+                        onUnlockSecretChats = { backStack.add(Destination.SecretChatsUnlock()) },
                         tabs = { backStack.Tabs(NavTab.Chats) },
                     )
                 }
-                // Back to where it was opened either way. The list reloads on arriving, with the titles
-                // if unlocked; a chat hears the unlock and reads itself again, its secret part open.
-                entry<Destination.SecretChatsUnlock> {
+                // Back to where it was opened either way, and off the stack, its ViewModel with it. The
+                // list reloads on arriving, with the titles if unlocked; a chat hears the unlock and
+                // reads itself again, its secret parts open, and sends what was refused if it was for that.
+                entry<Destination.SecretChatsUnlock> { destination ->
                     val results = LocalResultEventBus.current
                     screens.SecretChatsUnlock(
                         onUnlock = {
-                            results.sendResult(result = SecretChatsUnlocked)
+                            results.sendResult(result = SecretChatsUnlocked(destination.thenSend))
                             backStack.removeLastOrNull()
                         },
                         onBack = { backStack.removeLastOrNull() },
@@ -163,8 +164,9 @@ fun AppNavHost(
                         onConnectCalendar = { backStack.add(Destination.CalendarPicker) },
                         // "All memories" at the foot of the chat's look-over sheet.
                         onAllMemories = { backStack.add(Destination.Memories) },
-                        // Unlock on a locked secret part: the same pad as the bar over Chats.
-                        onUnlockSecretChats = { backStack.add(Destination.SecretChatsUnlock) },
+                        // Unlock on the locked screen or a band, or a send refused as locked: the same
+                        // pad as the bar over Chats, over the chat.
+                        onUnlockSecretChats = { thenSend -> backStack.add(Destination.SecretChatsUnlock(thenSend)) },
                     )
                 }
                 entry<Destination.Profile> {

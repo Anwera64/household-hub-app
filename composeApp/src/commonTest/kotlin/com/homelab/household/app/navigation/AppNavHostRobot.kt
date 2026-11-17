@@ -104,6 +104,8 @@ class AppNavHostRobot(
 
     fun tapsBackFromThePin() = tapsText(StubScreens.BACK_FROM_PIN)
 
+    fun tapsSendWhileLocked() = tapsText(StubScreens.SEND_WHILE_LOCKED)
+
     fun tapsSignedIn() = tapsText(StubScreens.SIGNED_IN)
 
     fun tapsHaveAnInvite() = tapsText(StubScreens.HAVE_AN_INVITE)

@@ -34,7 +34,7 @@ fun ConversationScreen(
     modifier: Modifier = Modifier,
     onConnectCalendar: () -> Unit = {},
     onAllMemories: () -> Unit = {},
-    onUnlockSecretChats: () -> Unit = {},
+    onUnlockSecretChats: (thenSend: Boolean) -> Unit = {},
 ) {
     val viewModel: ChatSessionViewModel = koinViewModel()
     val profileViewModel: ProfileViewModel = koinViewModel()
@@ -47,7 +47,7 @@ fun ConversationScreen(
     // Back from connecting a calendar from a fix card: the hub has marked those steps fixed.
     ResultEffect<CalendarConnected> { viewModel.refresh() }
     // Back from the secret chats PIN pad, opened from a locked secret part: it opens in place.
-    ResultEffect<SecretChatsUnlocked> { viewModel.unlocked() }
+    ResultEffect<SecretChatsUnlocked> { viewModel.unlocked(it.thenSend) }
     LifecycleResumeEffect(viewModel) {
         viewModel.onForeground()
         onPauseOrDispose {}
@@ -55,7 +55,7 @@ fun ConversationScreen(
 
     // Locked is its own screen, never the new-chat one: nothing to type into until the PIN opens it.
     if (state.isLocked) {
-        SecretUnlockScreen(onUnlock = viewModel::unlocked, onBack = onBack, modifier = modifier)
+        SecretUnlockScreen(onUnlock = { viewModel.unlocked(thenSend = false) }, onBack = onBack, modifier = modifier)
         return
     }
 
@@ -97,7 +97,7 @@ fun ConversationScreen(
         onTurnOffSecret = viewModel::secretPillTapped,
         onKeepSecret = viewModel::keepSecret,
         onConfirmSecretOff = viewModel::turnOffSecret,
-        onUnlockSecretPart = onUnlockSecretChats,
+        onUnlockSecretPart = { onUnlockSecretChats(false) },
         memoryAge = viewModel::memoryAge,
         eventTime = viewModel::eventTime,
         modifier = modifier,
