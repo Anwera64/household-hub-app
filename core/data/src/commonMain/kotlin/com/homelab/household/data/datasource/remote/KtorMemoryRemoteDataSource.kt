@@ -3,18 +3,21 @@ package com.homelab.household.data.datasource.remote
 import com.homelab.household.data.datasource.remote.`interface`.MemoryRemoteDataSource
 import com.homelab.household.data.dto.ChangeAnswerDto
 import com.homelab.household.data.dto.ChangesToCheckDto
+import com.homelab.household.data.dto.HeldFactAnswerDto
 import com.homelab.household.data.dto.LookedOverDto
 import com.homelab.household.data.dto.MemoryPageDto
 import com.homelab.household.data.network.ensureJsonSuccess
 import com.homelab.household.data.network.pinRefusal
 import com.homelab.household.data.network.reachingHub
 import com.homelab.household.domain.exception.ChangeWithdrawnException
+import com.homelab.household.domain.exception.HeldFactGoneException
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -80,6 +83,30 @@ class KtorMemoryRemoteDataSource(
         reachingHub {
             client.post("$baseUrl/api/v1/memories/proposals/$changeId/restore").ensureJsonSuccess()
         }
+
+    override suspend fun answerHeldFact(
+        heldId: String,
+        answer: String,
+    ): Unit =
+        reachingHub {
+            client
+                .post("$baseUrl/api/v1/memories/held/$heldId/answer") {
+                    contentType(ContentType.Application.Json)
+                    setBody(HeldFactAnswerDto(answer = answer))
+                }.ensureHeldFactOpen()
+                .ensureJsonSuccess()
+        }
+
+    override suspend fun undoHeldFactAnswer(heldId: String): Unit =
+        reachingHub {
+            client.post("$baseUrl/api/v1/memories/held/$heldId/undo").ensureHeldFactOpen().ensureJsonSuccess()
+        }
+
+    /** 404 (expired, someone else's) or 409 (answered, or opened again, elsewhere): the fact is gone from here. */
+    private fun HttpResponse.ensureHeldFactOpen(): HttpResponse {
+        if (status == HttpStatusCode.NotFound || status == HttpStatusCode.Conflict) throw HeldFactGoneException()
+        return this
+    }
 
     private companion object {
         const val CHANGE_WITHDRAWN = "change_withdrawn"

@@ -1,6 +1,7 @@
 package com.homelab.household.domain.usecase
 
 import com.homelab.household.domain.model.ChangesToCheck
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.LookedOver
 import com.homelab.household.domain.model.MemoryItem
 import com.homelab.household.domain.model.MemoryOrigin
@@ -9,6 +10,7 @@ import com.homelab.household.domain.model.MemoryScope
 import com.homelab.household.domain.model.ProposalAnswer
 import com.homelab.household.domain.repository.MemoryRepository
 import com.homelab.household.domain.usecase.impl.AnswerChangeUseCaseImpl
+import com.homelab.household.domain.usecase.impl.AnswerHeldFactUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetChangesToCheckUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetLookedOverUseCaseImpl
 import com.homelab.household.domain.usecase.impl.GetMemoryPageUseCaseImpl
@@ -16,6 +18,7 @@ import com.homelab.household.domain.usecase.impl.RemoveMemoryUseCaseImpl
 import com.homelab.household.domain.usecase.impl.RestoreChangeUseCaseImpl
 import com.homelab.household.domain.usecase.impl.RestoreMemoryUseCaseImpl
 import com.homelab.household.domain.usecase.impl.UndoChangeAnswerUseCaseImpl
+import com.homelab.household.domain.usecase.impl.UndoHeldFactAnswerUseCaseImpl
 import com.homelab.household.domain.usecase.impl.WithdrawChangeUseCaseImpl
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -126,5 +129,25 @@ class MemoryUseCasesTest {
 
             verifySuspend(VerifyMode.exactly(1)) { repository.withdrawChange("p-1") }
             verifySuspend(VerifyMode.exactly(1)) { repository.restoreChange("p-1") }
+        }
+
+    @Test
+    fun `GIVEN a fact not saved yet WHEN Don't save is tapped THEN the repository is asked to answer it`() =
+        runTest {
+            everySuspend { repository.answerHeldFact("held-1", HeldFactAnswer.DontSave) } returns Unit
+
+            AnswerHeldFactUseCaseImpl(repository)("held-1", HeldFactAnswer.DontSave)
+
+            verifySuspend(VerifyMode.exactly(1)) { repository.answerHeldFact("held-1", HeldFactAnswer.DontSave) }
+        }
+
+    @Test
+    fun `GIVEN an answered fact WHEN Undo is tapped THEN the repository is asked to open it again`() =
+        runTest {
+            everySuspend { repository.undoHeldFactAnswer("held-1") } returns Unit
+
+            UndoHeldFactAnswerUseCaseImpl(repository)("held-1")
+
+            verifySuspend(VerifyMode.exactly(1)) { repository.undoHeldFactAnswer("held-1") }
         }
 }

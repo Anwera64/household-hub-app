@@ -1,6 +1,7 @@
 package com.homelab.household.domain.repository
 
 import com.homelab.household.domain.model.ChangesToCheck
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.LookedOver
 import com.homelab.household.domain.model.MemoryPage
 import com.homelab.household.domain.model.ProposalAnswer
@@ -31,4 +32,13 @@ interface MemoryRepository {
     suspend fun withdrawChange(changeId: String)
 
     suspend fun restoreChange(changeId: String)
+
+    /** Save or Don't save on a fact not saved yet; `HeldFactGoneException` when it is no longer open. */
+    suspend fun answerHeldFact(
+        heldId: String,
+        answer: HeldFactAnswer,
+    )
+
+    /** Undo after answering a fact: it waits for an answer again. */
+    suspend fun undoHeldFactAnswer(heldId: String)
 }

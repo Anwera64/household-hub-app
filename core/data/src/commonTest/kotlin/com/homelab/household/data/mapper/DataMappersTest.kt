@@ -1,14 +1,21 @@
 package com.homelab.household.data.mapper
 
 import com.homelab.household.data.dto.AgentReadDto
+import com.homelab.household.data.dto.ChangeSourceDto
+import com.homelab.household.data.dto.ChangesToCheckDto
 import com.homelab.household.data.dto.ChatMessageReadDto
+import com.homelab.household.data.dto.HeldFactDto
+import com.homelab.household.data.dto.LookedOverDto
+import com.homelab.household.data.dto.LookedOverSummaryDto
 import com.homelab.household.data.dto.MemberProfileDto
+import com.homelab.household.data.dto.MemoryPageDto
 import com.homelab.household.data.dto.MemoryPageItemDto
 import com.homelab.household.data.dto.SessionReadDto
 import com.homelab.household.data.dto.SpaceReadDto
 import com.homelab.household.data.dto.UserReadDto
 import com.homelab.household.domain.model.AnswerPart
 import com.homelab.household.domain.model.EventTime
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.Member
 import com.homelab.household.domain.model.MemoryOrigin
 import com.homelab.household.domain.model.MemoryScope
@@ -650,5 +657,77 @@ class DataMappersTest {
 
         assertEquals(null, memory.eventTime)
         assertEquals(null, memory.movedFrom)
+    }
+
+    private fun heldFact(expiresAt: String? = "2026-11-23T10:00:00+00:00") =
+        HeldFactDto(
+            id = "held-1",
+            content = "Sam has a dentist appointment on Monday at 09:00.",
+            scope = "household",
+            agent_name = "Planner",
+            created_at = "2026-11-17T10:42:00",
+            expires_at = expiresAt,
+            source = ChangeSourceDto(title = "Weekend plans", owner_name = "Emma", read_at = "2026-11-17T10:40:00"),
+        )
+
+    @Test
+    fun `GIVEN a fact held back for privacy WHEN it is mapped THEN its scope and times and agent and chat come across`() {
+        val fact = MemoryDataMapper.toDomain(heldFact())
+
+        assertEquals("held-1", fact.id)
+        assertEquals("Sam has a dentist appointment on Monday at 09:00.", fact.content)
+        assertEquals(MemoryScope.HOUSEHOLD, fact.scope)
+        assertEquals("Planner", fact.agentName)
+        assertEquals(Instant.parse("2026-11-17T10:42:00Z"), fact.createdAt)
+        assertEquals(Instant.parse("2026-11-23T10:00:00Z"), fact.expiresAt)
+        assertEquals("Weekend plans", fact.sourceTitle)
+        assertEquals("Emma", fact.sourceOwnerName)
+        assertEquals(Instant.parse("2026-11-17T10:40:00Z"), fact.readAt)
+    }
+
+    @Test
+    fun `GIVEN a held fact with no end date WHEN it is mapped THEN it has no expiry`() {
+        assertEquals(null, MemoryDataMapper.toDomain(heldFact(expiresAt = null)).expiresAt)
+    }
+
+    @Test
+    fun `GIVEN a hub that sends no held facts WHEN its answers are read THEN each holds none`() {
+        val json = Json { ignoreUnknownKeys = true }
+
+        val changes = json.decodeFromString<ChangesToCheckDto>("""{"to_check": [], "waiting": []}""")
+        val sheet = json.decodeFromString<LookedOverDto>("""{"at": "2026-11-17T10:52:00Z"}""")
+        val page = json.decodeFromString<MemoryPageDto>("""{"yours": [], "household": []}""")
+        val line = json.decodeFromString<LookedOverSummaryDto>("""{"at": "2026-11-17T10:52:00Z"}""")
+
+        assertEquals(emptyList(), MemoryDataMapper.toDomain(changes).held)
+        assertEquals(emptyList(), MemoryDataMapper.toDomain(sheet).held)
+        assertEquals(0, MemoryDataMapper.toDomain(page).held)
+        assertEquals(0, MemoryDataMapper.toDomain(line).held)
+    }
+
+    @Test
+    fun `GIVEN held facts in each answer WHEN they are mapped THEN each carries them`() {
+        val changes = MemoryDataMapper.toDomain(ChangesToCheckDto(held = listOf(heldFact())))
+        val sheet = MemoryDataMapper.toDomain(LookedOverDto(at = "2026-11-17T10:52:00Z", held = listOf(heldFact())))
+        val page = MemoryDataMapper.toDomain(MemoryPageDto(held = 2))
+
+        assertEquals(listOf("held-1"), changes.held.map { it.id })
+        assertEquals(listOf("held-1"), sheet.held.map { it.id })
+        assertEquals(2, page.held)
+    }
+
+    @Test
+    fun `GIVEN a look-over that only held a fact WHEN its line is mapped THEN it is not nothing new and has one to answer`() {
+        val line =
+            MemoryDataMapper.toDomain(LookedOverSummaryDto(at = "2026-11-17T10:52:00Z", held = 1))
+
+        assertEquals(false, line.isNothingNew)
+        assertEquals(1, line.toAnswer)
+    }
+
+    @Test
+    fun `GIVEN each answer to a held fact WHEN it is sent THEN it uses the hub's words`() {
+        assertEquals("save", HeldFactAnswer.Save.toWire())
+        assertEquals("dont_save", HeldFactAnswer.DontSave.toWire())
     }
 }

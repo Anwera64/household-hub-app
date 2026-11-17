@@ -7,6 +7,7 @@ import com.homelab.household.domain.repository.SecretUnlockRepository
 import com.homelab.household.domain.secret.AppSwitcherPrivacy
 import com.homelab.household.domain.secret.SecretLockController
 import com.homelab.household.domain.usecase.AnswerChangeUseCase
+import com.homelab.household.domain.usecase.AnswerHeldFactUseCase
 import com.homelab.household.domain.usecase.ApprovePinResetUseCase
 import com.homelab.household.domain.usecase.ArchiveSessionUseCase
 import com.homelab.household.domain.usecase.AsksBeforeSecretOffUseCase
@@ -67,11 +68,13 @@ import com.homelab.household.domain.usecase.StopAskingBeforeSecretOffUseCase
 import com.homelab.household.domain.usecase.StreamChatTurnUseCase
 import com.homelab.household.domain.usecase.ToggleSecretModeUseCase
 import com.homelab.household.domain.usecase.UndoChangeAnswerUseCase
+import com.homelab.household.domain.usecase.UndoHeldFactAnswerUseCase
 import com.homelab.household.domain.usecase.UnlockSecretChatsUseCase
 import com.homelab.household.domain.usecase.UpdateAgentUseCase
 import com.homelab.household.domain.usecase.UpdateSpaceSettingsUseCase
 import com.homelab.household.domain.usecase.WithdrawChangeUseCase
 import com.homelab.household.domain.usecase.impl.AnswerChangeUseCaseImpl
+import com.homelab.household.domain.usecase.impl.AnswerHeldFactUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ApprovePinResetUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ArchiveSessionUseCaseImpl
 import com.homelab.household.domain.usecase.impl.AsksBeforeSecretOffUseCaseImpl
@@ -132,6 +135,7 @@ import com.homelab.household.domain.usecase.impl.StopAskingBeforeSecretOffUseCas
 import com.homelab.household.domain.usecase.impl.StreamChatTurnUseCaseImpl
 import com.homelab.household.domain.usecase.impl.ToggleSecretModeUseCaseImpl
 import com.homelab.household.domain.usecase.impl.UndoChangeAnswerUseCaseImpl
+import com.homelab.household.domain.usecase.impl.UndoHeldFactAnswerUseCaseImpl
 import com.homelab.household.domain.usecase.impl.UnlockSecretChatsUseCaseImpl
 import com.homelab.household.domain.usecase.impl.UpdateAgentUseCaseImpl
 import com.homelab.household.domain.usecase.impl.UpdateSpaceSettingsUseCaseImpl
@@ -232,6 +236,8 @@ val domainModule =
         factory<GetChangesToCheckUseCase> { GetChangesToCheckUseCaseImpl(get()) }
         factory<AnswerChangeUseCase> { AnswerChangeUseCaseImpl(get()) }
         factory<UndoChangeAnswerUseCase> { UndoChangeAnswerUseCaseImpl(get()) }
+        factory<AnswerHeldFactUseCase> { AnswerHeldFactUseCaseImpl(get()) }
+        factory<UndoHeldFactAnswerUseCase> { UndoHeldFactAnswerUseCaseImpl(get()) }
         factory<GetLookedOverUseCase> { GetLookedOverUseCaseImpl(get()) }
 
         // Space & Agent use cases

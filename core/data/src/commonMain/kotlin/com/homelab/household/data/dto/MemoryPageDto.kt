@@ -10,6 +10,7 @@ data class MemoryPageDto(
     val household: List<MemoryPageItemDto> = emptyList(),
     @SerialName("to_check") val to_check: Int = 0,
     val waiting: List<WaitingChangeDto> = emptyList(),
+    val held: Int = 0,
 )
 
 /** A sentence the member asked to remember over someone else's memory, still waiting on their answer. */
@@ -67,6 +68,28 @@ data class ChangeCardDto(
 data class ChangesToCheckDto(
     @SerialName("to_check") val to_check: List<ChangeCardDto> = emptyList(),
     val waiting: List<ChangeCardDto> = emptyList(),
+    val held: List<HeldFactDto> = emptyList(),
+)
+
+/**
+ * A fact from the member's chat not saved yet (`HeldFactRead`): its check against the chat's private
+ * messages didn't run. [source]'s title is always set, as only the chat's owner sees it.
+ */
+@Serializable
+data class HeldFactDto(
+    val id: String,
+    val content: String,
+    val scope: String = "personal",
+    @SerialName("agent_name") val agent_name: String,
+    @SerialName("created_at") val created_at: String,
+    @SerialName("expires_at") val expires_at: String? = null,
+    val source: ChangeSourceDto,
+)
+
+/** The body of `POST /api/v1/memories/held/{id}/answer`: "save" or "dont_save". */
+@Serializable
+data class HeldFactAnswerDto(
+    val answer: String,
 )
 
 /** The body of `POST /api/v1/memories/proposals/{id}/answer`. */
@@ -82,6 +105,7 @@ data class LookedOverDto(
     @SerialName("to_check") val to_check: List<ChangeCardDto> = emptyList(),
     val waiting: List<ChangeCardDto> = emptyList(),
     val remembered: List<MemoryPageItemDto> = emptyList(),
+    val held: List<HeldFactDto> = emptyList(),
 )
 
 /** The quiet line in a chat after the last message looked over. */
@@ -91,4 +115,5 @@ data class LookedOverSummaryDto(
     val at: String,
     val remembered: Int = 0,
     @SerialName("to_check") val to_check: Int = 0,
+    val held: Int = 0,
 )

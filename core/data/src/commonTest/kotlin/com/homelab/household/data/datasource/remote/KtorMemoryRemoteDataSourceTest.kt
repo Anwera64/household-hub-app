@@ -2,6 +2,7 @@ package com.homelab.household.data.datasource.remote
 
 import com.homelab.household.data.di.DEFAULT_BASE_URL
 import com.homelab.household.domain.exception.ChangeWithdrawnException
+import com.homelab.household.domain.exception.HeldFactGoneException
 import com.homelab.household.domain.exception.ServerOfflineException
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -227,6 +228,8 @@ class KtorMemoryRemoteDataSourceTest {
             assertFailsWith<ServerOfflineException> { source.getLookedOver("chat-1") }
             assertFailsWith<ServerOfflineException> { source.withdrawChange("p-boiler") }
             assertFailsWith<ServerOfflineException> { source.restoreChange("p-boiler") }
+            assertFailsWith<ServerOfflineException> { source.answerHeldFact("held-1", "save") }
+            assertFailsWith<ServerOfflineException> { source.undoHeldFactAnswer("held-1") }
         }
 
     @Test
@@ -291,5 +294,85 @@ class KtorMemoryRemoteDataSourceTest {
                 assertFailsWith<ChangeWithdrawnException> { dataSource(engine).answerChange("p-boiler", "use_new") }
 
             assertEquals("Emma took this back.", refused.message)
+        }
+
+    private val heldStateJson = """{"id": "held-1", "state": "saved", "new_memory_id": "mem-9", "answered_at": null}"""
+
+    @Test
+    fun `GIVEN a fact not saved yet WHEN Save is tapped THEN save is posted to its answer address`() =
+        runTest {
+            var path: String? = null
+            var method: HttpMethod? = null
+            var body: String? = null
+            val engine =
+                MockEngine { request ->
+                    path = request.url.encodedPath
+                    method = request.method
+                    body = (request.body as TextContent).text
+                    respondJson(heldStateJson)
+                }
+
+            dataSource(engine).answerHeldFact("held-1", "save")
+
+            assertEquals("/api/v1/memories/held/held-1/answer", path)
+            assertEquals(HttpMethod.Post, method)
+            assertEquals("""{"answer":"save"}""", body)
+        }
+
+    @Test
+    fun `GIVEN a fact not saved yet WHEN Don't save is tapped THEN dont_save is posted`() =
+        runTest {
+            var body: String? = null
+            val engine =
+                MockEngine { request ->
+                    body = (request.body as TextContent).text
+                    respondJson(heldStateJson)
+                }
+
+            dataSource(engine).answerHeldFact("held-1", "dont_save")
+
+            assertEquals("""{"answer":"dont_save"}""", body)
+        }
+
+    @Test
+    fun `GIVEN an answered fact WHEN Undo is tapped THEN its undo address is posted to`() =
+        runTest {
+            var path: String? = null
+            var method: HttpMethod? = null
+            val engine =
+                MockEngine { request ->
+                    path = request.url.encodedPath
+                    method = request.method
+                    respondJson(heldStateJson)
+                }
+
+            dataSource(engine).undoHeldFactAnswer("held-1")
+
+            assertEquals("/api/v1/memories/held/held-1/undo", path)
+            assertEquals(HttpMethod.Post, method)
+        }
+
+    @Test
+    fun `GIVEN a fact that expired or is someone else's WHEN it is answered THEN it is gone`() =
+        runTest {
+            val engine = MockEngine { respondJson("""{"detail": "Not found"}""", HttpStatusCode.NotFound) }
+
+            assertFailsWith<HeldFactGoneException> { dataSource(engine).answerHeldFact("held-1", "save") }
+        }
+
+    @Test
+    fun `GIVEN a fact answered on another phone WHEN it is answered here THEN it is gone`() =
+        runTest {
+            val engine = MockEngine { respondJson("""{"detail": "Already answered"}""", HttpStatusCode.Conflict) }
+
+            assertFailsWith<HeldFactGoneException> { dataSource(engine).answerHeldFact("held-1", "dont_save") }
+        }
+
+    @Test
+    fun `GIVEN a fact opened again on another phone WHEN Undo is tapped here THEN it is gone`() =
+        runTest {
+            val engine = MockEngine { respondJson("""{"detail": "Not answered"}""", HttpStatusCode.Conflict) }
+
+            assertFailsWith<HeldFactGoneException> { dataSource(engine).undoHeldFactAnswer("held-1") }
         }
 }
