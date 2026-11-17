@@ -67,8 +67,8 @@ val presentationModule =
         factory { DashboardViewModel(get(), get(), get(), get()) }
         factory { LaunchViewModel(get(), get(), get()) }
         factory { MemoriesViewModel(get(), get(), get(), get(), get(), get()) }
-        factory { ChangesToCheckViewModel(get(), get(), get(), get()) }
-        factory { LookedOverViewModel(get(), get(), get(), get(), get(), get()) }
+        factory { ChangesToCheckViewModel(get(), get(), get(), get(), get(), get()) }
+        factory { LookedOverViewModel(get(), get(), get(), get(), get(), get(), get(), get()) }
         factory { FirstRunViewModel(get()) }
         factory { ProfilePickerViewModel(get()) }
         factory { InviteCodeViewModel(get()) }

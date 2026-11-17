@@ -54,6 +54,7 @@ class MemoriesViewModel(
                             yours = page.yours.map(::rowOf),
                             household = page.household.map(::rowOf),
                             toCheck = page.toCheck,
+                            held = page.held,
                             waiting = page.waiting.map(::waitingOf),
                         )
                     }
@@ -79,6 +80,7 @@ class MemoriesViewModel(
                         yours = page.yours.map(::rowOf),
                         household = page.household.map(::rowOf),
                         toCheck = page.toCheck,
+                        held = page.held,
                         waiting = page.waiting.map(::waitingOf),
                     )
                 }
@@ -163,7 +165,9 @@ class MemoriesViewModel(
      * it. Only the count is read again, so the row the tap turned into "Removed · Undo" stays.
      */
     private suspend fun recount() {
-        runCatchingSafe { getMemoryPage() }.onSuccess { page -> _uiState.update { it.copy(toCheck = page.toCheck) } }
+        runCatchingSafe { getMemoryPage() }.onSuccess { page ->
+            _uiState.update { it.copy(toCheck = page.toCheck, held = page.held) }
+        }
     }
 
     private fun waitingOf(changeId: String): WaitingRow? =
