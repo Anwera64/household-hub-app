@@ -39,6 +39,7 @@ import com.homelab.household.app.components.SkeletonBlock
 import com.homelab.household.app.components.SkeletonGroup
 import com.homelab.household.app.icons.HearthIcon
 import com.homelab.household.app.resources.Res
+import com.homelab.household.app.resources.changes_section_held
 import com.homelab.household.app.resources.looked_over_all_memories
 import com.homelab.household.app.resources.looked_over_caption
 import com.homelab.household.app.resources.looked_over_remembered
@@ -51,18 +52,20 @@ import com.homelab.household.app.resources.memories_offline_title
 import com.homelab.household.app.resources.memories_tab_household_plain
 import com.homelab.household.app.resources.memories_tab_yours_plain
 import com.homelab.household.app.resources.memories_try_again
-import com.homelab.household.app.resources.memories_until
 import com.homelab.household.app.screens.changes.ChangeCard
+import com.homelab.household.app.screens.changes.HeldCard
+import com.homelab.household.app.screens.changes.SectionLabel
 import com.homelab.household.app.screens.changes.WaitingHeading
 import com.homelab.household.app.screens.changes.words
 import com.homelab.household.app.screens.memories.RemoveButton
 import com.homelab.household.app.screens.memories.RemovedRow
-import com.homelab.household.app.screens.memories.SHORT_MONTHS
+import com.homelab.household.app.screens.memories.UntilChip
 import com.homelab.household.app.screens.memories.memorySentence
 import com.homelab.household.app.screens.memories.words
 import com.homelab.household.app.theme.HearthShapes
 import com.homelab.household.app.theme.HearthTheme
 import com.homelab.household.app.theme.PreviewDayNight
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.MemoryScope
 import com.homelab.household.domain.model.ProposalAnswer
 import com.homelab.household.presentation.memories.LookedOverUiState
@@ -108,12 +111,14 @@ fun LookedOverSheet(
             onRestore = viewModel::onRestore,
             onRetry = viewModel::retry,
             onAllMemories = onAllMemories,
+            onHeldAnswer = viewModel::onHeldAnswer,
+            onHeldUndo = viewModel::onHeldUndo,
         )
     }
 }
 
 /**
- * The sheet's insides: changes to check, answered in place; those waiting for someone else; and what
+ * The sheet's insides: this chat's facts not saved yet, then changes to check, answered in place; those waiting for someone else; and what
  * was remembered, each with ✕. Its cards don't name the chat: it is the one already open.
  *
  * Stateless — [LookedOverSheet] owns the ViewModel.
@@ -128,6 +133,8 @@ fun LookedOverSheetContent(
     onRetry: () -> Unit,
     onAllMemories: () -> Unit,
     modifier: Modifier = Modifier,
+    onHeldAnswer: (String, HeldFactAnswer) -> Unit = { _, _ -> },
+    onHeldUndo: (String) -> Unit = {},
 ) {
     val spacing = HearthTheme.spacing
     // A plain scrolling column, not a lazy list: the sheet sizes itself to what it holds, and a lazy
@@ -160,6 +167,19 @@ fun LookedOverSheetContent(
                         style = HearthTheme.typography.caption,
                         color = HearthTheme.colors.error,
                     )
+                }
+                if (state.held.isNotEmpty()) {
+                    SectionLabel(stringResource(Res.string.changes_section_held, state.heldOpenCount))
+                    state.held.forEach { row ->
+                        key(row.fact.id) {
+                            HeldCard(
+                                row = row,
+                                onAnswer = { answer -> onHeldAnswer(row.fact.id, answer) },
+                                onUndo = { onHeldUndo(row.fact.id) },
+                                showSource = false,
+                            )
+                        }
+                    }
                 }
                 if (state.toCheck.isNotEmpty()) {
                     SectionLabel(stringResource(Res.string.looked_over_to_check, state.openCount))
@@ -223,19 +243,6 @@ private fun SheetHeading(
     }
 }
 
-@Composable
-private fun SectionLabel(
-    words: String,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        words.uppercase(),
-        modifier = modifier.padding(horizontal = HearthTheme.spacing.sm, vertical = HearthTheme.spacing.xs),
-        style = HearthTheme.typography.overline,
-        color = HearthTheme.colors.textMuted,
-    )
-}
-
 /** A memory this chat added: the sentence, whose it is, its "until" day, and ✕ on your own. */
 @Composable
 private fun RememberedRow(
@@ -265,22 +272,7 @@ private fun RememberedRow(
                             ),
                         variant = if (household) ChipVariant.Neutral else ChipVariant.Primary,
                     )
-                    row.until?.let { until ->
-                        HearthChip(
-                            label = stringResource(
-                                Res.string.memories_until,
-                                until.day,
-                                stringResource(
-                                    SHORT_MONTHS[
-                                        until.month -
-                                            1,
-                                    ],
-                                ),
-                            ),
-                            variant = ChipVariant.Attention,
-                            icon = HearthIcon.Schedule,
-                        )
-                    }
+                    row.until?.let { until -> UntilChip(until) }
                 }
             }
             if (item.canRemove) {

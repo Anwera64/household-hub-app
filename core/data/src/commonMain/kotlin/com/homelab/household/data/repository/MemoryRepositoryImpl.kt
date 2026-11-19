@@ -4,6 +4,7 @@ import com.homelab.household.data.datasource.remote.`interface`.MemoryRemoteData
 import com.homelab.household.data.mapper.MemoryDataMapper
 import com.homelab.household.data.mapper.toWire
 import com.homelab.household.domain.model.ChangesToCheck
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.LookedOver
 import com.homelab.household.domain.model.MemoryPage
 import com.homelab.household.domain.model.ProposalAnswer
@@ -34,4 +35,11 @@ class MemoryRepositoryImpl(
     override suspend fun withdrawChange(changeId: String) = remote.withdrawChange(changeId)
 
     override suspend fun restoreChange(changeId: String) = remote.restoreChange(changeId)
+
+    override suspend fun answerHeldFact(
+        heldId: String,
+        answer: HeldFactAnswer,
+    ) = remote.answerHeldFact(heldId, answer.toWire())
+
+    override suspend fun undoHeldFactAnswer(heldId: String) = remote.undoHeldFactAnswer(heldId)
 }

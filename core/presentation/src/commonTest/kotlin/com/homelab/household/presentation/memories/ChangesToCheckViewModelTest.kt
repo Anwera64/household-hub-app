@@ -1,16 +1,21 @@
 package com.homelab.household.presentation.memories
 
 import com.homelab.household.domain.exception.ChangeWithdrawnException
+import com.homelab.household.domain.exception.HeldFactGoneException
 import com.homelab.household.domain.exception.ServerOfflineException
 import com.homelab.household.domain.model.ChangeCard
 import com.homelab.household.domain.model.ChangesToCheck
+import com.homelab.household.domain.model.HeldFact
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.MemoryItem
 import com.homelab.household.domain.model.MemoryOrigin
 import com.homelab.household.domain.model.MemoryScope
 import com.homelab.household.domain.model.ProposalAnswer
 import com.homelab.household.domain.usecase.AnswerChangeUseCase
+import com.homelab.household.domain.usecase.AnswerHeldFactUseCase
 import com.homelab.household.domain.usecase.GetChangesToCheckUseCase
 import com.homelab.household.domain.usecase.UndoChangeAnswerUseCase
+import com.homelab.household.domain.usecase.UndoHeldFactAnswerUseCase
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
@@ -43,6 +48,8 @@ class ChangesToCheckViewModelTest {
     private val getChanges = mock<GetChangesToCheckUseCase>()
     private val answerChange = mock<AnswerChangeUseCase>()
     private val undoAnswer = mock<UndoChangeAnswerUseCase>()
+    private val answerHeld = mock<AnswerHeldFactUseCase>()
+    private val undoHeld = mock<UndoHeldFactAnswerUseCase>()
     private val now = Instant.parse("2026-10-16T18:00:00Z")
     private val clock =
         object : Clock {
@@ -62,9 +69,19 @@ class ChangesToCheckViewModelTest {
         )
 
     private fun viewModel() =
-        ChangesToCheckViewModel(getChanges, answerChange, undoAnswer, deviceTimeZone = {
-            0
-        }, clock = clock)
+        ChangesToCheckViewModel(
+            getChangesToCheck = getChanges,
+            answerChange = answerChange,
+            undoChangeAnswer = undoAnswer,
+            answerHeldFact = answerHeld,
+            undoHeldFactAnswer = undoHeld,
+            deviceTimeZone = { 0 },
+            clock = clock,
+        )
+
+    private val withHeld = changes.copy(held = listOf(heldFact("h-dentist")))
+
+    private fun ChangesToCheckUiState.heldRow(id: String) = held.first { it.fact.id == id }
 
     private fun ChangesToCheckUiState.row(id: String) = (toCheck + waiting).first { it.card.id == id }
 
@@ -242,6 +259,23 @@ class ChangesToCheckViewModelTest {
             sourceOwnerName = "Emma",
             readAt = Instant.parse("2026-10-16T10:42:00Z"),
         )
+
+        @OptIn(ExperimentalTime::class)
+        fun heldFact(
+            id: String,
+            household: Boolean = false,
+            expiresAt: Instant? = Instant.parse("2026-10-23T10:00:00Z"),
+        ) = HeldFact(
+            id = id,
+            content = "Sam has a dentist appointment on Monday at 09:00.",
+            scope = if (household) MemoryScope.HOUSEHOLD else MemoryScope.PERSONAL,
+            agentName = "Planner",
+            createdAt = Instant.parse("2026-10-16T10:42:00Z"),
+            expiresAt = expiresAt,
+            sourceTitle = "Weekend plans",
+            sourceOwnerName = "Emma",
+            readAt = Instant.parse("2026-10-16T10:40:00Z"),
+        )
     }
 
     @Test
@@ -258,5 +292,125 @@ class ChangesToCheckViewModelTest {
 
             assertEquals(ChangeStatus.Withdrawn("Emma took this back."), viewModel.uiState.value.row("p-sam").status)
             assertEquals(1, viewModel.uiState.value.openCount)
+        }
+
+    @Test
+    fun `GIVEN a fact not saved yet WHEN the page opens THEN it loads with when it was read and its end day`() =
+        runTest(testDispatcher) {
+            everySuspend { getChanges() } returns withHeld
+
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            val row = viewModel.uiState.value.heldRow("h-dentist")
+            assertEquals(MemoryAge.Today, row.readAge)
+            assertEquals(LocalTime(hour = 10, minute = 40), row.readTime)
+            assertEquals(LocalDay(day = 23, month = 10), row.until)
+            assertEquals(HeldStatus.Open(), row.status)
+        }
+
+    @Test
+    fun `GIVEN changes and a fact not saved yet WHEN the page opens THEN the count takes in both`() =
+        runTest(testDispatcher) {
+            everySuspend { getChanges() } returns withHeld
+
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(3, state.openCount)
+            assertEquals(1, state.heldOpenCount)
+            assertEquals(2, state.changesOpenCount)
+        }
+
+    @Test
+    fun `GIVEN a fact not saved yet WHEN Save is tapped THEN it saves then becomes a done row and stops counting`() =
+        runTest(testDispatcher) {
+            everySuspend { getChanges() } returns withHeld
+            val gate = CompletableDeferred<Unit>()
+            everySuspend { answerHeld("h-dentist", HeldFactAnswer.Save) } calls { gate.await() }
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.onHeldAnswer("h-dentist", HeldFactAnswer.Save)
+            runCurrent()
+            assertEquals(HeldStatus.Saving(HeldFactAnswer.Save), viewModel.uiState.value.heldRow("h-dentist").status)
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(HeldStatus.Done(HeldFactAnswer.Save), viewModel.uiState.value.heldRow("h-dentist").status)
+            assertEquals(0, viewModel.uiState.value.heldOpenCount)
+        }
+
+    @Test
+    fun `GIVEN a fact not saved yet WHEN the answer doesn't reach the hub THEN the card is open again and says so`() =
+        runTest(testDispatcher) {
+            everySuspend { getChanges() } returns withHeld
+            everySuspend { answerHeld(any(), any()) } throws ServerOfflineException("offline")
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.onHeldAnswer("h-dentist", HeldFactAnswer.DontSave)
+            advanceUntilIdle()
+
+            assertEquals(HeldStatus.Open(failed = true), viewModel.uiState.value.heldRow("h-dentist").status)
+            assertEquals(1, viewModel.uiState.value.heldOpenCount)
+        }
+
+    @Test
+    fun `GIVEN a fact answered on another phone WHEN it is answered here THEN the page is read again without it`() =
+        runTest(testDispatcher) {
+            everySuspend { getChanges() } returns withHeld
+            everySuspend { answerHeld(any(), any()) } calls {
+                everySuspend { getChanges() } returns changes
+                throw HeldFactGoneException()
+            }
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.onHeldAnswer("h-dentist", HeldFactAnswer.Save)
+            advanceUntilIdle()
+
+            assertEquals(emptyList(), viewModel.uiState.value.held)
+            assertEquals(MemoriesStatus.Ready, viewModel.uiState.value.status)
+            verifySuspend(VerifyMode.exactly(2)) { getChanges() }
+        }
+
+    @Test
+    fun `GIVEN a saved fact WHEN Undo is tapped THEN the card is open again`() =
+        runTest(testDispatcher) {
+            everySuspend { getChanges() } returns withHeld
+            everySuspend { answerHeld(any(), any()) } returns Unit
+            everySuspend { undoHeld("h-dentist") } returns Unit
+            val viewModel = viewModel()
+            advanceUntilIdle()
+            viewModel.onHeldAnswer("h-dentist", HeldFactAnswer.Save)
+            advanceUntilIdle()
+
+            viewModel.onHeldUndo("h-dentist")
+            advanceUntilIdle()
+
+            assertEquals(HeldStatus.Open(), viewModel.uiState.value.heldRow("h-dentist").status)
+            verifySuspend(VerifyMode.exactly(1)) { undoHeld("h-dentist") }
+        }
+
+    @Test
+    fun `GIVEN a fact not saved on purpose WHEN Undo doesn't reach the hub THEN the done row stays and says so`() =
+        runTest(testDispatcher) {
+            everySuspend { getChanges() } returns withHeld
+            everySuspend { answerHeld(any(), any()) } returns Unit
+            everySuspend { undoHeld(any()) } throws ServerOfflineException("offline")
+            val viewModel = viewModel()
+            advanceUntilIdle()
+            viewModel.onHeldAnswer("h-dentist", HeldFactAnswer.DontSave)
+            advanceUntilIdle()
+
+            viewModel.onHeldUndo("h-dentist")
+            advanceUntilIdle()
+
+            assertEquals(
+                HeldStatus.Done(HeldFactAnswer.DontSave, undoFailed = true),
+                viewModel.uiState.value.heldRow("h-dentist").status,
+            )
         }
 }

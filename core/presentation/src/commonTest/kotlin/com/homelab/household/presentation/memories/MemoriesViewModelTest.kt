@@ -377,4 +377,62 @@ class MemoriesViewModelTest {
             assertEquals(0, viewModel.uiState.value.toCheck)
             assertEquals(true, viewModel.uiState.value.row("h1").removed)
         }
+
+    @Test
+    fun `GIVEN facts not saved yet WHEN the page loads THEN the band knows how many`() =
+        runTest(testDispatcher) {
+            everySuspend { getMemoryPage() } returns page.copy(toCheck = 1, held = 2)
+
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            assertEquals(1, viewModel.uiState.value.toCheck)
+            assertEquals(2, viewModel.uiState.value.held)
+        }
+
+    @Test
+    fun `GIVEN a fact answered on Changes to check WHEN the page is come back to THEN the band recounts it`() =
+        runTest(testDispatcher) {
+            everySuspend { getMemoryPage() } returns page.copy(held = 1)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+            everySuspend { getMemoryPage() } returns page.copy(held = 0)
+
+            viewModel.refresh()
+            advanceUntilIdle()
+
+            assertEquals(0, viewModel.uiState.value.held)
+        }
+
+    @Test
+    fun `GIVEN facts not saved yet WHEN a memory is removed THEN the band still counts them`() =
+        runTest(testDispatcher) {
+            everySuspend { getMemoryPage() } returns page.copy(held = 2)
+            everySuspend { removeMemory("h1") } returns Unit
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.onRemove("h1")
+            advanceUntilIdle()
+
+            assertEquals(2, viewModel.uiState.value.held)
+        }
+
+    @Test
+    fun `GIVEN facts not saved yet WHEN a removal is undone THEN the band still counts them`() =
+        runTest(testDispatcher) {
+            everySuspend { getMemoryPage() } returns page.copy(held = 2)
+            everySuspend { removeMemory("h1") } returns Unit
+            everySuspend { restoreMemory("h1") } returns Unit
+            val viewModel = viewModel()
+            advanceUntilIdle()
+            viewModel.onRemove("h1")
+            advanceUntilIdle()
+            everySuspend { getMemoryPage() } returns page.copy(held = 1)
+
+            viewModel.onUndo("h1")
+            advanceUntilIdle()
+
+            assertEquals(1, viewModel.uiState.value.held)
+        }
 }

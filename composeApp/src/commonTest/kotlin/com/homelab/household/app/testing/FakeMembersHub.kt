@@ -85,6 +85,14 @@ class FakeMembersHub {
     private var refusesAnswers = false
     private var tookBackBy: String? = null
 
+    /** Facts not saved yet, as the hub keeps them: id to the fact's JSON and the answer so far. */
+    private val held = linkedMapOf<String, Pair<String, String?>>()
+    private var refusesHeldAnswers = false
+    private var heldFactsGone = false
+
+    /** The answer the hub has for held fact [heldId] ("save", "dont_save"), or null while it is open. */
+    fun heldAnswerTo(heldId: String): String? = held[heldId]?.second
+
     /** The answer the hub has for change [changeId] ("use_new", …), or null while it is open. */
     fun answerTo(changeId: String): String? = changes[changeId]?.third
 
@@ -188,6 +196,24 @@ class FakeMembersHub {
                     val id = path.removePrefix("/api/v1/memories/proposals/").removeSuffix("/restore")
                     waiting[id] = waiting.getValue(id).copy(third = true)
                     json("""{"id":"$id","memory_id":"x","content":"x","state":"pending"}""")
+                }
+
+                path.startsWith("/api/v1/memories/held/") && path.endsWith("/answer") -> {
+                    if (refusesHeldAnswers) return@MockEngine respond("", HttpStatusCode.ServiceUnavailable)
+                    val id = path.removePrefix("/api/v1/memories/held/").removeSuffix("/answer")
+                    if (heldFactsGone) {
+                        held.remove(id)
+                        return@MockEngine json("""{"detail":"Not found"}""", HttpStatusCode.NotFound)
+                    }
+                    val answer = Regex("\"answer\":\"([a-z_]+)\"").find(sent.last())!!.groupValues[1]
+                    held[id] = held.getValue(id).copy(second = answer)
+                    json("""{"id":"$id","state":"$answer","new_memory_id":null,"answered_at":null}""")
+                }
+
+                path.startsWith("/api/v1/memories/held/") && path.endsWith("/undo") -> {
+                    val id = path.removePrefix("/api/v1/memories/held/").removeSuffix("/undo")
+                    held[id] = held.getValue(id).copy(second = null)
+                    json("""{"id":"$id","state":"pending","new_memory_id":null,"answered_at":null}""")
                 }
 
                 path == "/api/v1/memories/page" -> {
@@ -407,6 +433,7 @@ class FakeMembersHub {
                 .values
                 .map { it.first }
         val toCheck = changes.values.count { it.second && it.third == null }
+        val heldCount = held.values.count { it.second == null }
         val cards =
             pairs.map { (id, change) ->
                 """{"id":"$id","content":"${change.first}","agent_name":"Planner",
@@ -414,7 +441,7 @@ class FakeMembersHub {
                 "stored":${memories.getValue(change.second).first}}"""
             }
         return """{"yours":${yours.joinToString(prefix = "[", postfix = "]")},
-            "household":${household.joinToString(prefix = "[", postfix = "]")},"to_check":$toCheck,
+            "household":${household.joinToString(prefix = "[", postfix = "]")},"to_check":$toCheck,"held":$heldCount,
             "waiting":${cards.joinToString(prefix = "[", postfix = "]")}}"""
     }
 
@@ -463,8 +490,39 @@ class FakeMembersHub {
     private fun changesJson(): String {
         val open = changes.values.filter { it.second && it.third == null }.map { it.first }
         val waiting = changes.values.filter { !it.second }.map { it.first }
+        val heldOpen = held.values.filter { it.second == null }.map { it.first }
         return """{"to_check":${open.joinToString(prefix = "[", postfix = "]")},
-            "waiting":${waiting.joinToString(prefix = "[", postfix = "]")}}"""
+            "waiting":${waiting.joinToString(prefix = "[", postfix = "]")},
+            "held":${heldOpen.joinToString(prefix = "[", postfix = "]")}}"""
+    }
+
+    /**
+     * An agent read [content] in Emma's chat [title] holding a private message, and its check didn't
+     * run: it is held until she answers. [expiresAt] gives it an end day, as an event's fact has.
+     */
+    @OptIn(ExperimentalTime::class)
+    fun holdsAFact(
+        id: String,
+        content: String,
+        household: Boolean = false,
+        expiresAt: String? = null,
+        title: String = "Weekend plans",
+    ) {
+        val now = Clock.System.now().toString()
+        held[id] =
+            """{"id":"$id","content":"$content","scope":"${if (household) "household" else "personal"}",
+            "agent_name":"Planner","created_at":"$now","expires_at":${expiresAt.json()},
+            "source":{"title":"$title","owner_name":"Emma Larsson","read_at":"$now"}}""" to null
+    }
+
+    /** Facts list, but no answer to one reaches the hub. */
+    fun refusesHeldAnswers() {
+        refusesHeldAnswers = true
+    }
+
+    /** Every held fact expired or was answered on another phone: an answer to one is 404, and it leaves the list. */
+    fun heldFactsAreGone() {
+        heldFactsGone = true
     }
 
     /** 503: a proxy in front of a hub that isn't running. */

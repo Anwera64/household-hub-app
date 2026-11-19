@@ -3,6 +3,7 @@ package com.homelab.household.app.screens.conversation
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
 import androidx.compose.ui.unit.dp
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.ProposalAnswer
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,6 +51,44 @@ class LookedOverSheetTest {
             assertEquals(listOf("c1" to ProposalAnswer.UseNew), answers)
             assertEquals(listOf("r1"), removed)
             assertEquals(1, allMemories)
+        }
+
+    private val withHeld = LookedOverUiStateProvider().values.first { it.held.isNotEmpty() }
+    private val dentist = "Sam has a dentist appointment on Monday 23 November at 09:00."
+
+    @Test
+    fun `GIVEN a chat with a fact not saved yet WHEN the sheet opens THEN that fact comes first without naming the chat`() =
+        runComposeUiTest {
+            lookedOverSheetContent(withHeld)
+
+            onLookedOverSheet {
+                seesNotSavedYet(count = 1)
+                sees(dentist)
+                seesNotSavedYetBeforeToCheck()
+                seesNoChatNamed("Weekend plans")
+            }
+        }
+
+    @Test
+    fun `GIVEN a fact not saved yet in the sheet WHEN Save is tapped THEN it reaches its callback`() =
+        runComposeUiTest {
+            val answers = mutableListOf<Pair<String, HeldFactAnswer>>()
+            lookedOverSheetContent(withHeld, onHeldAnswer = { id, answer -> answers += id to answer })
+
+            onLookedOverSheet { saves() }
+
+            assertEquals(listOf("h1" to HeldFactAnswer.Save), answers)
+        }
+
+    @Test
+    fun `GIVEN a fact not saved yet in the sheet WHEN Don't save is tapped THEN it reaches its callback`() =
+        runComposeUiTest {
+            val answers = mutableListOf<Pair<String, HeldFactAnswer>>()
+            lookedOverSheetContent(withHeld, onHeldAnswer = { id, answer -> answers += id to answer })
+
+            onLookedOverSheet { doesNotSave() }
+
+            assertEquals(listOf("h1" to HeldFactAnswer.DontSave), answers)
         }
 
     @Test

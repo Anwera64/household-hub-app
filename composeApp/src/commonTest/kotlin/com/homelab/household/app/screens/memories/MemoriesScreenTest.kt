@@ -124,6 +124,32 @@ class MemoriesScreenTest {
     }
 
     @Test
+    fun `GIVEN a change and a fact not saved yet WHEN the page opens THEN one band counts both`() {
+        val hub =
+            household().apply {
+                readsAChange("c1", stored = "Is vegetarian.", read = "Eats fish again.")
+                holdsAFact("h1", "The household does the big shop on Saturday mornings.", household = true)
+            }
+
+        runScreenTest {
+            memoriesScreen(hub)
+
+            onMemories { seesTheBandForChangesAndFacts(count = 2) }
+        }
+    }
+
+    @Test
+    fun `GIVEN only a fact not saved yet WHEN the page opens THEN the band says something wasn't saved yet`() {
+        val hub = household().apply { holdsAFact("h1", "Sam has a dentist appointment on Monday at 09:00.") }
+
+        runScreenTest {
+            memoriesScreen(hub)
+
+            onMemories { seesTheBandForFactsOnly(count = 1) }
+        }
+    }
+
+    @Test
     fun `GIVEN nothing to check WHEN the page opens THEN there is no band`() {
         runScreenTest {
             memoriesScreen(household())

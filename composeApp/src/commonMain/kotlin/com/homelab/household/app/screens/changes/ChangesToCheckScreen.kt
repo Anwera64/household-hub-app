@@ -23,5 +23,7 @@ fun ChangesToCheckScreen(
         onUndo = viewModel::onUndo,
         onRetry = viewModel::load,
         modifier = modifier,
+        onHeldAnswer = viewModel::onHeldAnswer,
+        onHeldUndo = viewModel::onHeldUndo,
     )
 }

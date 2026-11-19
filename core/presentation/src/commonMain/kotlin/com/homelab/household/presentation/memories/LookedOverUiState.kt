@@ -7,10 +7,15 @@ data class LookedOverUiState(
     val toCheck: List<ChangeRow> = emptyList(),
     val waiting: List<ChangeRow> = emptyList(),
     val remembered: List<MemoryRow> = emptyList(),
+    /** This chat's facts not saved yet, first in the sheet (canvas MemHeldSheet). */
+    val held: List<HeldRow> = emptyList(),
     /** The last ✕ or Undo the hub didn't take, said in a line until the next tap. */
     val failure: MemoryActionFailure? = null,
 ) {
     val openCount: Int get() = toCheck.openCount()
+
+    /** "Not saved yet · 1". */
+    val heldOpenCount: Int get() = held.openCount()
 
     /** A removed row still shows, with Undo, but no longer counts. */
     val rememberedCount: Int get() = remembered.count { !it.removed }

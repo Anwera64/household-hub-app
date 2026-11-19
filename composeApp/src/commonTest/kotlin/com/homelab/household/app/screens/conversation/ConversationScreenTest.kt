@@ -73,6 +73,28 @@ class ConversationScreenTest {
         }
 
     @Test
+    fun `GIVEN a look-over with a change and a fact not saved yet WHEN drawn THEN the line counts 2 to check`() =
+        runComposeUiTest {
+            conversationScreen(stateNamed("Looked over, one held"))
+
+            onConversation { seesTheLookedOverLine(remembered = 2, toCheck = 2, time = "10:52") }
+        }
+
+    @Test
+    fun `GIVEN a look-over that only held a fact WHEN the line is tapped THEN it opens the sheet`() =
+        runComposeUiTest {
+            var opened = 0
+            conversationScreen(stateNamed("Looked over, only held"), onLookedOver = { opened++ })
+
+            onConversation {
+                seesTheLookedOverLineToCheck(toCheck = 1, time = "10:52")
+                tapsTheLookedOverLine()
+            }
+
+            assertEquals(1, opened)
+        }
+
+    @Test
     fun `GIVEN a look-over that kept nothing WHEN drawn THEN the line says nothing new and opens nothing`() =
         runComposeUiTest {
             var opened = 0

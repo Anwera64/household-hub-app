@@ -486,6 +486,21 @@ class ProfileViewModelTest {
         }
 
     @Test
+    fun `GIVEN changes and facts not saved yet WHEN the profile counts memories THEN to check takes in both`() =
+        runTest(testDispatcher) {
+            everySuspend { getCurrentUser() } returns emma
+            everySuspend { listHouseholdMembers() } returns listOf(emma, noor)
+            everySuspend { getMemoryPage() } returns
+                MemoryPage(yours = emptyList(), household = emptyList(), toCheck = 2, held = 1)
+            val viewModel = viewModel()
+
+            viewModel.loadMemoryCounts()
+            advanceUntilIdle()
+
+            assertEquals(MemoryCounts(yours = 0, household = 0, toCheck = 3), viewModel.uiState.value.memoryCounts)
+        }
+
+    @Test
     fun `GIVEN the hub can't count memories WHEN the profile is shown THEN the row makes no claim`() =
         runTest(testDispatcher) {
             everySuspend { getCurrentUser() } returns emma

@@ -203,8 +203,6 @@ private fun ChangeDoneRow(
     onUndo: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = HearthTheme.colors
-    val type = HearthTheme.typography
     val words =
         when (done.answer) {
             ProposalAnswer.UseNew -> stringResource(
@@ -219,6 +217,19 @@ private fun ChangeDoneRow(
                 memorySentence(row.card.stored.content, row.storedEventTime),
             )
         }
+    DoneRow(words = words, undoFailed = done.undoFailed, onUndo = onUndo, modifier = modifier)
+}
+
+/** One quiet line saying what an answer did, with Undo; and, when Undo failed, that the answer stands. */
+@Composable
+internal fun DoneRow(
+    words: String,
+    undoFailed: Boolean,
+    onUndo: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = HearthTheme.colors
+    val type = HearthTheme.typography
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -232,7 +243,7 @@ private fun ChangeDoneRow(
     ) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(HearthTheme.spacing.xs)) {
             Text(words, style = type.body, color = colors.textMuted)
-            if (done.undoFailed) {
+            if (undoFailed) {
                 Text(stringResource(Res.string.changes_undo_failed), style = type.caption, color = colors.error)
             }
         }
@@ -273,13 +284,22 @@ private fun ChangeWithdrawnRow(
 
 /** "“Dinner ideas” · today 10:42" in your own chat; someone else's shows only "Liam’s chat · yesterday". */
 @Composable
-private fun sourceWords(row: ChangeRow): String {
-    val card = row.card
+private fun sourceWords(row: ChangeRow): String =
+    sourceWords(row.card.sourceTitle, row.card.sourceOwnerName, row.readAge, row.readTime)
+
+/** Where a sentence was read: the chat's title when it is yours, else whose chat; and when. */
+@Composable
+internal fun sourceWords(
+    sourceTitle: String?,
+    sourceOwnerName: String,
+    readAge: MemoryAge,
+    readTime: LocalTime,
+): String {
     val chat =
-        card.sourceTitle?.let { stringResource(Res.string.changes_source_title, it) }
-            ?: stringResource(Res.string.changes_source_owner, card.sourceOwnerName)
-    val age = ageWords(row.readAge)
-    return if (row.readAge == MemoryAge.Today) "$chat · $age ${row.readTime.words()}" else "$chat · $age"
+        sourceTitle?.let { stringResource(Res.string.changes_source_title, it) }
+            ?: stringResource(Res.string.changes_source_owner, sourceOwnerName)
+    val age = ageWords(readAge)
+    return if (readAge == MemoryAge.Today) "$chat · $age ${readTime.words()}" else "$chat · $age"
 }
 
 /** 10:42, on the 24-hour clock the rest of the app uses. */

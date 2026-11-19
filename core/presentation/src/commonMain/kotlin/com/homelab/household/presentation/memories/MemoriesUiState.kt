@@ -16,12 +16,17 @@ data class MemoriesUiState(
     val failure: MemoryActionFailure? = null,
     /** Changes waiting for the member: the band at the top shows when there are any. */
     val toCheck: Int = 0,
+    /** Facts from the member's chats not saved yet: the band counts them with [toCheck]. */
+    val held: Int = 0,
     /** The member's sentences waiting on someone else, each beside the memory it waits on (Household tab). */
     val waiting: List<WaitingRow> = emptyList(),
 ) {
     /** A removed row still shows, with Undo, but no longer counts. A waiting card's stored memory does. */
     val yoursCount: Int get() = yours.count { !it.removed }
     val householdCount: Int get() = household.count { !it.removed } + waiting.size
+
+    /** The band shows while anything waits for the member's answer. */
+    val showsBand: Boolean get() = toCheck + held > 0
 }
 
 /**

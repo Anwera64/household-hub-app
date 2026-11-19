@@ -28,10 +28,14 @@ data class ChangeCard(
     val readAt: Instant,
 )
 
-/** The member's changes to answer, then the ones from their chats waiting for someone else. */
+/**
+ * The member's changes to answer, then the ones from their chats waiting for someone else. [held] are
+ * the facts from their chats not saved yet, newest first.
+ */
 data class ChangesToCheck(
     val toCheck: List<ChangeCard>,
     val waiting: List<ChangeCard>,
+    val held: List<HeldFact> = emptyList(),
 )
 
 /** A chat's sheet, "Remembered from this chat": what the last look-over raised and saved. */
@@ -41,16 +45,21 @@ data class LookedOver(
     val toCheck: List<ChangeCard>,
     val waiting: List<ChangeCard>,
     val remembered: List<MemoryItem>,
+    val held: List<HeldFact> = emptyList(),
 )
 
-/** The quiet line after [throughMessageId], the last message the look-over read. */
+/** The quiet line after [throughMessageId], the last message the look-over read. [held] counts facts not saved yet. */
 @OptIn(ExperimentalTime::class)
 data class LookedOverLine(
     val throughMessageId: String?,
     val at: Instant,
     val remembered: Int,
     val toCheck: Int,
+    val held: Int = 0,
 ) {
     /** "Looked over · 10:52 · nothing new" opens nothing. */
-    val isNothingNew: Boolean get() = remembered == 0 && toCheck == 0
+    val isNothingNew: Boolean get() = remembered == 0 && toCheck == 0 && held == 0
+
+    /** The line's "2 to check" chip: changes and facts not saved yet alike. */
+    val toAnswer: Int get() = toCheck + held
 }

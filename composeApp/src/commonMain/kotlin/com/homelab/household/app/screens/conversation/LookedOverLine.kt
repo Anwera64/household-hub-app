@@ -77,9 +77,9 @@ internal fun LookedOverLine(
                 style = type.caption,
                 color = colors.textMuted,
             )
-            if (line.toCheck > 0) {
+            if (line.toAnswer > 0) {
                 HearthChip(
-                    label = stringResource(Res.string.profile_memories_to_check, line.toCheck),
+                    label = stringResource(Res.string.profile_memories_to_check, line.toAnswer),
                     variant = ChipVariant.Secondary,
                 )
             }

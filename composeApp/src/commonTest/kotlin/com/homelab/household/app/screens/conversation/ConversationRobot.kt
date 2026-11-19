@@ -51,6 +51,7 @@ import com.homelab.household.app.resources.a11y_secret_on
 import com.homelab.household.app.resources.agent_owner_member
 import com.homelab.household.app.resources.agent_picker_failed_title
 import com.homelab.household.app.resources.agent_picker_title
+import com.homelab.household.app.resources.chat_looked_over
 import com.homelab.household.app.resources.chat_looked_over_nothing
 import com.homelab.household.app.resources.chat_looked_over_remembered
 import com.homelab.household.app.resources.conversation_change_agent
@@ -335,6 +336,16 @@ class ConversationRobot(
         time: String,
     ) {
         seesText(getString(Res.string.chat_looked_over_remembered, remembered), unmerged = true)
+        seesText(getString(Res.string.profile_memories_to_check, toCheck), unmerged = true)
+        seesText(time, unmerged = true)
+    }
+
+    /** A line with nothing remembered, only cards waiting for an answer. */
+    suspend fun seesTheLookedOverLineToCheck(
+        toCheck: Int,
+        time: String,
+    ) {
+        seesText(getString(Res.string.chat_looked_over), unmerged = true)
         seesText(getString(Res.string.profile_memories_to_check, toCheck), unmerged = true)
         seesText(time, unmerged = true)
     }

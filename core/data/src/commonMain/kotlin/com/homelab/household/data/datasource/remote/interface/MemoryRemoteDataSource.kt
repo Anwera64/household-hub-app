@@ -30,4 +30,12 @@ interface MemoryRemoteDataSource {
     suspend fun withdrawChange(changeId: String)
 
     suspend fun restoreChange(changeId: String)
+
+    suspend fun answerHeldFact(
+        heldId: String,
+        /** The hub's word for the answer: "save" or "dont_save". */
+        answer: String,
+    )
+
+    suspend fun undoHeldFactAnswer(heldId: String)
 }

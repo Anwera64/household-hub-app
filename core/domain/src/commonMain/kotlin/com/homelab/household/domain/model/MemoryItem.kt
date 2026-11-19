@@ -69,10 +69,12 @@ data class WaitingChange(
  * The memory page's two tabs: the member's personal memories, and every household memory. [toCheck]
  * counts the changes waiting for the member: the band on the page and the chip on Profile. [waiting]
  * are the member's own sentences waiting on someone else; their stored memories aren't in [household].
+ * [held] counts the facts from the member's chats not saved yet; the band and chip count them too.
  */
 data class MemoryPage(
     val yours: List<MemoryItem>,
     val household: List<MemoryItem>,
     val toCheck: Int = 0,
     val waiting: List<WaitingChange> = emptyList(),
+    val held: Int = 0,
 )

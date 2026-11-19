@@ -1,17 +1,23 @@
 package com.homelab.household.presentation.memories
 
+import com.homelab.household.domain.exception.HeldFactGoneException
 import com.homelab.household.domain.exception.ServerOfflineException
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.LookedOver
 import com.homelab.household.domain.model.MemoryItem
 import com.homelab.household.domain.model.MemoryOrigin
 import com.homelab.household.domain.model.MemoryScope
 import com.homelab.household.domain.model.ProposalAnswer
 import com.homelab.household.domain.usecase.AnswerChangeUseCase
+import com.homelab.household.domain.usecase.AnswerHeldFactUseCase
 import com.homelab.household.domain.usecase.GetLookedOverUseCase
 import com.homelab.household.domain.usecase.RemoveMemoryUseCase
 import com.homelab.household.domain.usecase.RestoreMemoryUseCase
 import com.homelab.household.domain.usecase.UndoChangeAnswerUseCase
+import com.homelab.household.domain.usecase.UndoHeldFactAnswerUseCase
 import com.homelab.household.presentation.memories.ChangesToCheckViewModelTest.Companion.card
+import com.homelab.household.presentation.memories.ChangesToCheckViewModelTest.Companion.heldFact
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
@@ -44,6 +50,8 @@ class LookedOverViewModelTest {
     private val undoAnswer = mock<UndoChangeAnswerUseCase>()
     private val removeMemory = mock<RemoveMemoryUseCase>()
     private val restoreMemory = mock<RestoreMemoryUseCase>()
+    private val answerHeld = mock<AnswerHeldFactUseCase>()
+    private val undoHeld = mock<UndoHeldFactAnswerUseCase>()
     private val clock =
         object : Clock {
             override fun now() = Instant.parse("2026-10-16T18:00:00Z")
@@ -81,11 +89,13 @@ class LookedOverViewModelTest {
 
     private fun viewModel() =
         LookedOverViewModel(
-            getLookedOver,
-            answerChange,
-            undoAnswer,
-            removeMemory,
-            restoreMemory,
+            getLookedOver = getLookedOver,
+            answerChange = answerChange,
+            undoChangeAnswer = undoAnswer,
+            answerHeldFact = answerHeld,
+            undoHeldFactAnswer = undoHeld,
+            removeMemory = removeMemory,
+            restoreMemory = restoreMemory,
             deviceTimeZone = { 0 },
             clock = clock,
         )
@@ -183,5 +193,78 @@ class LookedOverViewModelTest {
 
             assertEquals(false, viewModel.uiState.value.remembered.single().removed)
             assertEquals(MemoryActionFailure.RemoveUnreachable, viewModel.uiState.value.failure)
+        }
+
+    private val sheetWithHeld = sheet.copy(held = listOf(heldFact("h-shop", household = true, expiresAt = null)))
+
+    private fun LookedOverUiState.heldRow(id: String) = held.first { it.fact.id == id }
+
+    @Test
+    fun `GIVEN a chat with a fact not saved yet WHEN the sheet opens THEN the fact loads and counts`() =
+        runTest(testDispatcher) {
+            everySuspend { getLookedOver("chat-1") } returns sheetWithHeld
+            val viewModel = viewModel()
+
+            viewModel.open("chat-1")
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertEquals(listOf("h-shop"), state.held.map { it.fact.id })
+            assertEquals(null, state.heldRow("h-shop").until)
+            assertEquals(1, state.heldOpenCount)
+        }
+
+    @Test
+    fun `GIVEN a fact not saved yet in the sheet WHEN Don't save is tapped THEN it becomes a done row`() =
+        runTest(testDispatcher) {
+            everySuspend { getLookedOver("chat-1") } returns sheetWithHeld
+            everySuspend { answerHeld("h-shop", HeldFactAnswer.DontSave) } returns Unit
+            val viewModel = viewModel()
+            viewModel.open("chat-1")
+            advanceUntilIdle()
+
+            viewModel.onHeldAnswer("h-shop", HeldFactAnswer.DontSave)
+            advanceUntilIdle()
+
+            assertEquals(HeldStatus.Done(HeldFactAnswer.DontSave), viewModel.uiState.value.heldRow("h-shop").status)
+            assertEquals(0, viewModel.uiState.value.heldOpenCount)
+        }
+
+    @Test
+    fun `GIVEN a saved fact in the sheet WHEN Undo is tapped THEN it is open again`() =
+        runTest(testDispatcher) {
+            everySuspend { getLookedOver("chat-1") } returns sheetWithHeld
+            everySuspend { answerHeld(any(), any()) } returns Unit
+            everySuspend { undoHeld("h-shop") } returns Unit
+            val viewModel = viewModel()
+            viewModel.open("chat-1")
+            advanceUntilIdle()
+            viewModel.onHeldAnswer("h-shop", HeldFactAnswer.Save)
+            advanceUntilIdle()
+
+            viewModel.onHeldUndo("h-shop")
+            advanceUntilIdle()
+
+            assertEquals(HeldStatus.Open(), viewModel.uiState.value.heldRow("h-shop").status)
+            verifySuspend(VerifyMode.exactly(1)) { undoHeld("h-shop") }
+        }
+
+    @Test
+    fun `GIVEN a fact that expired WHEN it is answered in the sheet THEN the sheet is read again without it`() =
+        runTest(testDispatcher) {
+            everySuspend { getLookedOver("chat-1") } returns sheetWithHeld
+            everySuspend { answerHeld(any(), any()) } calls {
+                everySuspend { getLookedOver("chat-1") } returns sheet
+                throw HeldFactGoneException()
+            }
+            val viewModel = viewModel()
+            viewModel.open("chat-1")
+            advanceUntilIdle()
+
+            viewModel.onHeldAnswer("h-shop", HeldFactAnswer.Save)
+            advanceUntilIdle()
+
+            assertEquals(emptyList(), viewModel.uiState.value.held)
+            verifySuspend(VerifyMode.exactly(2)) { getLookedOver("chat-1") }
         }
 }

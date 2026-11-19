@@ -84,6 +84,7 @@ private val fixedSegments =
         "decline",
         "google",
         "health",
+        "held",
         "household",
         "integrations",
         "invites",

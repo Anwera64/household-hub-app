@@ -2,6 +2,7 @@ package com.homelab.household.data.mapper
 
 import com.homelab.household.data.dto.ChangeCardDto
 import com.homelab.household.data.dto.ChangesToCheckDto
+import com.homelab.household.data.dto.HeldFactDto
 import com.homelab.household.data.dto.LookedOverDto
 import com.homelab.household.data.dto.LookedOverSummaryDto
 import com.homelab.household.data.dto.MemoryPageDto
@@ -9,6 +10,8 @@ import com.homelab.household.data.dto.MemoryPageItemDto
 import com.homelab.household.domain.model.ChangeCard
 import com.homelab.household.domain.model.ChangesToCheck
 import com.homelab.household.domain.model.EventTime
+import com.homelab.household.domain.model.HeldFact
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.LookedOver
 import com.homelab.household.domain.model.LookedOverLine
 import com.homelab.household.domain.model.MemoryItem
@@ -27,6 +30,7 @@ object MemoryDataMapper {
             yours = dto.yours.map(::toDomain),
             household = dto.household.map(::toDomain),
             toCheck = dto.to_check,
+            held = dto.held,
             waiting =
                 dto.waiting.map { waiting ->
                     WaitingChange(
@@ -54,7 +58,24 @@ object MemoryDataMapper {
         )
 
     fun toDomain(dto: ChangesToCheckDto): ChangesToCheck =
-        ChangesToCheck(toCheck = dto.to_check.map(::toDomain), waiting = dto.waiting.map(::toDomain))
+        ChangesToCheck(
+            toCheck = dto.to_check.map(::toDomain),
+            waiting = dto.waiting.map(::toDomain),
+            held = dto.held.map(::toDomain),
+        )
+
+    fun toDomain(dto: HeldFactDto): HeldFact =
+        HeldFact(
+            id = dto.id,
+            content = dto.content,
+            scope = scopeOf(dto.scope),
+            agentName = dto.agent_name,
+            createdAt = instantOf(dto.created_at),
+            expiresAt = dto.expires_at?.let(::instantOf),
+            sourceTitle = dto.source.title,
+            sourceOwnerName = dto.source.owner_name,
+            readAt = instantOf(dto.source.read_at),
+        )
 
     fun toDomain(dto: LookedOverDto): LookedOver =
         LookedOver(
@@ -62,6 +83,7 @@ object MemoryDataMapper {
             toCheck = dto.to_check.map(::toDomain),
             waiting = dto.waiting.map(::toDomain),
             remembered = dto.remembered.map(::toDomain),
+            held = dto.held.map(::toDomain),
         )
 
     fun toDomain(dto: LookedOverSummaryDto): LookedOverLine =
@@ -70,21 +92,14 @@ object MemoryDataMapper {
             at = instantOf(dto.at),
             remembered = dto.remembered,
             toCheck = dto.to_check,
+            held = dto.held,
         )
 
     fun toDomain(dto: MemoryPageItemDto): MemoryItem =
         MemoryItem(
             id = dto.id,
             content = dto.content,
-            scope = if (dto.scope.equals(
-                    "household",
-                    ignoreCase = true,
-                )
-            ) {
-                MemoryScope.HOUSEHOLD
-            } else {
-                MemoryScope.PERSONAL
-            },
+            scope = scopeOf(dto.scope),
             origin = ORIGINS[dto.origin.lowercase()] ?: MemoryOrigin.Reflection,
             createdAt = instantOf(dto.created_at),
             expiresAt = dto.expires_at?.let(::instantOf),
@@ -114,6 +129,9 @@ object MemoryDataMapper {
 
     private fun instantOf(iso: String): Instant = hubInstant(iso)
 
+    private fun scopeOf(scope: String): MemoryScope =
+        if (scope.equals("household", ignoreCase = true)) MemoryScope.HOUSEHOLD else MemoryScope.PERSONAL
+
     private val EVENT_TIME_KINDS = mapOf("timed" to false, "all_day" to true)
 
     private val ORIGINS =
@@ -130,4 +148,11 @@ fun ProposalAnswer.toWire(): String =
         ProposalAnswer.KeepStored -> "keep_stored"
         ProposalAnswer.KeepBoth -> "keep_both"
         ProposalAnswer.UseNew -> "use_new"
+    }
+
+/** The hub's word for each answer on a fact not saved yet. */
+fun HeldFactAnswer.toWire(): String =
+    when (this) {
+        HeldFactAnswer.Save -> "save"
+        HeldFactAnswer.DontSave -> "dont_save"
     }

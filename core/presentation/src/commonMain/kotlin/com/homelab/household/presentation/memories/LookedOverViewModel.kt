@@ -4,12 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.homelab.household.domain.exception.ServerOfflineException
 import com.homelab.household.domain.model.DeviceTimeZone
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.ProposalAnswer
 import com.homelab.household.domain.usecase.AnswerChangeUseCase
+import com.homelab.household.domain.usecase.AnswerHeldFactUseCase
 import com.homelab.household.domain.usecase.GetLookedOverUseCase
 import com.homelab.household.domain.usecase.RemoveMemoryUseCase
 import com.homelab.household.domain.usecase.RestoreMemoryUseCase
 import com.homelab.household.domain.usecase.UndoChangeAnswerUseCase
+import com.homelab.household.domain.usecase.UndoHeldFactAnswerUseCase
 import com.homelab.household.domain.util.runCatchingSafe
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,14 +23,17 @@ import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 /**
- * "Remembered from this chat", opened from the quiet line in a chat. Changes are answered in place,
- * as on Changes to check, and each remembered memory has ✕ with Undo, as on the memory page.
+ * "Remembered from this chat", opened from the quiet line in a chat. Changes and facts not saved yet
+ * are answered in place, as on Changes to check, and each remembered memory has ✕ with Undo, as on
+ * the memory page.
  */
 @OptIn(ExperimentalTime::class)
 class LookedOverViewModel(
     private val getLookedOver: GetLookedOverUseCase,
     answerChange: AnswerChangeUseCase,
     undoChangeAnswer: UndoChangeAnswerUseCase,
+    answerHeldFact: AnswerHeldFactUseCase,
+    undoHeldFactAnswer: UndoHeldFactAnswerUseCase,
     private val removeMemory: RemoveMemoryUseCase,
     private val restoreMemory: RestoreMemoryUseCase,
     private val deviceTimeZone: DeviceTimeZone,
@@ -45,6 +51,16 @@ class LookedOverViewModel(
             undoChangeAnswer = undoChangeAnswer,
             rows = { _uiState.value.toCheck },
             update = { change -> _uiState.update { it.copy(toCheck = change(it.toCheck)) } },
+        )
+
+    private val heldAnswers =
+        HeldAnswers(
+            scope = viewModelScope,
+            answerHeldFact = answerHeldFact,
+            undoHeldFactAnswer = undoHeldFactAnswer,
+            rows = { _uiState.value.held },
+            update = { change -> _uiState.update { it.copy(held = change(it.held)) } },
+            onGone = ::retry,
         )
 
     /** Each opening starts fresh: what was answered or removed last time is read from the hub again. */
@@ -70,6 +86,7 @@ class LookedOverViewModel(
                             toCheck = sheet.toCheck.map { card -> changeRowOf(card, deviceTimeZone, clock) },
                             waiting = sheet.waiting.map { card -> changeRowOf(card, deviceTimeZone, clock) },
                             remembered = sheet.remembered.map { item -> memoryRowOf(item, deviceTimeZone, clock) },
+                            held = sheet.held.map { fact -> heldRowOf(fact, deviceTimeZone, clock) },
                         )
                     }
                 },
@@ -88,6 +105,13 @@ class LookedOverViewModel(
     ) = answers.answer(changeId, answer)
 
     fun onUndo(changeId: String) = answers.undo(changeId)
+
+    fun onHeldAnswer(
+        heldId: String,
+        answer: HeldFactAnswer,
+    ) = heldAnswers.answer(heldId, answer)
+
+    fun onHeldUndo(heldId: String) = heldAnswers.undo(heldId)
 
     fun onRemove(memoryId: String) {
         val row = _uiState.value.remembered.firstOrNull { it.item.id == memoryId } ?: return

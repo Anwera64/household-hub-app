@@ -4,11 +4,13 @@ import com.homelab.household.data.datasource.remote.`interface`.MemoryRemoteData
 import com.homelab.household.data.dto.ChangeCardDto
 import com.homelab.household.data.dto.ChangeSourceDto
 import com.homelab.household.data.dto.ChangesToCheckDto
+import com.homelab.household.data.dto.HeldFactDto
 import com.homelab.household.data.dto.LookedOverDto
 import com.homelab.household.data.dto.MemoryPageDto
 import com.homelab.household.data.dto.MemoryPageItemDto
 import com.homelab.household.data.dto.WaitingChangeDto
 import com.homelab.household.domain.exception.ServerOfflineException
+import com.homelab.household.domain.model.HeldFactAnswer
 import com.homelab.household.domain.model.MemoryOrigin
 import com.homelab.household.domain.model.MemoryScope
 import com.homelab.household.domain.model.ProposalAnswer
@@ -209,5 +211,61 @@ class MemoryRepositoryTest {
 
             verifySuspend(VerifyMode.exactly(1)) { remote.withdrawChange("p1") }
             verifySuspend(VerifyMode.exactly(1)) { remote.restoreChange("p1") }
+        }
+
+    @Test
+    fun `GIVEN facts not saved yet on the hub WHEN changes are asked for THEN they come back with the changes`() =
+        runTest {
+            val remote = mock<MemoryRemoteDataSource>()
+            everySuspend { remote.getChangesToCheck() } returns
+                ChangesToCheckDto(
+                    to_check = listOf(card("p1", "Dinner ideas", "Emma")),
+                    held =
+                        listOf(
+                            HeldFactDto(
+                                id = "held-1",
+                                content = "The household does the big shop on Saturday mornings.",
+                                scope = "household",
+                                agent_name = "Planner",
+                                created_at = "2026-11-17T10:42:00Z",
+                                source =
+                                    ChangeSourceDto(
+                                        title = "Weekend plans",
+                                        owner_name = "Emma",
+                                        read_at = "2026-11-17T10:40:00Z",
+                                    ),
+                            ),
+                        ),
+                )
+
+            val changes = MemoryRepositoryImpl(remote).getChangesToCheck()
+
+            assertEquals(listOf("p1"), changes.toCheck.map { it.id })
+            val held = changes.held.single()
+            assertEquals("held-1", held.id)
+            assertEquals(MemoryScope.HOUSEHOLD, held.scope)
+            assertEquals("Weekend plans", held.sourceTitle)
+        }
+
+    @Test
+    fun `GIVEN a fact not saved yet WHEN Save is tapped THEN the data source gets the hub's word for it`() =
+        runTest {
+            val remote = mock<MemoryRemoteDataSource>()
+            everySuspend { remote.answerHeldFact("held-1", "save") } returns Unit
+
+            MemoryRepositoryImpl(remote).answerHeldFact("held-1", HeldFactAnswer.Save)
+
+            verifySuspend(VerifyMode.exactly(1)) { remote.answerHeldFact("held-1", "save") }
+        }
+
+    @Test
+    fun `GIVEN an answered fact WHEN Undo is tapped THEN the data source is asked to open it again`() =
+        runTest {
+            val remote = mock<MemoryRemoteDataSource>()
+            everySuspend { remote.undoHeldFactAnswer("held-1") } returns Unit
+
+            MemoryRepositoryImpl(remote).undoHeldFactAnswer("held-1")
+
+            verifySuspend(VerifyMode.exactly(1)) { remote.undoHeldFactAnswer("held-1") }
         }
 }
