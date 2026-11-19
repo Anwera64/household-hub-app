@@ -55,6 +55,8 @@ class SecretLockControllerTest {
             token: String,
         ) = Unit
 
+        override fun opens(sessionId: String): Boolean = state.value
+
         override fun tokenAge(): Duration? = age
     }
 

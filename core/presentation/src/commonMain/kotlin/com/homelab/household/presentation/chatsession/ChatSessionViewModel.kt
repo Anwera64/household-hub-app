@@ -92,6 +92,11 @@ class ChatSessionViewModel(
     private val onMemberInput: () -> Unit = {},
     /** Each time secret chats lock again: idle, the app leaving the screen, signing out. */
     secretLocks: Flow<Unit> = emptyFlow(),
+    /**
+     * Whether the phone holds an unlock that opens this chat: the PIN's, or its own. The same
+     * answer the hub gets, so a send it would refuse asks for the PIN before going out.
+     */
+    private val opensSecretChat: (sessionId: String) -> Boolean = { true },
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ChatSessionUiState())
     val uiState: StateFlow<ChatSessionUiState> = _uiState.asStateFlow()
@@ -137,7 +142,7 @@ class ChatSessionViewModel(
         }
     }
 
-    /** The screen opened the PIN pad a refused send asked for. */
+    /** The screen opened the PIN pad a held send asked for. */
     fun pinPadAsked() {
         _uiState.update { it.copy(askingForPinToSend = false) }
     }
@@ -145,7 +150,7 @@ class ChatSessionViewModel(
     /**
      * The PIN opened secret chats: read this one again, a secret part open in place.
      *
-     * [thenSend]: the pad was opened by a send the hub refused as locked. Once the chat reads, the
+     * [thenSend]: the pad was opened by a send held for the PIN. Once the chat reads, the
      * words still in the composer go, once. If it cannot be read, nothing goes: the words stay
      * with the load error, and Send works again with the unlock the phone keeps.
      */
@@ -399,6 +404,14 @@ class ChatSessionViewModel(
         }
 
         val existing = _uiState.value.session
+        // Secret Mode on and nothing on this phone opens the chat: the hub would refuse the words.
+        // The pad comes first, and nothing is drawn as sent. A new chat has no such check: starting
+        // one secret hands back its own unlock.
+        if (existing != null && existing.isSecret && !opensSecretChat(existing.id)) {
+            _uiState.update { it.copy(composerText = content, askingForPinToSend = true) }
+            return
+        }
+
         if (existing == null) {
             // The conversation is created by the first thing said in it, not by opening the screen.
             // Marked before the launch, so a second tap in the same frame already finds Send busy.
@@ -840,7 +853,11 @@ class ChatSessionViewModel(
         }
     }
 
-    /** The chat locked under the member: what they wrote goes back to the composer, unsent, and the pad is asked for. */
+    /**
+     * The hub refused a send as locked: it let go an unlock the phone still held, so the check in
+     * [sendMessage] let it through. What they wrote goes back to the composer, unsent, and the pad
+     * is asked for.
+     */
     private fun holdLocked(userMessageId: String?) {
         _uiState.update { state ->
             val unsent = state.messages.firstOrNull { it.id == userMessageId }

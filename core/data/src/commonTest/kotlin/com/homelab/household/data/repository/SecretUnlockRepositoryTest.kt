@@ -98,4 +98,27 @@ class SecretUnlockRepositoryTest {
             assertEquals("chat-unlock-2", local.tokenFor("chat-1"))
             assertEquals(0.minutes, repository.tokenAge())
         }
+
+    @Test
+    fun `GIVEN nothing held WHEN asked whether a chat opens THEN it does not`() {
+        assertFalse(repository.opens("chat-1"))
+    }
+
+    @Test
+    fun `GIVEN the PIN's unlock WHEN asked whether a chat opens THEN any chat does`() =
+        runTest {
+            everySuspend { remote.unlock("1234") } returns SecretUnlockReadDto("unlock-1", 600)
+            repository.unlock("1234")
+
+            assertTrue(repository.opens("chat-1"))
+            assertTrue(repository.opens("chat-2"))
+        }
+
+    @Test
+    fun `GIVEN only one chat's own unlock WHEN asked whether chats open THEN that chat does and another does not`() {
+        repository.holdChatUnlock("chat-1", "chat-unlock")
+
+        assertTrue(repository.opens("chat-1"))
+        assertFalse(repository.opens("chat-2"))
+    }
 }

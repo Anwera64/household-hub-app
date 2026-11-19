@@ -106,6 +106,9 @@ class ChatSessionViewModelTest {
     private var memberInputs = 0
     private val secretLocks = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 
+    /** Whether the phone holds an unlock that opens the chat; the hub's 423 tests leave it held. */
+    private var phoneOpensChat = true
+
     @BeforeTest
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
@@ -129,6 +132,7 @@ class ChatSessionViewModelTest {
                 stopAskingBeforeSecretOff = stopAskingBeforeSecretOff,
                 onMemberInput = { memberInputs++ },
                 secretLocks = secretLocks,
+                opensSecretChat = { phoneOpensChat },
             )
     }
 
@@ -867,7 +871,10 @@ class ChatSessionViewModelTest {
             assertEquals(emptyList(), state.messages)
         }
 
-    /** A chat with Secret Mode on, open on its ordinary first message, whose next send the hub refuses as locked. */
+    /**
+     * A chat with Secret Mode on, open on its ordinary first message, whose next send the hub refuses
+     * as locked: the fallback for when the hub has let go an unlock the phone still holds.
+     */
     private fun TestScope.openLockedUnderTheMember() {
         everySuspend { getSessionUseCase("s-1") } returns
             Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(question))
@@ -951,6 +958,66 @@ class ChatSessionViewModelTest {
             val state = viewModel.uiState.value
             assertEquals("Also lunch?", state.composerText)
             assertNotNull(state.errorMessage)
+            verify(VerifyMode.exactly(1)) { streamChatTurnUseCase("s-1", "Also lunch?", any()) }
+        }
+
+    /** A chat with Secret Mode on, open on its ordinary first message, with no unlock for it on the phone. */
+    private fun TestScope.openClosedOnThePhone() {
+        phoneOpensChat = false
+        everySuspend { getSessionUseCase("s-1") } returns
+            Pair(ConversationSession(id = "s-1", userId = "u-1", isSecret = true), listOf(question))
+        every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns
+            flowOf(ChatStreamEvent.Done(messageId = "m-3", assistantContent = "Soup."))
+        viewModel.loadSession("s-1")
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `GIVEN a chat with Secret Mode on and no unlock on the phone WHEN a message is sent THEN the PIN pad is asked for before the hub`() =
+        runTest(testDispatcher) {
+            openClosedOnThePhone()
+
+            viewModel.sendMessage("Also lunch?")
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.askingForPinToSend)
+            assertEquals("Also lunch?", state.composerText)
+            assertEquals(listOf("m-1"), state.messages.map { it.id })
+            verify(VerifyMode.not) { streamChatTurnUseCase(any(), any(), any()) }
+        }
+
+    @Test
+    fun `GIVEN a send held for the PIN WHEN the PIN opens secret chats to send THEN the chat is read again and the message sent once`() =
+        runTest(testDispatcher) {
+            openClosedOnThePhone()
+            viewModel.sendMessage("Also lunch?")
+            advanceUntilIdle()
+            phoneOpensChat = true
+
+            viewModel.unlocked(thenSend = true)
+            advanceUntilIdle()
+
+            assertEquals(listOf("Dinner Saturday?", "Also lunch?", "Soup."), viewModel.uiState.value.messages.map { it.content })
+            verifySuspend(VerifyMode.exactly(2)) { getSessionUseCase("s-1") }
+            verify(VerifyMode.exactly(1)) { streamChatTurnUseCase("s-1", "Also lunch?", any()) }
+        }
+
+    @Test
+    fun `GIVEN an ordinary chat and no unlock on the phone WHEN a message is sent THEN it goes to the hub`() =
+        runTest(testDispatcher) {
+            phoneOpensChat = false
+            everySuspend { getSessionUseCase("s-1") } returns
+                Pair(ConversationSession(id = "s-1", userId = "u-1"), listOf(question))
+            every { streamChatTurnUseCase("s-1", "Also lunch?", any()) } returns
+                flowOf(ChatStreamEvent.Done(messageId = "m-3", assistantContent = "Soup."))
+            viewModel.loadSession("s-1")
+            advanceUntilIdle()
+
+            viewModel.sendMessage("Also lunch?")
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.askingForPinToSend)
             verify(VerifyMode.exactly(1)) { streamChatTurnUseCase("s-1", "Also lunch?", any()) }
         }
 
