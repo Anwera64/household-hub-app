@@ -142,6 +142,11 @@ data class ChatSessionUiState(
     /** A new chat's pill was turned on before anything was said: the hub creates it secret. */
     val startsSecret: Boolean = false,
     /**
+     * The first message is creating the chat on the hub. Send, the agent picker and the secret pill
+     * wait until it exists or creation fails: the chat is made with what was set at the first tap.
+     */
+    val isStartingChat: Boolean = false,
+    /**
      * The newest answer offers to make the whole chat secret. Only for the turn that brought it:
      * the next message, an answer to the card or leaving the chat ends it.
      */
@@ -153,15 +158,19 @@ data class ChatSessionUiState(
      * A send while the hub is working on this conversation answers 409, so the screen says so
      * rather than letting it fail. Not a dimmed control — the composer keeps its contrast and
      * changes what its placeholder says (design notes §2).
+     *
+     * Nor while the first message is still creating the chat: a second tap would create a second
+     * chat (#22).
      */
     val canSend: Boolean
         get() =
-            when (turnState) {
-                TurnState.Streaming, TurnState.Reconnecting, TurnState.StillWorking -> false
+            !isStartingChat &&
+                when (turnState) {
+                    TurnState.Streaming, TurnState.Reconnecting, TurnState.StillWorking -> false
 
-                // Send still answers while a card waits, by holding the message and saying why.
-                TurnState.Idle, TurnState.Failed, TurnState.AwaitingApproval -> true
-            }
+                    // Send still answers while a card waits, by holding the message and saying why.
+                    TurnState.Idle, TurnState.Failed, TurnState.AwaitingApproval -> true
+                }
 
     /** Whether the chat is secret now, or a new one will start secret. */
     val isSecret: Boolean
@@ -221,10 +230,11 @@ data class ChatSessionUiState(
 
     /**
      * Whether the agent can still be changed: a chat is bound to one agent for its life, so only
-     * until the first message creates it on the hub.
+     * until the first message creates it on the hub. Not while it is being created either: the chat
+     * is made with the agent chosen at the first tap.
      */
     val canChangeAgent: Boolean
-        get() = isNew && session == null
+        get() = isNew && session == null && !isStartingChat
 
     /** The newest answer already on screen, which a recovery must not mistake for a new one. */
     val lastAssistantMessageId: String?
