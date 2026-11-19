@@ -998,7 +998,8 @@ class ChatSessionViewModelTest {
             viewModel.unlocked(thenSend = true)
             advanceUntilIdle()
 
-            assertEquals(listOf("Dinner Saturday?", "Also lunch?", "Soup."), viewModel.uiState.value.messages.map { it.content })
+            val transcript = viewModel.uiState.value.messages.map { it.content }
+            assertEquals(listOf("Dinner Saturday?", "Also lunch?", "Soup."), transcript)
             verifySuspend(VerifyMode.exactly(2)) { getSessionUseCase("s-1") }
             verify(VerifyMode.exactly(1)) { streamChatTurnUseCase("s-1", "Also lunch?", any()) }
         }

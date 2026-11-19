@@ -79,10 +79,11 @@ class SecretChatTest {
         }
 
     @Test
-    fun `GIVEN a chat with Secret Mode on and nothing unlocked WHEN a message is sent THEN the words stay in the box and the PIN pad is asked for to send`() =
+    fun `GIVEN a chat with Secret Mode on and nothing unlocked WHEN a message is sent THEN the words stay in the box and the PIN pad is asked for before the hub`() =
         runScreenTest(effectContext = StandardTestDispatcher()) {
+            val hub = FakeSecretChatHub()
             val navigation = ChatNavigation()
-            secretChatScreen(FakeSecretChatHub(), sessionId = "s-4", navigation = navigation)
+            secretChatScreen(hub, sessionId = "s-4", navigation = navigation)
 
             onSecretChat(navigation) {
                 seesTheOrdinaryMessagesBeforeSecretMode()
@@ -90,6 +91,7 @@ class SecretChatTest {
                 seesInTheBox("And the flowers?")
             }
             assertEquals(1, navigation.pinPadsAskedToSend)
+            assertEquals(0, hub.secretSends)
         }
 
     @Test

@@ -164,7 +164,7 @@ fun AppNavHost(
                         onConnectCalendar = { backStack.add(Destination.CalendarPicker) },
                         // "All memories" at the foot of the chat's look-over sheet.
                         onAllMemories = { backStack.add(Destination.Memories) },
-                        // Unlock on the locked screen or a band, or a send refused as locked: the same
+                        // Unlock on the locked screen or a band, or a send held for the PIN: the same
                         // pad as the bar over Chats, over the chat.
                         onUnlockSecretChats = { thenSend -> backStack.add(Destination.SecretChatsUnlock(thenSend)) },
                     )

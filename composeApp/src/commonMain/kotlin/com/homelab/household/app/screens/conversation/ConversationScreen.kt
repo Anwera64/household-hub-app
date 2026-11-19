@@ -29,8 +29,8 @@ import org.koin.compose.viewmodel.koinViewModel
  *
  * Locked, a chat with everything in it secret shows the locked screen; one with anything ordinary
  * shows that, each secret part folded into a band. The PIN pad is never drawn here: Unlock, or a
- * send the hub refused as locked, asks [onUnlockSecretChats] for the secret chats pad over the chat,
- * with `thenSend` for the send.
+ * send in a chat the phone holds no unlock for (or the hub refused as locked), asks
+ * [onUnlockSecretChats] for the secret chats pad over the chat, with `thenSend` for the send.
  */
 @Composable
 fun ConversationScreen(
@@ -52,9 +52,9 @@ fun ConversationScreen(
     // Back from connecting a calendar from a fix card: the hub has marked those steps fixed.
     ResultEffect<CalendarConnected> { viewModel.refresh() }
     // Back from the secret chats PIN pad with the right PIN: the chat opens in place, and a send
-    // the hub refused as locked goes.
+    // held for the PIN goes.
     ResultEffect<SecretChatsUnlocked> { viewModel.unlocked(it.thenSend) }
-    // A send refused as locked: the words are back in the box, and the pad opens once.
+    // A send held for the PIN: the words stay in the box, and the pad opens once.
     val askForThePad by rememberUpdatedState(onUnlockSecretChats)
     LaunchedEffect(state.askingForPinToSend) {
         if (state.askingForPinToSend) {

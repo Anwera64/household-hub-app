@@ -63,7 +63,7 @@ class ChatNavigation {
 
     var pinPadsAsked = 0
 
-    /** Of those, how many were for a send the hub refused as locked. */
+    /** Of those, how many were for a send held for the PIN. */
     var pinPadsAskedToSend = 0
 }
 

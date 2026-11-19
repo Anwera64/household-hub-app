@@ -32,6 +32,10 @@ class FakeSecretChatHub {
     /** What each `PATCH …/secret` asked for, in order. */
     val secretToggles = mutableListOf<String>()
 
+    /** How many sends reached `s-4`'s chat stream. */
+    var secretSends = 0
+        private set
+
     /** False: the unlock call gets the proxy's 503, as when the hub is down. */
     var answering = true
 
@@ -67,7 +71,9 @@ class FakeSecretChatHub {
                 }
 
                 path == "/api/v1/sessions/s-4/chat/stream" && request.method == HttpMethod.Post -> {
-                    // No unlock in this hub's tests reaches a send: it is always refused as locked.
+                    // The fallback for an unlock the hub let go: a phone holding none asks for
+                    // the PIN first, so a send that gets here is refused as locked.
+                    secretSends++
                     json("""{"detail":"locked","code":"secret_locked"}""", HttpStatusCode.Locked)
                 }
 
