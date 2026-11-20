@@ -53,6 +53,7 @@ val presentationModule =
                 stopAskingBeforeSecretOff = get(),
                 onMemberInput = get<SecretLockController>()::onUserInput,
                 secretLocks = get<SecretUnlockRepository>().locks,
+                opensSecretChat = get<SecretUnlockRepository>()::opens,
             )
         }
         factory {

@@ -133,10 +133,21 @@ data class ChatSessionUiState(
      */
     val madeAutomatic: AutomaticWrite? = null,
     val errorMessage: String? = null,
-    /** The chat is secret, or holds a secret part, and secret chats are locked: only the PIN pad shows. */
+    /**
+     * Everything in the chat is secret and held back: it has messages and the hub withheld every
+     * one, or reading it answered 423 (a hub that reads secret chats whole). The screen shows the
+     * locked screen in their place, with no composer. A chat with anything ordinary in it is never
+     * locked: its secret parts fold into bands among the rest.
+     */
     val isLocked: Boolean = false,
     /** Where the chat was secret, in order; empty for a chat that never was. */
     val secretParts: List<SecretPart> = emptyList(),
+    /**
+     * A send in a chat with Secret Mode on that this phone holds no unlock for: the words stay in
+     * the composer, and the screen opens the PIN pad once, then says so with `pinPadAsked`. The hub
+     * is not asked; its 423 is only the fallback, for an unlock it let go that the phone still held.
+     */
+    val askingForPinToSend: Boolean = false,
     /** The ON pill was tapped and the sheet asks before Secret Mode turns off. */
     val askingToTurnOffSecret: Boolean = false,
     /** A new chat's pill was turned on before anything was said: the hub creates it secret. */

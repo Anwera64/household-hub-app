@@ -67,8 +67,14 @@ sealed interface Destination : NavKey {
         val sessionId: String? = null,
     ) : Destination
 
-    /** The PIN pad the bar over Chats opens: it unlocks every secret chat, then goes back to the list. */
-    data object SecretChatsUnlock : Destination
+    /**
+     * The secret chats PIN pad, over Chats or over a chat: it unlocks every secret chat, then goes
+     * back to where it was opened. [thenSend]: a chat opened it because the hub refused a send as
+     * locked, and the message goes once the chat reads again.
+     */
+    data class SecretChatsUnlock(
+        val thenSend: Boolean = false,
+    ) : Destination
 
     data object Profile : Destination
 

@@ -18,9 +18,7 @@ import com.homelab.household.app.resources.Res
 import com.homelab.household.app.resources.conversation_back
 import com.homelab.household.app.resources.secret_chats_unlock_line
 import com.homelab.household.app.resources.secret_chats_unlock_title
-import com.homelab.household.app.resources.secret_locked_line
 import com.homelab.household.app.resources.secret_locked_not_a_safe
-import com.homelab.household.app.resources.secret_locked_title
 import com.homelab.household.app.screens.pinentry.PinPad
 import com.homelab.household.app.theme.HearthShapes
 import com.homelab.household.app.theme.HearthTheme
@@ -28,9 +26,9 @@ import com.homelab.household.presentation.secretunlock.SecretUnlockUiState
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * A secret chat with nothing unlocked (canvas SecretUnlock): the sign-in PIN pad with a lock tile
- * in place of the avatar, and no composer. The right PIN opens every secret chat for ten minutes.
- * [allChats] words it for all of them, as the bar over Chats opens it (canvas ChatsSecretUnlock).
+ * The secret chats PIN pad (canvas ChatsSecretUnlock): the sign-in PIN pad with a lock tile in
+ * place of the avatar. The right PIN opens every secret chat for ten minutes, so it is worded for
+ * all of them, whether the bar over Chats opened it or a chat did.
  *
  * Stateless — [SecretUnlockScreen] owns the ViewModel.
  */
@@ -41,7 +39,6 @@ fun SecretUnlockContent(
     onDelete: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    allChats: Boolean = false,
 ) {
     HearthScaffold(
         modifier = modifier,
@@ -52,14 +49,10 @@ fun SecretUnlockContent(
             entered = state.entered,
             status = state.status,
             face = { LockTile() },
-            title = stringResource(
-                if (allChats) Res.string.secret_chats_unlock_title else Res.string.secret_locked_title,
-            ),
+            title = stringResource(Res.string.secret_chats_unlock_title),
             lines =
                 listOf(
-                    stringResource(
-                        if (allChats) Res.string.secret_chats_unlock_line else Res.string.secret_locked_line,
-                    ),
+                    stringResource(Res.string.secret_chats_unlock_line),
                     stringResource(Res.string.secret_locked_not_a_safe),
                 ),
             onDigit = onDigit,

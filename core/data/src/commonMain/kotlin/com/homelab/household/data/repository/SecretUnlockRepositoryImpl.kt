@@ -37,5 +37,7 @@ class SecretUnlockRepositoryImpl(
         token: String,
     ) = local.holdChat(sessionId, token)
 
+    override fun opens(sessionId: String): Boolean = local.tokenFor(sessionId) != null
+
     override fun tokenAge(): Duration? = local.age()
 }

@@ -15,8 +15,12 @@ import io.ktor.http.headersOf
  * The hub as a secret chat needs it: one secret chat, `s-1`, that answers 423 until the request
  * carries the unlock the PIN 482913 trades for. Any other PIN is refused with tries left.
  *
+ * `s-1` is read whole, as a hub before section reads did; `s-3` is the same chat on a hub that reads
+ * by section: it answers 200 without the unlock, every message withheld.
+ *
  * `s-2` was secret and turned off again: it opens without the unlock, its secret part withheld.
- * Turning `s-1` off makes it the same kind of chat.
+ * Turning `s-1` off makes it the same kind of chat. `s-4` had ordinary messages and then Secret Mode
+ * on, still on: it too opens without the unlock, its secret part withheld.
  *
  * The chats list holds `s-1` back the same way: locked, with an empty title, until the unlock comes
  * with it. Its last message is ordinary, so its preview is sent either way.
@@ -27,6 +31,10 @@ class FakeSecretChatHub {
 
     /** What each `PATCH …/secret` asked for, in order. */
     val secretToggles = mutableListOf<String>()
+
+    /** How many sends reached `s-4`'s chat stream. */
+    var secretSends = 0
+        private set
 
     /** False: the unlock call gets the proxy's 503, as when the hub is down. */
     var answering = true
@@ -56,6 +64,21 @@ class FakeSecretChatHub {
 
                 path == "/api/v1/sessions/s-2" && request.method == HttpMethod.Get -> {
                     json(if (request.headers["X-Secret-Unlock"] == UNLOCK) TURNED_OFF_CHAT else TURNED_OFF_CHAT_LOCKED)
+                }
+
+                path == "/api/v1/sessions/s-3" && request.method == HttpMethod.Get -> {
+                    json(startedSecretChat(withheld = request.headers["X-Secret-Unlock"] != UNLOCK))
+                }
+
+                path == "/api/v1/sessions/s-4/chat/stream" && request.method == HttpMethod.Post -> {
+                    // The fallback for an unlock the hub let go: a phone holding none asks for
+                    // the PIN first, so a send that gets here is refused as locked.
+                    secretSends++
+                    json("""{"detail":"locked","code":"secret_locked"}""", HttpStatusCode.Locked)
+                }
+
+                path == "/api/v1/sessions/s-4" && request.method == HttpMethod.Get -> {
+                    json(turnedOnChat(withheld = request.headers["X-Secret-Unlock"] != UNLOCK))
                 }
 
                 path == "/api/v1/sessions/s-1" && request.method == HttpMethod.Get -> {
@@ -96,6 +119,7 @@ class FakeSecretChatHub {
         const val SECRET_ANSWER = "Can Pere does a set menu on Saturdays"
         const val ASKED_BEFORE = "What's on this weekend?"
         const val ASKED_AFTER = "Add the plumber on Monday"
+        const val ANSWERED_BEFORE = "Two markets and a concert"
         const val ORDINARY_TITLE = "Groceries for the week"
         const val SECRET_TITLE = "Anniversary surprise"
         const val SECRET_PREVIEW = "Booked the table for eight"
@@ -122,6 +146,31 @@ class FakeSecretChatHub {
             ${secret("m-2", "user", SECRET_WORDS)},${secret("m-3", "assistant", SECRET_ANSWER)},
             {"id":"m-4","session_id":"s-2","role":"user","content":"$ASKED_AFTER"}]}"""
         }
+
+        /** A message of [sessionId] said in secret: its words, or held back without the unlock. */
+        private fun secretMessage(
+            sessionId: String,
+            id: String,
+            role: String,
+            content: String,
+            withheld: Boolean,
+        ) = if (withheld) {
+            """{"id":"$id","session_id":"$sessionId","role":"$role","content":"","is_secret":true,"withheld":true}"""
+        } else {
+            """{"id":"$id","session_id":"$sessionId","role":"$role","content":"$content","is_secret":true}"""
+        }
+
+        private fun startedSecretChat(withheld: Boolean) =
+            """{"id":"s-3","user_id":"emma","title":"Saturday","is_secret":true,"has_secret_part":true,
+            "messages":[${secretMessage("s-3", "m-1", "user", SECRET_WORDS, withheld)},
+            ${secretMessage("s-3", "m-2", "assistant", SECRET_ANSWER, withheld)}]}"""
+
+        private fun turnedOnChat(withheld: Boolean) =
+            """{"id":"s-4","user_id":"emma","title":"Weekend","is_secret":true,"has_secret_part":true,
+            "messages":[{"id":"m-1","session_id":"s-4","role":"user","content":"$ASKED_BEFORE"},
+            {"id":"m-2","session_id":"s-4","role":"assistant","content":"$ANSWERED_BEFORE"},
+            ${secretMessage("s-4", "m-3", "user", SECRET_WORDS, withheld)},
+            ${secretMessage("s-4", "m-4", "assistant", SECRET_ANSWER, withheld)}]}"""
 
         private val TURNED_OFF_CHAT_LOCKED = turnedOffChat(withheld = true)
         private val TURNED_OFF_CHAT = turnedOffChat(withheld = false)

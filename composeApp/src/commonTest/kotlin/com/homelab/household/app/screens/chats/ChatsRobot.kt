@@ -175,7 +175,7 @@ fun ComposeUiTest.secretChatsListScreen(hub: FakeSecretChatHub) {
         TestApp(hub.engine, sessionStorage = InMemorySessionStorage().apply { saveTokens("signed-in-token") }) {
             var unlocking by remember { mutableStateOf(false) }
             if (unlocking) {
-                SecretUnlockScreen(allChats = true, onUnlock = { unlocking = false }, onBack = { unlocking = false })
+                SecretUnlockScreen(onUnlock = { unlocking = false }, onBack = { unlocking = false })
             } else {
                 ChatsScreen(onOpen = {}, onNewChat = {}, tabs = {}, onUnlockSecretChats = { unlocking = true })
             }

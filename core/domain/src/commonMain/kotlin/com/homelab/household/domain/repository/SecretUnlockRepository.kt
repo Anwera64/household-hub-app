@@ -36,6 +36,13 @@ interface SecretUnlockRepository {
         token: String,
     )
 
+    /**
+     * Whether an unlock held on this phone opens [sessionId]: the PIN's, or that chat's own. The
+     * same answer the hub gets with the chat's calls, so a send it would refuse can ask for the PIN
+     * first.
+     */
+    fun opens(sessionId: String): Boolean
+
     /** How long ago the oldest unlock held was issued or renewed; null when none is held. */
     fun tokenAge(): Duration?
 }

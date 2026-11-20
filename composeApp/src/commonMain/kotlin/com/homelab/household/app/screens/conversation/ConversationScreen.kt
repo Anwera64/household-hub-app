@@ -4,15 +4,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.ResultEffect
 import com.homelab.household.app.navigation.CalendarConnected
 import com.homelab.household.app.navigation.SecretChatsUnlocked
-import com.homelab.household.app.screens.secretunlock.SecretUnlockScreen
 import com.homelab.household.presentation.chatsession.ChatSessionViewModel
 import com.homelab.household.presentation.profile.ProfileViewModel
 import org.koin.compose.viewmodel.koinViewModel
@@ -26,6 +27,11 @@ import org.koin.compose.viewmodel.koinViewModel
  *
  * Coming back to the app — unlocking the phone, most often — asks for the rest of any answer that
  * was left waiting, so it carries on from the last word rather than waiting out a retry.
+ *
+ * Locked, a chat with everything in it secret shows the locked screen; one with anything ordinary
+ * shows that, each secret part folded into a band. The PIN pad is never drawn here: Unlock, or a
+ * send in a chat the phone holds no unlock for (or the hub refused as locked), asks
+ * [onUnlockSecretChats] for the secret chats pad over the chat, with `thenSend` for the send.
  */
 @Composable
 fun ConversationScreen(
@@ -34,7 +40,7 @@ fun ConversationScreen(
     modifier: Modifier = Modifier,
     onConnectCalendar: () -> Unit = {},
     onAllMemories: () -> Unit = {},
-    onUnlockSecretChats: () -> Unit = {},
+    onUnlockSecretChats: (thenSend: Boolean) -> Unit = {},
 ) {
     val viewModel: ChatSessionViewModel = koinViewModel()
     val profileViewModel: ProfileViewModel = koinViewModel()
@@ -46,16 +52,38 @@ fun ConversationScreen(
     LaunchedEffect(viewModel) { viewModel.onShown() }
     // Back from connecting a calendar from a fix card: the hub has marked those steps fixed.
     ResultEffect<CalendarConnected> { viewModel.refresh() }
-    // Back from the secret chats PIN pad, opened from a locked secret part: it opens in place.
-    ResultEffect<SecretChatsUnlocked> { viewModel.unlocked() }
+    // Back from the secret chats PIN pad with the right PIN: the chat opens in place, and a send
+    // held for the PIN goes.
+    ResultEffect<SecretChatsUnlocked> { viewModel.unlocked(it.thenSend) }
+    // A send held for the PIN: the words stay in the box, and the pad opens once. The box lets go
+    // of the keyboard first: it stays composed under the pad until the transition ends, and the
+    // keyboard would cover the pad's bottom rows until then.
+    val askForThePad by rememberUpdatedState(onUnlockSecretChats)
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(state.askingForPinToSend) {
+        if (state.askingForPinToSend) {
+            focusManager.clearFocus()
+            askForThePad(true)
+            viewModel.pinPadAsked()
+        }
+    }
     LifecycleResumeEffect(viewModel) {
         viewModel.onForeground()
         onPauseOrDispose {}
     }
 
-    // Locked is its own screen, never the new-chat one: nothing to type into until the PIN opens it.
+    // All secret and locked: its own screen, never the new-chat one, with nothing to type into.
     if (state.isLocked) {
-        SecretUnlockScreen(onUnlock = viewModel::unlocked, onBack = onBack, modifier = modifier)
+        LockedChatContent(
+            state = state,
+            onUnlock = { onUnlockSecretChats(false) },
+            onBack = onBack,
+            onTurnOnSecret = { viewModel.toggleSecret(true) },
+            onTurnOffSecret = viewModel::secretPillTapped,
+            onKeepSecret = viewModel::keepSecret,
+            onConfirmSecretOff = viewModel::turnOffSecret,
+            modifier = modifier,
+        )
         return
     }
 
@@ -97,7 +125,7 @@ fun ConversationScreen(
         onTurnOffSecret = viewModel::secretPillTapped,
         onKeepSecret = viewModel::keepSecret,
         onConfirmSecretOff = viewModel::turnOffSecret,
-        onUnlockSecretPart = onUnlockSecretChats,
+        onUnlockSecretPart = { onUnlockSecretChats(false) },
         memoryAge = viewModel::memoryAge,
         eventTime = viewModel::eventTime,
         modifier = modifier,

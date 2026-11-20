@@ -26,9 +26,8 @@ class StubScreens : AppScreens {
     /** How many times a conversation heard that a calendar was connected from it. */
     var calendarsConnected = 0
 
-    /** How often the secret chats PIN pad told a chat that the PIN opened them. */
-    var secretChatsUnlocked = 0
-        private set
+    /** What the secret chats PIN pad told a chat each time the PIN opened them, in order. */
+    val secretChatsUnlocked = mutableListOf<SecretChatsUnlocked>()
 
     class ScreenViewModel : ViewModel() {
         var cleared = false
@@ -214,6 +213,7 @@ class StubScreens : AppScreens {
         onUnlock: () -> Unit,
         onBack: () -> Unit,
     ) {
+        TakeViewModel()
         Column {
             Text(SECRET_CHATS_PIN)
             Text(UNLOCKED, modifier = Modifier.clickable { onUnlock() })
@@ -227,14 +227,15 @@ class StubScreens : AppScreens {
         onBack: () -> Unit,
         onConnectCalendar: () -> Unit,
         onAllMemories: () -> Unit,
-        onUnlockSecretChats: () -> Unit,
+        onUnlockSecretChats: (thenSend: Boolean) -> Unit,
     ) {
         TakeViewModel()
         // Listens as the real screen does, so a test sees what the connect flow sends back.
         ResultEffect<CalendarConnected> { calendarsConnected++ }
-        ResultEffect<SecretChatsUnlocked> { secretChatsUnlocked++ }
+        ResultEffect<SecretChatsUnlocked> { secretChatsUnlocked += it }
         Column {
-            Text(UNLOCK_SECRET_PART, modifier = Modifier.clickable { onUnlockSecretChats() })
+            Text(UNLOCK_SECRET_PART, modifier = Modifier.clickable { onUnlockSecretChats(false) })
+            Text(SEND_WHILE_LOCKED, modifier = Modifier.clickable { onUnlockSecretChats(true) })
             Text(if (sessionId == null) NEW_CONVERSATION else conversationOf(sessionId))
             Text(RECONNECT_CALENDAR, modifier = Modifier.clickable { onConnectCalendar() })
             Text(GO_TO_ALL_MEMORIES, modifier = Modifier.clickable { onAllMemories() })
@@ -464,6 +465,7 @@ class StubScreens : AppScreens {
         const val RECONNECT_CALENDAR = "reconnect calendar"
         const val UNLOCK_SECRET_PART = "unlock secret part"
         const val BACK_FROM_PIN = "back from the pin pad"
+        const val SEND_WHILE_LOCKED = "send while locked"
 
         fun calendarConnectOf(provider: CalendarProvider) = "calendar connect screen for $provider"
 

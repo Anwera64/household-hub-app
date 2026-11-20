@@ -672,7 +672,11 @@ class AppNavHostTest {
 
                 seesTheSecretChatsPin()
                 assertEquals(
-                    listOf(Destination.Chats, Destination.Conversation("s-1"), Destination.SecretChatsUnlock),
+                    listOf(
+                        Destination.Chats,
+                        Destination.Conversation("s-1"),
+                        Destination.SecretChatsUnlock(thenSend = false),
+                    ),
                     backStack.toList(),
                 )
             }
@@ -692,7 +696,7 @@ class AppNavHostTest {
 
                 seesTheConversation("s-1")
                 assertEquals(listOf(Destination.Chats, Destination.Conversation("s-1")), backStack.toList())
-                assertEquals(1, screens.secretChatsUnlocked)
+                assertEquals(listOf(SecretChatsUnlocked(thenSend = false)), screens.secretChatsUnlocked)
             }
         }
 
@@ -710,7 +714,49 @@ class AppNavHostTest {
 
                 seesTheConversation("s-1")
                 assertEquals(listOf(Destination.Chats, Destination.Conversation("s-1")), backStack.toList())
-                assertEquals(0, screens.secretChatsUnlocked)
+                assertEquals(emptyList(), screens.secretChatsUnlocked)
+            }
+        }
+
+    @Test
+    fun `GIVEN the PIN pad opened by a send in a locked chat WHEN the PIN opens secret chats THEN the chat hears it is to send`() =
+        runComposeUiTest {
+            onAppNavHost {
+                val screens = StubScreens()
+                backStack[0] = Destination.Chats
+                appNavHost(screens, backStack, session)
+                tapsOpenAChat()
+                tapsSendWhileLocked()
+                seesTheSecretChatsPin()
+
+                tapsUnlocked()
+
+                seesTheConversation("s-1")
+                assertEquals(listOf(Destination.Chats, Destination.Conversation("s-1")), backStack.toList())
+                assertEquals(listOf(SecretChatsUnlocked(thenSend = true)), screens.secretChatsUnlocked)
+            }
+        }
+
+    @Test
+    fun `GIVEN a chat unlocked once WHEN Unlock is tapped again THEN the PIN pad starts with a new ViewModel`() =
+        runComposeUiTest {
+            onAppNavHost {
+                val screens = StubScreens()
+                backStack[0] = Destination.Chats
+                appNavHost(screens, backStack, session)
+                tapsOpenAChat()
+                tapsUnlockTheSecretPart()
+                tapsUnlocked()
+                seesTheConversation("s-1")
+
+                tapsUnlockTheSecretPart()
+                seesTheSecretChatsPin()
+
+                val (chat, firstPad, secondPad) = screens.viewModels
+                assertEquals(3, screens.viewModels.size)
+                assertFalse(chat.cleared)
+                assertTrue(firstPad.cleared)
+                assertFalse(secondPad.cleared)
             }
         }
 }
