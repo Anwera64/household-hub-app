@@ -391,6 +391,8 @@ class ChatSessionViewModel(
         val existing = _uiState.value.session
         if (existing == null) {
             // The conversation is created by the first thing said in it, not by opening the screen.
+            // Marked before the launch, so a second tap in the same frame already finds Send busy.
+            _uiState.update { it.copy(isStartingChat = true) }
             viewModelScope.launch {
                 try {
                     // The chosen agent, or — if opening could not find even the Coordinator — one
@@ -400,10 +402,12 @@ class ChatSessionViewModel(
                             ?: defaultAgent()?.id
                             ?: error("No agent to talk to")
                     val created = createSessionUseCase(agentId = agentId, isSecret = _uiState.value.startsSecret)
-                    _uiState.update { it.copy(session = created) }
+                    _uiState.update { it.copy(session = created, isStartingChat = false) }
                     send(content)
                 } catch (e: Throwable) {
-                    _uiState.update { it.copy(errorMessage = e.message ?: "Failed to start a chat") }
+                    _uiState.update {
+                        it.copy(isStartingChat = false, errorMessage = e.message ?: "Failed to start a chat")
+                    }
                 }
             }
             return
@@ -863,6 +867,8 @@ class ChatSessionViewModel(
 
     /** The ON pill: Secret Mode turns off after the sheet, or at once for a member who said not to ask. */
     fun secretPillTapped() {
+        // The chat is being made with the setting of the first tap.
+        if (_uiState.value.isStartingChat) return
         // Nothing has been said in a new chat yet, so there is nothing to ask about.
         if (_uiState.value.session == null) {
             _uiState.update { it.copy(startsSecret = false, secretParts = emptyList()) }
@@ -891,6 +897,8 @@ class ChatSessionViewModel(
     }
 
     fun toggleSecret(isSecret: Boolean) {
+        // The chat is being made with the setting of the first tap.
+        if (_uiState.value.isStartingChat) return
         val currentSession = _uiState.value.session
         if (currentSession == null) {
             // A new chat isn't on the hub yet: it is created secret with the first message.

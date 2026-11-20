@@ -55,6 +55,7 @@ import dev.mokkery.mock
 import dev.mokkery.verify
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
@@ -2522,6 +2523,120 @@ class ChatSessionViewModelTest {
             assertEquals(listOf(SecretPart(from = 0)), viewModel.uiState.value.secretParts)
         }
 
+    // ---- a first message still creating its chat (#22) ----------------------
+
+    /**
+     * A new chat whose first message was sent and is still creating it on the hub: creation waits
+     * on the returned gate, so a second tap lands in the window a double tap hit.
+     */
+    private fun TestScope.newChatStillBeingCreated(startsSecret: Boolean = false): CompletableDeferred<Unit> {
+        newChatWithAgents()
+        if (startsSecret) viewModel.toggleSecret(true)
+        val gate = CompletableDeferred<Unit>()
+        everySuspend { createSessionUseCase(any(), any(), any()) } calls {
+            gate.await()
+            ConversationSession(id = "s-new", userId = "user-emma", agentId = "agent-coord")
+        }
+        every { streamChatTurnUseCase("s-new", WEEK_QUESTION, any()) } returns
+            flowOf(ChatStreamEvent.Done(messageId = "m-1", assistantContent = "Swimming on Tuesday."))
+        viewModel.sendMessage(WEEK_QUESTION)
+        advanceUntilIdle()
+        return gate
+    }
+
+    /** A new chat whose first message failed to create it: the hub refused once, and takes the next. */
+    private fun TestScope.newChatWhoseCreationFailed() {
+        newChatWithAgents()
+        var creations = 0
+        everySuspend { createSessionUseCase(any(), any(), any()) } calls {
+            if (creations++ == 0) throw ServerOfflineException("hub down")
+            ConversationSession(id = "s-new", userId = "user-emma", agentId = "agent-coord")
+        }
+        every { streamChatTurnUseCase("s-new", WEEK_QUESTION, any()) } returns
+            flowOf(ChatStreamEvent.Done(messageId = "m-1", assistantContent = "Swimming on Tuesday."))
+        viewModel.sendMessage(WEEK_QUESTION)
+        advanceUntilIdle()
+    }
+
+    @Test
+    fun `GIVEN a new chat whose first message is still creating it WHEN Send is tapped again THEN the chat is created once`() =
+        runTest(testDispatcher) {
+            val gate = newChatStillBeingCreated()
+
+            viewModel.sendMessage(WEEK_QUESTION)
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            verifySuspend(VerifyMode.exactly(1)) { createSessionUseCase(any(), any(), any()) }
+        }
+
+    @Test
+    fun `GIVEN a new chat whose first message is still creating it WHEN Send is tapped again THEN the question is sent once`() =
+        runTest(testDispatcher) {
+            val gate = newChatStillBeingCreated()
+
+            viewModel.sendMessage(WEEK_QUESTION)
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            verify(VerifyMode.exactly(1)) { streamChatTurnUseCase(any(), any(), any()) }
+            assertEquals(1, viewModel.uiState.value.messages.count { it.role == MessageRole.USER })
+        }
+
+    @Test
+    fun `GIVEN a new chat whose creation failed WHEN Send is tapped again THEN the chat is created again`() =
+        runTest(testDispatcher) {
+            newChatWhoseCreationFailed()
+
+            viewModel.sendMessage(WEEK_QUESTION)
+            advanceUntilIdle()
+
+            verifySuspend(VerifyMode.exactly(2)) { createSessionUseCase(any(), any(), any()) }
+            assertEquals("s-new", viewModel.uiState.value.session?.id)
+        }
+
+    @Test
+    fun `GIVEN a new chat whose first message is still creating it WHEN another agent is picked THEN the first agent stays chosen`() =
+        runTest(testDispatcher) {
+            newChatStillBeingCreated()
+
+            viewModel.selectAgent("agent-research")
+
+            val state = viewModel.uiState.value
+            assertEquals("agent-coord", state.selectedAgentId)
+            assertFalse(state.canChangeAgent)
+        }
+
+    @Test
+    fun `GIVEN a new chat whose creation failed WHEN another agent is picked THEN the choice is taken`() =
+        runTest(testDispatcher) {
+            newChatWhoseCreationFailed()
+
+            viewModel.selectAgent("agent-research")
+
+            assertEquals("agent-research", viewModel.uiState.value.selectedAgentId)
+        }
+
+    @Test
+    fun `GIVEN a new chat whose first message is still creating it WHEN its OFF pill is tapped THEN it does not turn secret`() =
+        runTest(testDispatcher) {
+            newChatStillBeingCreated()
+
+            viewModel.toggleSecret(true)
+
+            assertFalse(viewModel.uiState.value.startsSecret)
+        }
+
+    @Test
+    fun `GIVEN a new chat set to start secret whose first message is still creating it WHEN its ON pill is tapped THEN it stays secret`() =
+        runTest(testDispatcher) {
+            newChatStillBeingCreated(startsSecret = true)
+
+            viewModel.secretPillTapped()
+
+            assertTrue(viewModel.uiState.value.startsSecret)
+        }
+
     @Test
     fun `GIVEN a chat that has started WHEN another agent is picked THEN nothing changes`() =
         runTest(testDispatcher) {
@@ -2646,5 +2761,7 @@ class ChatSessionViewModelTest {
     private companion object {
         /** The phone is an hour ahead of UTC, so 10:52Z reads 11:52. */
         const val ONE_HOUR = 3_600
+
+        const val WEEK_QUESTION = "What's on this week?"
     }
 }
