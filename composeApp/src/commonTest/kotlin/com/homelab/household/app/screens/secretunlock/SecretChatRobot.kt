@@ -9,6 +9,8 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
@@ -17,7 +19,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.waitUntilExactlyOneExists
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.result.LocalResultEventBus
@@ -87,9 +91,39 @@ class SecretChatRobot(
 
     /** Types [words] into the message box and sends them. */
     suspend fun says(words: String) {
+        types(words)
+        sends()
+    }
+
+    /** Taps into the message box, so the keyboard comes up, and types [words]. */
+    fun types(words: String) {
+        test.onNode(hasSetTextAction()).requestFocus()
         test.onNode(hasSetTextAction()).performTextInput(words)
+    }
+
+    /** Taps Send. */
+    suspend fun sends() {
         test.onNodeWithContentDescription(getString(Res.string.send_message)).performClick()
         test.waitForIdle()
+    }
+
+    /**
+     * The keyboard's own Send key. A tap on the Send button would do, on a phone, but on the
+     * desktop test host a click moves focus to the button, so only the key leaves the box focused.
+     */
+    fun sendsFromTheKeyboard() {
+        test.onNode(hasSetTextAction()).performImeAction()
+        test.waitForIdle()
+    }
+
+    /** The message box has the keyboard. */
+    fun seesTheBoxFocused() {
+        test.onNode(hasSetTextAction()).assertIsFocused()
+    }
+
+    /** The message box no longer has the keyboard, so nothing is left up over the pad. */
+    fun seesTheBoxLetGoOfTheKeyboard() {
+        test.onNode(hasSetTextAction()).assertIsNotFocused()
     }
 
     /** [words] are still in the message box, unsent. */

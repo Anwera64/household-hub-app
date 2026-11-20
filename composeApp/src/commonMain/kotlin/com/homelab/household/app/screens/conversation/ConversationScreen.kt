@@ -8,6 +8,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.result.ResultEffect
@@ -54,10 +55,14 @@ fun ConversationScreen(
     // Back from the secret chats PIN pad with the right PIN: the chat opens in place, and a send
     // held for the PIN goes.
     ResultEffect<SecretChatsUnlocked> { viewModel.unlocked(it.thenSend) }
-    // A send held for the PIN: the words stay in the box, and the pad opens once.
+    // A send held for the PIN: the words stay in the box, and the pad opens once. The box lets go
+    // of the keyboard first: it stays composed under the pad until the transition ends, and the
+    // keyboard would cover the pad's bottom rows until then.
     val askForThePad by rememberUpdatedState(onUnlockSecretChats)
+    val focusManager = LocalFocusManager.current
     LaunchedEffect(state.askingForPinToSend) {
         if (state.askingForPinToSend) {
+            focusManager.clearFocus()
             askForThePad(true)
             viewModel.pinPadAsked()
         }

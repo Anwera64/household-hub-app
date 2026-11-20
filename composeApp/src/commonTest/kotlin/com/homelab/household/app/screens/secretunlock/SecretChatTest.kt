@@ -95,6 +95,24 @@ class SecretChatTest {
         }
 
     @Test
+    fun `GIVEN a chat with Secret Mode on and nothing unlocked and words typed in the box WHEN the keyboard's Send is tapped THEN the box lets go of the keyboard before the PIN pad opens`() =
+        runScreenTest(effectContext = StandardTestDispatcher()) {
+            val hub = FakeSecretChatHub()
+            val navigation = ChatNavigation()
+            secretChatScreen(hub, sessionId = "s-4", navigation = navigation)
+
+            onSecretChat(navigation) {
+                seesTheOrdinaryMessagesBeforeSecretMode()
+                types("And the flowers?")
+                seesTheBoxFocused()
+                sendsFromTheKeyboard()
+                seesInTheBox("And the flowers?")
+                seesTheBoxLetGoOfTheKeyboard()
+            }
+            assertEquals(1, navigation.pinPadsAskedToSend)
+        }
+
+    @Test
     fun `GIVEN an open secret chat WHEN Secret Mode is turned off on the sheet THEN the hub turns it off and the chat says so`() =
         runScreenTest(effectContext = StandardTestDispatcher()) {
             val hub = FakeSecretChatHub()
