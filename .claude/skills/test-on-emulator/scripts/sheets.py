@@ -1,10 +1,13 @@
-"""Frames from step videos, for reviewing them.
+"""Frames from step videos, for reviewing them, and media for the report.
 
-  python sheets.py sheet VIDEO_DIR OUT_DIR       one contact sheet of distinct frames per video
-  python sheets.py frames VIDEO START END OUT    every frame between two times (at most 18), one strip
+  python sheets.py sheet VIDEO_DIR OUT_DIR             one contact sheet of distinct frames per video
+  python sheets.py frames VIDEO START END OUT          every frame between two times (at most 18), one strip
+  python sheets.py shrink SRC_DIR OUT_DIR [WIDTH]      screenshots (PNG) as JPGs at WIDTH (default 720)
+  python sheets.py blur VIDEO Y0 Y1 OUT.webm [UNTIL]   blur rows Y0..Y1 (until UNTIL seconds), as WebM
 
 Needs opencv-python. Low thresholds on purpose: a band fading in or a bubble flashing for
-0.4 s is a small change, and the sheet is the first place it can show.
+0.4 s is a small change, and the sheet is the first place it can show. blur writes VP8 WebM
+because OpenCV's own build has no H.264 encoder; browsers play both.
 """
 import os
 import sys
@@ -62,8 +65,49 @@ def frames(video, start, end, out):
     print(" ".join(f"{t:.2f}" for t, _ in picked))
 
 
+def shrink(src, out, width=720):
+    os.makedirs(out, exist_ok=True)
+    for name in sorted(n for n in os.listdir(src) if n.lower().endswith(".png")):
+        im = cv2.imread(os.path.join(src, name))
+        h, w = im.shape[:2]
+        if w > width:
+            im = cv2.resize(im, (width, round(h * width / w)), interpolation=cv2.INTER_AREA)
+        cv2.imwrite(os.path.join(out, os.path.splitext(name)[0] + ".jpg"), im, [cv2.IMWRITE_JPEG_QUALITY, 82])
+        print(name)
+
+
+def blur(video, y0, y1, out, until=None):
+    """Personal data (the calendar account on Profile) out of a video before it is shared.
+
+    screenrecord writes frames only when the screen changes, so each output frame at 30 fps repeats
+    the latest input frame: the video keeps its real timeline.
+    """
+    shots = list(read(video))
+    h, w = shots[0][1].shape[:2]
+    writer = cv2.VideoWriter(out, cv2.CAP_FFMPEG, cv2.VideoWriter_fourcc(*"VP80"), 30, (w, h))
+    i = 0
+    for k in range(int(shots[-1][0] * 30) + 1):
+        t = k / 30
+        while i + 1 < len(shots) and shots[i + 1][0] <= t:
+            i += 1
+        f = shots[i][1].copy()
+        if until is None or t <= until:
+            f[y0:y1] = cv2.GaussianBlur(f[y0:y1], (0, 0), 9)
+        writer.write(f)
+    writer.release()
+    print(f"{out}: {shots[-1][0]:.1f}s")
+
+
 if __name__ == "__main__":
-    if sys.argv[1] == "sheet":
-        sheet(sys.argv[2], sys.argv[3])
+    a = sys.argv[1:]
+    if a[:1] == ["sheet"]:
+        sheet(a[1], a[2])
+    elif a[:1] == ["frames"]:
+        frames(a[1], float(a[2]), float(a[3]), a[4])
+    elif a[:1] == ["shrink"]:
+        shrink(a[1], a[2], int(a[3]) if len(a) > 3 else 720)
+    elif a[:1] == ["blur"]:
+        blur(a[1], int(a[2]), int(a[3]), a[4], float(a[5]) if len(a) > 5 else None)
     else:
-        frames(sys.argv[2], float(sys.argv[3]), float(sys.argv[4]), sys.argv[5])
+        print(__doc__)
+        sys.exit(2)

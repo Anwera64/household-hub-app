@@ -5,13 +5,17 @@
 #   emu.sh model                 make sure the desktop's model answers (starts it on the PC)
 #   emu.sh ui                    visible text, labels and bounds from the UI dump
 #   emu.sh tap-text TEXT         tap the centre of the first node whose text or label contains TEXT
+#   emu.sh pin                   type the dev PIN from $HUB_DEV_PIN on the PIN pad (exit 2 if unset: ask)
 #   emu.sh tap X Y | text STR | key CODE | swipe X1 Y1 X2 Y2 [MS]
 #   emu.sh back                  system Back (closes the keyboard first if it is open, then Back once)
-#   emu.sh wait-for TEXT [SECS]  poll the dump until TEXT shows (default 20 s); exit 1 on timeout
+#   emu.sh wait-for TEXT [SECS]  poll the dump until TEXT shows, in any case (default 20 s); exit 1 on timeout
 #   emu.sh lock                  power off, wake and dismiss the keyguard
 #   emu.sh shot NAME             screenshot into $EMU_OUT/NAME.png
+#   emu.sh burst NAME [N]        N timed screenshots (default 12), NAME-01-<ms>ms.png…: for timing
 #   emu.sh rec NAME | stop       record one step (under 3 minutes) into $EMU_OUT/NAME.mp4
-#   emu.sh logwatch              stream the dev app's log lines (for a Monitor)
+#   emu.sh logwatch              stream the dev app's log lines (for a Monitor); all lines, timed,
+#                                go to $EMU_OUT/applog.txt; a new logwatch stops the last one
+#   emu.sh logstop               stop the log watcher
 #
 # EMU_OUT defaults to the app repo's gitignored out/test-videos.
 set -u
@@ -30,6 +34,21 @@ running_emulator() { adb devices | awk '$1 ~ /^emulator-/ && $2 == "device" {pri
 dump() {
   adb shell uiautomator dump /sdcard/emu-ui.xml >/dev/null 2>&1
   adb exec-out cat /sdcard/emu-ui.xml | tr '>' '\n' | grep -E '(text|content-desc)="[^"]+"'
+}
+
+# Tap the centre of a dump line's bounds.
+tap_center() {
+  local x1 y1 x2 y2
+  read -r x1 y1 x2 y2 <<<"$(echo "$1" | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | grep -oE '[0-9]+' | paste -sd' ')"
+  adb shell input tap $(((x1 + x2) / 2)) $(((y1 + y2) / 2))
+}
+
+# Stop the log watcher's adb, if one is recorded. A stopped Monitor can leave it running, and a
+# second one would then write every line twice.
+stop_watch() {
+  [ -f "$STATE/logwatch.pid" ] || return 0
+  kill "$(cat "$STATE/logwatch.pid")" 2>/dev/null
+  rm -f "$STATE/logwatch.pid"
 }
 
 cmd="${1:-}"; shift || true
@@ -68,8 +87,18 @@ case "$cmd" in
   tap-text)
     line="$(dump | grep -F "$1" | head -1)"
     [ -n "$line" ] || { echo "not on screen: $1"; exit 1; }
-    read -r x1 y1 x2 y2 <<<"$(echo "$line" | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | grep -oE '[0-9]+' | paste -sd' ')"
-    adb shell input tap $(((x1 + x2) / 2)) $(((y1 + y2) / 2))
+    tap_center "$line"
+    ;;
+  pin)
+    # The dev hub's PIN comes from this PC's environment only: never from the repo, a file or a log.
+    [ -n "${HUB_DEV_PIN:-}" ] || { echo "HUB_DEV_PIN is not set: ask for the dev PIN"; exit 2; }
+    pad="$(dump)"
+    for digit in $(printf '%s' "$HUB_DEV_PIN" | grep -o .); do
+      key="$(printf '%s\n' "$pad" | grep -F "text=\"$digit\"" | head -1)"
+      [ -n "$key" ] || { echo "the PIN pad is not on screen"; exit 1; }
+      tap_center "$key"
+    done
+    echo "typed the dev PIN (${#HUB_DEV_PIN} digits)"
     ;;
   tap) adb shell input tap "$1" "$2" ;;
   text) adb shell input text "${1// /%s}" ;;
@@ -81,7 +110,11 @@ case "$cmd" in
     ;;
   wait-for)
     end=$((SECONDS + ${2:-20}))
-    while [ $SECONDS -lt $end ]; do dump | grep -qF "$1" && { echo "seen: $1"; exit 0; }; sleep 0.5; done
+    # Any case (labels dump in capitals), through awk: Git Bash's grep aborts on -i.
+    while [ $SECONDS -lt $end ]; do
+      dump | awk -v s="$1" 'index(tolower($0), tolower(s)) { f = 1 } END { exit !f }' && { echo "seen: $1"; exit 0; }
+      sleep 0.5
+    done
     echo "timed out waiting for: $1"; exit 1
     ;;
   lock)
@@ -89,6 +122,16 @@ case "$cmd" in
     adb shell wm dismiss-keyguard 2>/dev/null || adb shell input keyevent 82
     ;;
   shot) adb exec-out screencap -p > "$EMU_OUT/$1.png" && echo "$EMU_OUT/$1.png" ;;
+  burst)
+    # For timing: a recording can hold a frame until the next UI dump, screenshots can't.
+    n="${2:-12}"
+    t0=$(date +%s%N)
+    for i in $(seq 1 "$n"); do
+      ms=$((($(date +%s%N) - t0) / 1000000))
+      adb exec-out screencap -p >"$EMU_OUT/$1-$(printf %02d "$i")-${ms}ms.png"
+    done
+    echo "$n screenshots: $EMU_OUT/$1-01-…png to $1-$(printf %02d "$n")-…png"
+    ;;
   rec)
     read -r w h <<<"$(adb shell wm size | tail -1 | grep -oE '[0-9]+x[0-9]+' | tr x ' ')"
     size="$(((w / 2) / 2 * 2))x$(((h / 2) / 2 * 2))"
@@ -106,7 +149,21 @@ case "$cmd" in
   logwatch)
     pid="$(adb shell pidof "$APP" | tr -d '\r')"
     [ -n "$pid" ] || { echo "$APP is not running"; exit 1; }
-    adb logcat -T 1 --pid="$pid" -v brief 2>&1 | grep --line-buffered -E '/(App|Auth|Chat|Hub|HttpClient|Network)|AndroidRuntime|FATAL| E/'
+    stop_watch
+    # adb writes to the file, never to a pipe, so every line is kept with its time. The filtered
+    # view follows the file and ends when adb does.
+    log="$EMU_OUT/applog.txt"
+    touch "$log"
+    from=$(($(wc -c <"$log") + 1))
+    adb logcat -T 1 --pid="$pid" -v time >>"$log" 2>&1 &
+    watcher=$!
+    echo "$watcher" >"$STATE/logwatch.pid"
+    trap 'kill "$watcher" 2>/dev/null; [ "$(cat "$STATE/logwatch.pid" 2>/dev/null)" = "$watcher" ] && rm -f "$STATE/logwatch.pid"' EXIT
+    trap 'exit 0' INT TERM
+    # In the background with wait, so a signal ends the watch at once instead of after the pipeline.
+    tail -c +"$from" --pid="$watcher" -f "$log" | grep --line-buffered -E '/(App|Auth|Chat|Hub|HttpClient|Network)|AndroidRuntime|FATAL| E/' &
+    wait $!
     ;;
-  *) sed -n '2,16p' "$0"; exit 1 ;;
+  logstop) stop_watch; echo "log watch stopped" ;;
+  *) awk 'NR > 1 && /^#/ { print; next } NR > 1 { exit }' "$0"; exit 1 ;;
 esac
