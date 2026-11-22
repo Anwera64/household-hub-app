@@ -4,7 +4,9 @@ name: Release tags
 # and runs release.yml, which nothing else starts. A version that is already released does
 # nothing; one that is tagged but has no release stops the run with an error, never skipped.
 #
-# master releases are the latest; a patch merged into a release/x.y branch is not.
+# A release is the latest when its version is the highest vX.Y.Z tag, whichever branch it was merged
+# into: a minor from its release/x.y branch is, and so is that minor's patch, but a patch on an older
+# minor is not. Its notes start at the highest version tag below it (.github/scripts/release-facts.sh).
 
 on:
   push:
@@ -29,6 +31,8 @@ jobs:
       contents: write
     outputs:
       app: ${{ steps.app.outputs.app }}
+      latest: ${{ steps.facts.outputs.latest }}
+      notes_start: ${{ steps.facts.outputs.notes_start }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -54,6 +58,16 @@ jobs:
           git push origin "refs/tags/$tag"
           echo "app=$tag" >> "$GITHUB_OUTPUT"
 
+      # Read from the tags, the new one included, so the branch decides nothing.
+      - name: Work out whether it is the latest and where its notes start
+        id: facts
+        if: steps.app.outputs.app != ''
+        env:
+          TAG: ${{ steps.app.outputs.app }}
+        run: |
+          set -o pipefail
+          git ls-remote --tags origin 'refs/tags/v*' | bash .github/scripts/release-facts.sh "$TAG" >> "$GITHUB_OUTPUT"
+
   # The keys are in the release environment, which the called jobs name themselves.
   app:
     name: App release
@@ -66,5 +80,6 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.tag.outputs.app }}
-      latest: ${{ github.ref_name == 'master' && 'true' || 'false' }}
+      latest: ${{ needs.tag.outputs.latest }}
+      notes_start: ${{ needs.tag.outputs.notes_start }}
     secrets: inherit

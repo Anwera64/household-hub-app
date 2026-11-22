@@ -35,8 +35,9 @@ Dependencies point inward: `presentation -> domain <- data`.
 ## Branches and releases
 - Trunk-based: `master` is the trunk. New work branches from `master`, one branch per ticket, named `{type}/{issue number}` after its issue: `feat/281`, `fix/5`, `chore/12`. The type is `feat`, `fix` or `chore`. Renovate's `renovate/…` and the `release/x.y` branches keep their names. A branch reaches `master` through a pull request.
 - Every PR carries exactly one of the labels `feature`, `fix`, `dependencies` or `chore` (`labels.yml` checks it, and the release notes are grouped by it).
-- Merging a bump of `app.version` in `gradle.properties` releases it, tagged `v<version>`.
-- Patches for the latest minor: fix on `master` first, then cherry-pick into `release/x.y`. When work on a new minor starts, cut `release/x.y` for the current one off `master` first, so it can still be patched. No new release branches for older minors. The `patch-release` skill walks through it.
+- Merging a bump of `app.version` in `gradle.properties` releases it, tagged `v<version>`. It is marked latest when its version is the highest tag, whichever branch it came from, and its notes start at the version before it.
+- A slice ships from `release/x.y`, cut off `master` once the slice is done: the bump to x.y.0 goes there, and `master` moves on to the next slice.
+- Patches for the latest minor: fix on `master` first, then cherry-pick into `release/x.y`. No new release branches for older minors. The `patch-release` skill walks through it, and labels the `master` PR `shipped-in-patch` afterwards so the next minor's notes leave it out.
 - Testing a PR on the phone against the dev hub is the `test-pr` skill; a hub change it needs goes to the dev hub first, with the backend repo's `test-mr`.
 
 ## Tests

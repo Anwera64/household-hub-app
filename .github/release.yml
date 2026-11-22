@@ -1,15 +1,35 @@
 # How GitHub groups the generated release notes: by the label every pull request carries.
+#
+# shipped-in-patch marks a master pull request whose fix already went out in a patch release
+# (the patch-release skill adds it), so the next minor's notes don't list it again. It is left out
+# globally and in every category: GitHub doesn't document whether the global exclude outranks a
+# category match, and this way the pull request has nowhere to show.
 changelog:
+  exclude:
+    labels:
+      - shipped-in-patch
   categories:
     - title: Features
       labels:
         - feature
+      exclude:
+        labels:
+          - shipped-in-patch
     - title: Fixes
       labels:
         - fix
+      exclude:
+        labels:
+          - shipped-in-patch
     - title: Dependencies
       labels:
         - dependencies
+      exclude:
+        labels:
+          - shipped-in-patch
     - title: Other changes
       labels:
         - "*"
+      exclude:
+        labels:
+          - shipped-in-patch
