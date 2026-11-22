@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const ROOT_DIR = path.resolve(__dirname, '..', '..');
 const RELEASE_PATH = path.join(ROOT_DIR, '.github/workflows/release.yml');
@@ -111,9 +112,34 @@ test('App release workflow', async (t) => {
     assert.doesNotMatch(workflow, /upload-artifact|gh release upload/, 'no APK or IPA leaves the runners');
   });
 
-  await t.test('marks the release latest only when the caller says so, so a patch on a release branch is not', () => {
+  await t.test('marks the release latest and starts its notes where the caller says', () => {
+    const on = topLevelBlock(workflow, 'on');
+    assert.match(on, /^      notes_start:\n(?:        [^\n]*\n)*?        type: string\n/m, 'notes_start is a string input');
+    assert.match(on, /^      notes_start:\n(?:        [^\n]*\n)*?        default: ""\n/m, 'notes_start defaults to ""');
+    assert.doesNotMatch(on, /^      notes_start:\n(?:        [^\n]*\n)*?        required: true\n/m, 'notes_start is optional');
     const notes = job('notes');
     assert.ok(notes.includes("--latest=${{ inputs.latest || 'true' }}"), "the release is created with --latest=${{ inputs.latest || 'true' }}");
+    assert.ok(notes.includes('NOTES_START: ${{ inputs.notes_start }}'), 'the step reads notes_start from its env');
+  });
+
+  await t.test('passes --notes-start-tag only when the caller names a start', () => {
+    // The step's script, run with gh stubbed to print its arguments one per line.
+    const script = job('notes').match(/^        run: \|\n((?:          [^\n]*\n|[ \t]*\n)*)/m);
+    assert.ok(script, 'the notes step runs a script');
+    const run = script[1].replace(/^ {10}/gm, '').replace("${{ inputs.latest || 'true' }}", 'true');
+    const ghArgs = (notesStart) => {
+      const result = spawnSync('bash', ['-c', `gh() { printf '%s\\n' "$@"; }\n${run}`], {
+        env: { ...process.env, TAG: 'v0.6.0', NOTES_START: notesStart },
+        encoding: 'utf8',
+      });
+      assert.equal(result.status, 0, `the notes script must exit 0 (stderr: ${result.stderr})`);
+      return result.stdout.trim().split('\n');
+    };
+    const started = ghArgs('v0.5.5');
+    const flag = started.indexOf('--notes-start-tag');
+    assert.ok(flag >= 0, 'a named start is passed as --notes-start-tag');
+    assert.equal(started[flag + 1], 'v0.5.5', '--notes-start-tag is followed by the start tag');
+    assert.ok(!ghArgs('').includes('--notes-start-tag'), 'no start, no --notes-start-tag: the first release');
   });
 
   await t.test('pins every action to a full commit SHA', () => {
@@ -178,13 +204,31 @@ test('Merging an app version bump releases it', async (t) => {
     assert.deepEqual([...order].sort((a, b) => a - b), order, 'the release is asked for, then the tag, then the version is tagged');
   });
 
-  await t.test('calls the release with the keys of the release environment, latest only from master', () => {
+  await t.test('works out from the version tags whether the release is the latest and where its notes start', () => {
+    const tag = jobBlock(workflow, 'tag');
+    assert.ok(tag.includes('latest: ${{ steps.facts.outputs.latest }}'), 'the tag job exposes latest');
+    assert.ok(tag.includes('notes_start: ${{ steps.facts.outputs.notes_start }}'), 'the tag job exposes notes_start');
+    const facts = tag.match(/^      - name: [^\n]*\n        id: facts\n((?:        [^\n]*\n)*)/m);
+    assert.ok(facts, 'a step with id facts');
+    assert.match(facts[1], /^        if: steps\.app\.outputs\.app != ''$/m, 'only for a version this run tagged');
+    assert.match(facts[1], /^          TAG: \$\{\{ steps\.app\.outputs\.app \}\}$/m, 'the new tag comes in through env');
+    assert.ok(
+      facts[1].includes(`git ls-remote --tags origin 'refs/tags/v*' | bash .github/scripts/release-facts.sh "$TAG" >> "$GITHUB_OUTPUT"`),
+      'the version tags are piped into release-facts.sh, which writes the outputs',
+    );
+    assert.match(facts[1], /set -o pipefail/, 'a failed ls-remote stops the run instead of reading as no tags');
+    assert.ok(tag.indexOf('release-facts.sh') > tag.indexOf('git push origin'), 'the facts are read after the new tag is pushed');
+  });
+
+  await t.test('calls the release with the keys of the release environment, and the facts of the tag job', () => {
     const app = jobBlock(workflow, 'app');
     assert.match(app, /needs: tag/);
     assert.match(app, /if: needs\.tag\.outputs\.app != ''/);
     assert.match(app, /uses: \.\/\.github\/workflows\/release\.yml/);
     assert.match(app, /tag: \$\{\{ needs\.tag\.outputs\.app \}\}/);
-    assert.ok(app.includes("latest: ${{ github.ref_name == 'master' && 'true' || 'false' }}"), 'only master releases are the latest');
+    assert.ok(app.includes('latest: ${{ needs.tag.outputs.latest }}'), 'latest comes from the tags, not the branch');
+    assert.ok(app.includes('notes_start: ${{ needs.tag.outputs.notes_start }}'), 'the notes start where the tag job says');
+    assert.doesNotMatch(workflow, /github\.ref_name == 'master'/, 'the branch no longer decides latest');
     assert.match(app, /secrets: inherit/);
     // A called workflow gets no more than its caller grants: the Firebase sign-in needs id-token.
     assert.match(app, /permissions:\n      contents: write\n      id-token: write\n/);
@@ -212,7 +256,7 @@ test("Only the owner's review counts", async (t) => {
 test('Release notes are grouped by label', async (t) => {
   const config = read(path.join(ROOT_DIR, '.github/release.yml'));
 
-  await t.test('lists Features, Fixes, Dependencies and everything else, in that order, excluding nothing', () => {
+  await t.test('lists Features, Fixes, Dependencies and everything else, in that order', () => {
     assert.ok(config, '.github/release.yml must exist');
     const categories = [...config.matchAll(/^    - title: (.+)\n      labels:\n        - (.+)$/gm)].map((m) => [m[1].trim(), m[2].trim()]);
     assert.deepEqual(categories.map(([title, label]) => [title.replace(/["']/g, ''), label.replace(/["']/g, '')]), [
@@ -221,6 +265,23 @@ test('Release notes are grouped by label', async (t) => {
       ['Dependencies', 'dependencies'],
       ['Other changes', '*'],
     ]);
-    assert.doesNotMatch(config, /exclude:/, 'nothing is left out of the notes');
+  });
+
+  await t.test('leaves out a pull request whose fix already shipped in a patch, everywhere in the notes', () => {
+    const items = (block) => [...block.matchAll(/^ *- (.+)$/gm)].map((m) => m[1].trim().replace(/["']/g, ''));
+    const changelog = topLevelBlock(config, 'changelog');
+    const excluded = changelog.match(/^  exclude:\n    labels:\n((?:      - [^\n]*\n)*)/m);
+    assert.ok(excluded, 'changelog.exclude.labels');
+    assert.deepEqual(items(excluded[1]), ['shipped-in-patch']);
+    // GitHub doesn't document whether the global exclude outranks a category match, so every
+    // category leaves it out too, and the pull request has nowhere to show.
+    const categories = changelog.split(/^    - title: /m).slice(1);
+    assert.equal(categories.length, 4, 'four categories');
+    for (const category of categories) {
+      const title = category.split('\n')[0].trim();
+      const categoryExcluded = category.match(/^      exclude:\n        labels:\n((?:          - [^\n]*\n)*)/m);
+      assert.ok(categoryExcluded, `${title} has exclude.labels`);
+      assert.deepEqual(items(categoryExcluded[1]), ['shipped-in-patch'], `${title} leaves out shipped-in-patch`);
+    }
   });
 });

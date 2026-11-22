@@ -4,7 +4,7 @@ description: Ship a fix from master as a patch release on the latest minor's rel
 ---
 Patches are only for the latest minor. Given the fix's merged commit on master (or its PR number) and the minor to patch (none given: the minor of the latest release tag):
 1. Check the fix is already on master. Never cherry-pick something that isn't: fix it on master first.
-2. `git fetch --tags`. `release/x.y` is normally cut off master when work on the next minor starts. If it does not exist yet: off master when master is still on x.y (nothing for the next minor merged), otherwise off the newest `vX.Y.*` tag, so no newer work reaches the patch.
+2. `git fetch --tags`. A slice ships from `release/x.y`, cut off master once the slice is done: the bump to x.y.0 goes there, and master moves on to the next slice. If `release/x.y` does not exist yet (a minor released from master before that rule): off master when master is still on x.y (nothing for the next minor merged), otherwise off the newest `vX.Y.*` tag, so no newer work reaches the patch.
 3. Look at the existing `vX.Y.*` tags and pick the next free patch version.
 4. Present the plan to me: which branch, which commit, which version. Wait for my approval before pushing anything.
 5. After I approve: create `release/x.y` if needed (as in step 2) and push it (it is protected, so no direct commits to it afterwards). Create `fix/<name>-x.y` from `release/x.y`.
@@ -12,4 +12,5 @@ Patches are only for the latest minor. Given the fix's merged commit on master (
 7. Bump the version in both places: `app.version` in `gradle.properties`, and the version and build number in `iosApp/project.yml` (1.2.3 becomes 10203). `AppVariantsTest` fails when they differ.
 8. Run the checks `./gradlew ktlintCheck jvmTest` with JAVA_HOME set as in the Setup wiki page. Stop and report if anything fails.
 9. Push the branch and open a PR against `release/x.y` with the label `fix`. The description names the master PR it comes from.
-10. After I merge it, check that the release appeared: tag `v<version>`, the GitHub release, and the Firebase and TestFlight uploads.
+10. After I merge it, check that the release appeared: tag `v<version>`, the GitHub release (marked latest, since its minor is the newest), and the Firebase and TestFlight uploads.
+11. Once the patch is released, label the master PR the fix came from `shipped-in-patch` (`gh pr edit <number> --add-label shipped-in-patch`), so the next minor's release notes leave it out.
