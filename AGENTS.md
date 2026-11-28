@@ -5,6 +5,12 @@ This is the Household Hub app (Kotlin Multiplatform client for Android and iOS).
 ## Where things live
 - The hub backend and the homelab configuration are in other (private) repositories. This app's issues and docs (its wiki) are in the private GitLab project `home/household-hub-app`; GitHub's Issues and wiki are off. Keep home-setup details out of this public repo. The design docs are in the backend's private wiki, and the hub's API contract is read from the private repository `household-hub-contract`.
 
+## Design
+- Designs live on a design canvas. Each issue links the frames it builds, and the design docs in the backend's private wiki have the canvas's link.
+- Each flow has up to three pages: Live (the latest release), Building (merged or being built, not released yet) and Next (designed, not started).
+- Each component on the canvas names the composable that draws it: change or reuse that one rather than writing a new one.
+- At a release, the Building frames it carries move to Live.
+
 ## Plan first
 - Investigate read-only, then present a plan through plan mode (problem, architecture, file-by-file changes, open questions, verification) and wait for explicit approval before writing, deleting, or running anything that modifies state.
 - This covers every change, including one-line fixes and follow-ups in the same session. Don't write plan files into the repository.
